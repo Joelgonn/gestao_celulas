@@ -8,7 +8,7 @@
       "src": "python-service/app.py",
       "use": "@vercel/python",
       "config": {
-        "runtime": "python3.9" // Mantenha sua versão Python aqui
+        "runtime": "python3.9"
       }
     }
   ],
