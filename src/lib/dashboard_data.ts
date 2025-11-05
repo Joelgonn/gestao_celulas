@@ -1,6 +1,6 @@
 // src/lib/dashboard_data.ts
 
-'use server';
+
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
