@@ -53,8 +53,9 @@ export interface ReuniaoComNomes {
     celula_id: string; 
     celula_nome?: string | null; 
     caminho_pdf: string | null; 
++   num_presentes_membros: number; // ADICIONADO AQUI!
++   num_presentes_visitantes: number; // ADICIONADO AQUI!
 }
-
 export interface FaltososAlert {
     count: number;
     members: { id: string; nome: string; telefone: string | null }[];
