@@ -1,23 +1,21 @@
-// vercel.json
 {
   "builds": [
     {
-      "src": "next.config.js",
+      "src": "next.config.ts",
       "use": "@vercel/next"
     },
     {
-      "src": "python-service/app.py", // Caminho para seu arquivo Python principal
-      "use": "@vercel/python"
+      "src": "python-service/app.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.9" // Mantenha sua versão Python aqui
+      }
     }
   ],
   "routes": [
     {
-      "src": "/api/python_pdf_generator", // Este será o endpoint público do seu serviço Python
-      "dest": "python-service/app.py"    // Aponta para o arquivo Python
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/src/app/(app)/$1" // Rota padrão para o seu app Next.js (ajuste conforme seu App Router)
+      "src": "/api/python_pdf_generator",
+      "dest": "python-service/app.py"
     }
   ]
 }
