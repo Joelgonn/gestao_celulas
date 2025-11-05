@@ -41,6 +41,7 @@ export interface ChaveAtivacao {
     chave: string; // Este é o identificador único e valor da chave
     celula_id: string;
     usada: boolean;
+    created_at: string; // Adicione esta linha!
     // 'created_at: string;' não existe na sua tabela, conforme a imagem.
 }
 
