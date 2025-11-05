@@ -368,7 +368,7 @@ export default function AdminUsersPage() {
                                                 </div>
                                                 
                                                 <div>
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getCelulaBadge(profile.celula_nome)}`}>
+                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getCelulaBadge(profile.celula_nome ?? null)}`} >
                                                         {profile.celula_nome || 'Nenhuma célula'}
                                                     </span>
                                                 </div>
