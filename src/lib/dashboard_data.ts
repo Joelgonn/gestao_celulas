@@ -1,13 +1,12 @@
 // src/lib/dashboard_data.ts
 
-'use server'; // Mantido aqui para indicar que este é um módulo de servidor
+'use server';
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { startOfWeek, endOfWeek, format, getDay, isSameDay, subMonths, eachWeekOfInterval, subWeeks, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// --- NOVA IMPORTAÇÃO DAS INTERFACES AQUI ---
 import {
     LastMeetingPresence,
     MembroDashboard,
@@ -26,12 +25,7 @@ import {
     NewVisitorsTrendData,
     DuplicateVisitorGroup,
     ActivityLogItem
-} from './types'; // Importa do novo arquivo types.ts
-// --- FIM DA NOVA IMPORTAÇÃO ---
-
-// ============================================================================
-//                          FUNÇÕES AUXILIARES (INTERNAS)
-// ============================================================================
+} from './types';
 
 async function checkUserAuthorizationDashboard(): Promise<{
     supabase: any;
@@ -75,8 +69,11 @@ async function getMemberNamesMap(memberIds: Set<string>, celulaId: string | null
     let query = supabaseInstance.from('membros').select('id, nome, telefone').in('id', Array.from(memberIds));
     if (celulaId !== null) { query = query.eq('celula_id', celulaId); }
     const { data: membersData, error: membersError } = await query;
-    if (membersError) { console.error("Erro ao buscar nomes e telefones de membros (getMemberNamesMap):", membersError); } 
-    else { membersData?.forEach(m => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone })); }
+    if (membersError) { 
+        console.error("Erro ao buscar nomes e telefones de membros (getMemberNamesMap):", membersError); 
+    } else { 
+        membersData?.forEach((m: { id: string; nome: string; telefone: string | null }) => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone })); 
+    }
     return namesMap;
 }
 
@@ -84,15 +81,13 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any)
     let namesMap = new Map<string, string>();
     if (celulaIds.size === 0) return namesMap;
     const { data, error } = await supabaseInstance.from('celulas').select('id, nome').in('id', Array.from(celulaIds));
-    if (error) { console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error); } 
-    else { data?.forEach(c => namesMap.set(c.id, c.nome)); }
+    if (error) { 
+        console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error); 
+    } else { 
+        data?.forEach((c: { id: string; nome: string; }) => namesMap.set(c.id, c.nome)); 
+    }
     return namesMap;
 }
-
-
-// ============================================================================
-//                               FUNÇÕES DE DASHBOARD (Server Actions)
-// ============================================================================
 
 export async function getTotalMembros(celulaIdFilter: string | null = null): Promise<number> {
   const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
@@ -196,7 +191,6 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
     for (const item of data) {
         const numCriancas = item.criancas_reuniao?.[0]?.numero_criancas || 0;
 
-        // Busque contagens de presença para esta reunião específica
         const { count: presentesMembrosCount, error: pmError } = await supabase.from('presencas_membros').select('id', { count: 'exact', head: true }).eq('reuniao_id', item.id).eq('presente', true);
         if (pmError) { console.error(`Falha ao contar membros presentes para reunião ${item.id}: ${pmError.message}`); }
 
@@ -214,8 +208,8 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
             ministrador_secundario_nome: item.ministrador_secundario?.nome || null,
             responsavel_kids_nome: item.responsavel_kids?.nome || null,
             num_criancas: numCriancas,
-            num_presentes_membros: presentesMembrosCount || 0, // Adicionado aqui
-            num_presentes_visitantes: presentesVisitantesCount || 0, // Adicionado aqui
+            num_presentes_membros: presentesMembrosCount || 0,
+            num_presentes_visitantes: presentesVisitantesCount || 0,
         });
     }
     return processedData;
