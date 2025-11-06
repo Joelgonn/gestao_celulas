@@ -7,6 +7,9 @@ import { revalidatePath } from 'next/cache';
 //                                INTERFACES EXPORTADAS
 // ============================================================================
 
+/**
+ * Interface para a entidade Membro no banco de dados.
+ */
 export interface Membro {
   id: string;
   nome: string;
@@ -16,22 +19,28 @@ export interface Membro {
   data_ingresso: string | null;
   created_at: string;
   celula_id: string | null;
-  celula_nome?: string | null;
-  status: 'Ativo' | 'Inativo' | 'Em transição'; // Adicionado status
+  celula_nome?: string | null; // Adicionado para facilitar exibição
+  status: 'Ativo' | 'Inativo' | 'Em transição';
 }
 
+/**
+ * Interface para a entidade Visitante no banco de dados.
+ */
 export interface Visitante {
   id: string;
   nome: string;
   telefone: string | null;
   endereco: string | null;
   data_primeira_visita: string;
-  data_ultimo_contato: string | null; // Adicionado
-  observacoes: string | null; // Adicionado
+  data_ultimo_contato: string | null;
+  observacoes: string | null;
   celula_id: string | null;
-  celula_nome?: string | null;
+  celula_nome?: string | null; // Adicionado para facilitar exibição
 }
 
+/**
+ * Interface para a entidade Reuniao no banco de dados.
+ */
 export interface Reuniao {
   id: string;
   data_reuniao: string;
@@ -44,6 +53,9 @@ export interface Reuniao {
   celula_id: string | null;
 }
 
+/**
+ * Interface para os dados de formulário de uma Reunião.
+ */
 export interface ReuniaoFormData {
   data_reuniao: string;
   tema: string;
@@ -53,7 +65,9 @@ export interface ReuniaoFormData {
   caminho_pdf: string | null;
 }
 
-// Interface para a Palavra da Semana (NOVO)
+/**
+ * Interface para a entidade Palavra da Semana.
+ */
 export interface PalavraDaSemana {
   id: string;
   titulo: string;
@@ -63,11 +77,17 @@ export interface PalavraDaSemana {
   created_by_email?: string;
 }
 
+/**
+ * Interface simplificada para opções de seleção de Células.
+ */
 export interface CelulaOption {
   id: string;
   nome: string;
 }
 
+/**
+ * Interface simplificada para opções de seleção de Reuniões.
+ */
 export interface ReuniaoOption {
   id: string;
   data_reuniao: string;
@@ -75,31 +95,41 @@ export interface ReuniaoOption {
   ministrador_principal_nome: string | null;
 }
 
-// ReuniaoComNomes já está definida em src/lib/types.ts, pode ser importada
-// ou mantida aqui se for exclusiva desta Server Action.
-// Para este exemplo, vou assumir que ela é usada aqui diretamente se não for importada.
+/**
+ * Interface para Reunião com nomes de relacionados expandidos.
+ */
 export interface ReuniaoComNomes {
   id: string;
   data_reuniao: string;
   tema: string;
+  celula_id: string | null; // Mantém o ID para consistência e futuras queries
   celula_nome: string | null;
   ministrador_principal_nome: string | null;
-  ministrador_secundario_nome?: string | null; // Adicionado
-  responsavel_kids_nome?: string | null; // Adicionado
-  num_criancas?: number; // Adicionado
+  ministrador_secundario_nome?: string | null;
+  responsavel_kids_nome?: string | null;
+  num_criancas?: number;
   num_presentes_membros: number;
   num_presentes_visitantes: number;
+  caminho_pdf: string | null; // Adicionado aqui para refletir o select
 }
 
-
+/**
+ * Interface para Membro com status de presença.
+ */
 export interface MembroComPresenca extends Membro {
   presente: boolean;
 }
 
+/**
+ * Interface para Visitante com status de presença.
+ */
 export interface VisitanteComPresenca extends Visitante {
   presente: boolean;
 }
 
+/**
+ * Interface para detalhes completos de uma Reunião para resumo.
+ */
 export interface ReuniaoDetalhesParaResumo {
   reuniao: {
     id: string;
@@ -110,28 +140,37 @@ export interface ReuniaoDetalhesParaResumo {
     ministrador_secundario_nome: string | null;
     responsavel_kids_nome: string | null;
     num_criancas: number;
-    caminho_pdf: string | null; // Adicionado caminho do PDF
+    caminho_pdf: string | null;
   };
   membros_presentes: { id: string; nome: string; telefone: string | null }[];
   membros_ausentes: { id: string; nome: string; telefone: string | null }[];
   visitantes_presentes: { id: string; nome: string; telefone: string | null }[];
 }
 
-
+/**
+ * **CORREÇÃO APLICADA AQUI:**
+ * Interface para o perfil do usuário, incluindo 'created_at'.
+ */
 export interface Profile {
   id: string;
   email: string;
   role: string | null;
   celula_id: string | null;
   celula_nome?: string;
-  nome_completo?: string | null; // Adicionado nome_completo
-  telefone?: string | null; // Adicionado telefone
+  nome_completo?: string | null;
+  telefone?: string | null;
+  created_at: string; // <-- Propriedade 'created_at' adicionada!
 }
 
 // ============================================================================
 //                          FUNÇÕES AUXILIARES
 // ============================================================================
 
+/**
+ * Verifica a autorização do usuário logado e retorna o cliente Supabase apropriado.
+ * @returns Um objeto com o cliente Supabase, ID da célula, status de autorização e papel do usuário.
+ * @throws {Error} Se o usuário não for encontrado ou houver erro no perfil.
+ */
 async function checkUserAuthorization(): Promise<{
   supabase: any;
   celulaId: string | null;
@@ -142,30 +181,42 @@ async function checkUserAuthorization(): Promise<{
   const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
   if (userError || !user) {
+    // Não lança erro aqui, pois algumas funções podem precisar disso para redirecionamento.
     return { supabase: supabaseClient, celulaId: null, isAuthorized: false, role: null };
   }
 
   const { data: profile, error: profileError } = await supabaseClient
     .from('profiles')
-    .select('celula_id, role, nome_completo, telefone') // Incluído nome_completo e telefone
+    .select('celula_id, role, nome_completo, telefone, created_at') // Incluído created_at
     .eq('id', user.id)
     .single();
-  
+
   if (profileError || !profile) {
+    console.error("Erro ao buscar perfil do usuário para autorização:", profileError);
+    // Para evitar que a aplicação quebre, retorna não autorizado se o perfil não for encontrado.
     return { supabase: supabaseClient, celulaId: null, isAuthorized: false, role: null };
   }
 
   const role = profile.role as 'admin' | 'líder';
+  
+  // Se for admin, usa o cliente admin para bypassar RLS
   if (role === 'admin') {
     const supabaseAdmin = createAdminClient();
     return { supabase: supabaseAdmin, celulaId: profile.celula_id, isAuthorized: true, role: 'admin' };
   }
   
+  // Para líderes, usa o cliente normal, confiando nas RLS para segurança
   return { supabase: supabaseClient, celulaId: profile.celula_id, isAuthorized: true, role: role };
 }
 
+/**
+ * Obtém um mapa de IDs de células para nomes de células.
+ * @param celulaIds Um Set de IDs de células.
+ * @param supabaseInstance A instância do Supabase a ser usada.
+ * @returns Um Map onde a chave é o ID da célula e o valor é o nome da célula.
+ */
 async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any): Promise<Map<string, string>> {
-  let namesMap = new Map<string, string>();
+  const namesMap = new Map<string, string>();
   if (celulaIds.size === 0) return namesMap;
   
   const { data, error } = await supabaseInstance
@@ -181,39 +232,57 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any)
   return namesMap;
 }
 
-async function getMemberNamesMap(memberIds: Set<string>, supabaseInstance: any): Promise<Map<string, string>> {
-  let namesMap = new Map<string, string>();
-  if (memberIds.size === 0) return namesMap;
+/**
+ * Obtém um mapa de IDs de membros para nomes e telefones de membros.
+ * Esta função foi refatorada para retornar também o telefone, conforme necessário no resumo.
+ * @param memberIds Um Set de IDs de membros.
+ * @param supabaseInstance A instância do Supabase a ser usada.
+ * @returns Um Map onde a chave é o ID do membro e o valor é o nome do membro ou telefone.
+ *          (Originalmente retornava apenas nome, adaptado para uso com telefone no resumo).
+ */
+async function getMemberDataMap(memberIds: Set<string>, supabaseInstance: any): Promise<Map<string, { nome: string; telefone: string | null }>> {
+  const dataMap = new Map<string, { nome: string; telefone: string | null }>();
+  if (memberIds.size === 0) return dataMap;
   
   const { data, error } = await supabaseInstance
     .from('membros')
-    .select('id, nome')
+    .select('id, nome, telefone')
     .in('id', Array.from(memberIds));
   
   if (error) {
-    console.error("Erro ao buscar nomes de membros (getMemberNamesMap):", error);
+    console.error("Erro ao buscar dados de membros (getMemberDataMap):", error);
   } else {
-    data?.forEach((m: { id: string; nome: string }) => namesMap.set(m.id, m.nome));
+    data?.forEach((m: { id: string; nome: string; telefone: string | null }) => dataMap.set(m.id, { nome: m.nome, telefone: m.telefone }));
   }
-  return namesMap;
+  return dataMap;
 }
+
 
 // ============================================================================
 //                                FUNÇÕES DE MEMBROS
 // ============================================================================
 
+/**
+ * Lista os membros, com opções de filtro.
+ * @param celulaIdFilter ID da célula para filtrar (apenas para admin).
+ * @param searchTerm Termo de busca por nome ou telefone.
+ * @param birthdayMonth Mês de aniversário para filtrar.
+ * @param statusFilter Filtro por status do membro.
+ * @returns Uma lista de membros.
+ * @throws {Error} Se não autorizado ou falha na consulta.
+ */
 export async function listarMembros(
     celulaIdFilter: string | null = null,
-    searchTerm: string | null = null, // Novo parâmetro
-    birthdayMonth: number | null = null, // Novo parâmetro
-    statusFilter: Membro['status'] | 'all' = 'all' // Novo parâmetro
+    searchTerm: string | null = null,
+    birthdayMonth: number | null = null,
+    statusFilter: Membro['status'] | 'all' = 'all'
 ): Promise<Membro[]> {
   const { supabase, celulaId: userCelulaId, isAuthorized, role } = await checkUserAuthorization();
   if (!isAuthorized) throw new Error("Não autorizado.");
   
   let query = supabase
     .from('membros')
-    .select('id, nome, telefone, endereco, data_nascimento, data_ingresso, created_at, celula_id, status'); // Incluído 'status'
+    .select('id, nome, telefone, endereco, data_nascimento, data_ingresso, created_at, celula_id, status');
   
   if (role === 'líder') {
     if (!userCelulaId) return [];
@@ -223,25 +292,20 @@ export async function listarMembros(
   }
   
   if (searchTerm) {
-    // Busca por nome ou telefone
     query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`);
   }
 
   if (birthdayMonth) {
-    // Filtro por mês de aniversário (RPC para desempenho em RLS)
     const { data: membroIds, error: rpcError } = await supabase.rpc('get_members_birthday_ids_in_month', {
       p_month: birthdayMonth,
-      p_celula_id: role === 'líder' ? userCelulaId : celulaIdFilter // Passa o ID da célula se for líder ou admin com filtro
+      p_celula_id: role === 'líder' ? userCelulaId : celulaIdFilter
     });
 
     if (rpcError) {
       console.error("Erro ao buscar IDs de membros por mês de aniversário:", rpcError);
-      // Decide se deve lançar erro ou apenas ignorar o filtro
       throw new Error(`Falha ao filtrar por mês de aniversário: ${rpcError.message}`);
     }
     
-    // Se nenhum ID for retornado, ou o array for vazio, retornamos uma lista vazia.
-    // Isso evita que a cláusula 'in' com array vazio cause erro ou retorne tudo.
     if (!membroIds || membroIds.length === 0) {
       return []; 
     }
@@ -251,7 +315,6 @@ export async function listarMembros(
   if (statusFilter !== 'all') {
     query = query.eq('status', statusFilter);
   }
-
 
   const { data, error } = await query.order('nome');
   if (error) { 
@@ -268,6 +331,11 @@ export async function listarMembros(
   }));
 }
 
+/**
+ * Adiciona um novo membro.
+ * @param membroData Os dados do membro a ser adicionado.
+ * @throws {Error} Se não autorizado, célula não definida ou falha na inserção.
+ */
 export async function adicionarMembro(membroData: Omit<Membro, 'id' | 'created_at' | 'celula_id'>): Promise<void> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
@@ -284,6 +352,12 @@ export async function adicionarMembro(membroData: Omit<Membro, 'id' | 'created_a
   revalidatePath('/membros');
 }
 
+/**
+ * Atualiza um membro existente.
+ * @param id O ID do membro a ser atualizado.
+ * @param membroData Os dados parciais do membro para atualização.
+ * @throws {Error} Se não autorizado ou falha na atualização.
+ */
 export async function atualizarMembro(id: string, membroData: Partial<Membro>): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -302,6 +376,12 @@ export async function atualizarMembro(id: string, membroData: Partial<Membro>): 
   revalidatePath(`/membros/editar/${id}`);
 }
 
+/**
+ * Obtém os detalhes de um membro pelo ID.
+ * @param id O ID do membro.
+ * @returns Os dados do membro ou null se não encontrado.
+ * @throws {Error} Se não autorizado.
+ */
 export async function getMembro(id: string): Promise<Membro | null> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -321,6 +401,11 @@ export async function getMembro(id: string): Promise<Membro | null> {
   return data;
 }
 
+/**
+ * Exclui um membro.
+ * @param id O ID do membro a ser excluído.
+ * @throws {Error} Se não autorizado ou falha na exclusão.
+ */
 export async function excluirMembro(id: string): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -342,10 +427,18 @@ export async function excluirMembro(id: string): Promise<void> {
 //                                FUNÇÕES DE VISITANTES
 // ============================================================================
 
+/**
+ * Lista os visitantes, com opções de filtro.
+ * @param celulaIdFilter ID da célula para filtrar (apenas para admin).
+ * @param searchTerm Termo de busca por nome ou telefone.
+ * @param minDaysSinceLastContact Número mínimo de dias desde o último contato.
+ * @returns Uma lista de visitantes.
+ * @throws {Error} Se não autorizado ou falha na consulta.
+ */
 export async function listarVisitantes(
     celulaIdFilter: string | null = null,
-    searchTerm: string | null = null, // Novo parâmetro
-    minDaysSinceLastContact: number | null = null // Novo parâmetro
+    searchTerm: string | null = null,
+    minDaysSinceLastContact: number | null = null
 ): Promise<Visitante[]> {
   const { supabase, celulaId: userCelulaId, isAuthorized, role } = await checkUserAuthorization();
   if (!isAuthorized) {
@@ -370,7 +463,7 @@ export async function listarVisitantes(
   if (minDaysSinceLastContact !== null) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - minDaysSinceLastContact);
-    query = query.lte('data_ultimo_contato', cutoffDate.toISOString()); // Ultimo contato foi antes da data limite
+    query = query.lte('data_ultimo_contato', cutoffDate.toISOString());
   }
   
   const { data, error } = await query.order('nome');
@@ -388,19 +481,23 @@ export async function listarVisitantes(
   }));
 }
 
+/**
+ * Adiciona um novo visitante.
+ * @param visitanteData Os dados do visitante a ser adicionado.
+ * @throws {Error} Se não autorizado, célula não definida ou falha na inserção.
+ */
 export async function adicionarVisitante(visitanteData: Omit<Visitante, 'id' | 'celula_id'>): Promise<void> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) {
     throw new Error("Não autorizado ou célula não definida.");
   }
   
-  // Garantir que data_primeira_visita e data_ultimo_contato tenham valores válidos, se não fornecidos
   const now = new Date().toISOString().split('T')[0];
   const visitanteCompleto = {
     ...visitanteData,
     celula_id: celulaId,
     data_primeira_visita: visitanteData.data_primeira_visita || now,
-    data_ultimo_contato: visitanteData.data_ultimo_contato || now, // Define como 'now' se nulo
+    data_ultimo_contato: visitanteData.data_ultimo_contato || now,
     observacoes: visitanteData.observacoes || null,
   };
 
@@ -414,6 +511,12 @@ export async function adicionarVisitante(visitanteData: Omit<Visitante, 'id' | '
   revalidatePath('/visitantes');
 }
 
+/**
+ * Obtém os detalhes de um visitante pelo ID.
+ * @param id O ID do visitante.
+ * @returns Os dados do visitante ou null se não encontrado.
+ * @throws {Error} Se não autorizado.
+ */
 export async function getVisitante(id: string): Promise<Visitante | null> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -433,6 +536,12 @@ export async function getVisitante(id: string): Promise<Visitante | null> {
   return data;
 }
 
+/**
+ * Atualiza um visitante existente.
+ * @param visitanteData Os dados parciais do visitante para atualização.
+ * @param id O ID do visitante a ser atualizado.
+ * @throws {Error} Se não autorizado ou falha na atualização.
+ */
 export async function atualizarVisitante(visitanteData: Partial<Visitante>, id: string): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -451,6 +560,11 @@ export async function atualizarVisitante(visitanteData: Partial<Visitante>, id: 
   revalidatePath(`/visitantes/editar/${id}`);
 }
 
+/**
+ * Exclui um visitante.
+ * @param id O ID do visitante a ser excluído.
+ * @throws {Error} Se não autorizado ou falha na exclusão.
+ */
 export async function excluirVisitante(id: string): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -468,9 +582,15 @@ export async function excluirVisitante(id: string): Promise<void> {
   revalidatePath('/visitantes');
 }
 
+/**
+ * Converte um visitante em membro, excluindo o registro do visitante.
+ * @param visitanteId ID do visitante a ser convertido.
+ * @param membroData Dados do novo membro.
+ * @returns Um objeto indicando sucesso e uma mensagem.
+ */
 export async function converterVisitanteEmMembro(
     visitanteId: string, 
-    membroData: Omit<Membro, 'id' | 'created_at' | 'celula_id' | 'status'> // Dados para o novo membro
+    membroData: Omit<Membro, 'id' | 'created_at' | 'celula_id' | 'status'>
 ): Promise<{ success: boolean; message: string }> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) {
@@ -478,7 +598,6 @@ export async function converterVisitanteEmMembro(
   }
 
   try {
-    // 1. Inserir o novo membro
     const { error: membroError } = await supabase
         .from('membros')
         .insert({
@@ -488,26 +607,23 @@ export async function converterVisitanteEmMembro(
             data_nascimento: membroData.data_nascimento,
             endereco: membroData.endereco,
             celula_id: celulaId,
-            status: 'Ativo', // Membros convertidos começam como 'Ativo'
+            status: 'Ativo',
         });
 
     if (membroError) {
-        if (membroError.code === '23505') { // Código de erro para violação de unique constraint
+        if (membroError.code === '23505') {
             return { success: false, message: "Já existe um membro com este nome na sua célula." };
         }
         throw membroError;
     }
 
-    // 2. Excluir o visitante
     const { error: visitanteError } = await supabase
         .from('visitantes')
         .delete()
         .eq('id', visitanteId)
-        .eq('celula_id', celulaId); // Garante que apenas o visitante da própria célula é excluído
+        .eq('celula_id', celulaId);
 
     if (visitanteError) {
-        // Se a exclusão do visitante falhar, mas o membro foi criado, isso é um problema.
-        // Seria ideal ter uma transação de banco de dados aqui. No Supabase, RPCs podem simular.
         console.error("Erro ao excluir visitante após criar membro. Verifique o banco manualmente:", visitanteError);
         return { success: false, message: `Membro criado, mas falha ao remover visitante original: ${visitanteError.message}. Por favor, remova o visitante manualmente.` };
     }
@@ -526,6 +642,12 @@ export async function converterVisitanteEmMembro(
 //                                FUNÇÕES DE REUNIÕES
 // ============================================================================
 
+/**
+ * Adiciona uma nova reunião.
+ * @param formData Os dados da reunião a ser adicionada.
+ * @returns A reunião criada.
+ * @throws {Error} Se não autorizado, célula não definida ou falha na inserção.
+ */
 export async function adicionarReuniao(formData: Omit<ReuniaoFormData, 'caminho_pdf'>): Promise<Reuniao> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) {
@@ -545,10 +667,18 @@ export async function adicionarReuniao(formData: Omit<ReuniaoFormData, 'caminho_
   return data;
 }
 
+/**
+ * Lista as reuniões com nomes de relacionados expandidos e contagem de presenças.
+ * @param celulaIdFilter ID da célula para filtrar (apenas para admin).
+ * @param searchTermTema Termo de busca por tema da reunião.
+ * @param searchTermMinistrador Termo de busca por nome do ministrador.
+ * @returns Uma lista de reuniões com nomes e contagens de presença.
+ * @throws {Error} Se não autorizado ou falha na consulta.
+ */
 export async function listarReunioes(
     celulaIdFilter: string | null = null,
-    searchTermTema: string | null = null, // Novo parâmetro
-    searchTermMinistrador: string | null = null // Novo parâmetro
+    searchTermTema: string | null = null,
+    searchTermMinistrador: string | null = null
 ): Promise<ReuniaoComNomes[]> {
   const { supabase, celulaId: userCelulaId, isAuthorized, role } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -575,17 +705,14 @@ export async function listarReunioes(
     query = query.ilike('tema', `%${searchTermTema}%`);
   }
 
+  // Refatorado o filtro de ministrador para usar a relação corretamente no Supabase
   if (searchTermMinistrador) {
-    // Para buscar por ministrador, precisamos usar o filtro de texto no relacionamento
-    // Isso é mais complexo em RLS, então para admin podemos usar o adminSupabase,
-    // para líderes podemos tentar um RPC ou buscar todos os membros e filtrar.
-    // Aqui, vamos simplificar para o propósito do filtro básico no lado do banco de dados,
-    // e deixar um filtro mais avançado se necessário para uma RPC.
-    // Para 'ilike' em relações é mais performático no client-side após o fetch,
-    // mas vamos tentar uma query composta se possível.
+    // Para filtros mais complexos em relações, é melhor criar uma RPC ou fazer o filtro client-side.
+    // Para simplificar, estamos buscando membros cujos nomes correspondem e filtrando as reuniões depois
+    // ou usando o operador 'or' com a notação de relação, que pode ter limitações com RLS.
+    // Uma abordagem mais robusta para RLS seria ter uma função de banco de dados.
     query = query.or(`ministrador_principal.nome.ilike.%${searchTermMinistrador}%,ministrador_secundario.nome.ilike.%${searchTermMinistrador}%`);
   }
-
 
   const { data: reunioes, error } = await query.order('data_reuniao', { descending: true });
   if (error) { 
@@ -594,18 +721,13 @@ export async function listarReunioes(
   
   if (!reunioes || reunioes.length === 0) return [];
   
-  const ministradorIds = new Set([
-      ...reunioes.map((r: any) => r.ministrador_principal?.id).filter(Boolean),
-      ...reunioes.map((r: any) => r.ministrador_secundario?.id).filter(Boolean),
-      ...reunioes.map((r: any) => r.responsavel_kids?.id).filter(Boolean)
-  ]);
   const celulaIds = new Set(reunioes.map((r: any) => r.celula_id).filter(Boolean));
-  
   const [celulasMap] = await Promise.all([
     getCelulasNamesMap(celulaIds, supabase),
   ]);
 
   const presencasPromises = reunioes.map(async (reuniao) => {
+    // Usando `count` com `head: true` para obter apenas a contagem e não os dados
     const [membrosCount, visitantesCount, criancasData] = await Promise.all([
       supabase
         .from('presencas_membros')
@@ -643,6 +765,12 @@ export async function listarReunioes(
   return Promise.all(presencasPromises);
 }
 
+/**
+ * Obtém os detalhes de uma reunião pelo ID.
+ * @param id O ID da reunião.
+ * @returns Os dados da reunião ou null se não encontrada.
+ * @throws {Error} Se não autorizado.
+ */
 export async function getReuniao(id: string): Promise<Reuniao | null> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) {
@@ -662,6 +790,12 @@ export async function getReuniao(id: string): Promise<Reuniao | null> {
   return data;
 }
 
+/**
+ * Atualiza uma reunião existente.
+ * @param id O ID da reunião a ser atualizada.
+ * @param reuniaoData Os dados parciais da reunião para atualização.
+ * @throws {Error} Se não autorizado ou falha na atualização.
+ */
 export async function atualizarReuniao(id: string, reuniaoData: Partial<ReuniaoFormData>): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) {
@@ -678,9 +812,14 @@ export async function atualizarReuniao(id: string, reuniaoData: Partial<ReuniaoF
   }
   revalidatePath('/reunioes');
   revalidatePath(`/reunioes/editar/${id}`);
-  revalidatePath(`/reunioes/resumo/${id}`); // Revalida o resumo
+  revalidatePath(`/reunioes/resumo/${id}`);
 }
 
+/**
+ * Exclui uma reunião.
+ * @param id O ID da reunião a ser excluída.
+ * @throws {Error} Se não autorizado ou falha na exclusão.
+ */
 export async function excluirReuniao(id: string): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -698,7 +837,13 @@ export async function excluirReuniao(id: string): Promise<void> {
   revalidatePath('/reunioes');
 }
 
-export async function duplicarReuniao(reuniaoId: string): Promise<string> { // Retorna o ID da nova reunião
+/**
+ * Duplica uma reunião existente.
+ * @param reuniaoId ID da reunião a ser duplicada.
+ * @returns O ID da nova reunião criada.
+ * @throws {Error} Se não autorizado, célula não definida ou falha na duplicação.
+ */
+export async function duplicarReuniao(reuniaoId: string): Promise<string> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado ou célula não definida."); 
@@ -708,23 +853,22 @@ export async function duplicarReuniao(reuniaoId: string): Promise<string> { // R
     .from('reunioes')
     .select('*')
     .eq('id', reuniaoId)
-    .eq('celula_id', celulaId) // Garante que a célula original pertence ao usuário
+    .eq('celula_id', celulaId)
     .single();
   
   if (fetchError || !reuniaoOriginal) { 
     throw new Error("Reunião original não encontrada ou você não tem permissão para duplicá-la."); 
   }
   
-  // Prepara os dados para a nova reunião, ajustando o tema e a data para hoje
   const { id, created_at, caminho_pdf, ...newReuniaoDataOriginal } = reuniaoOriginal;
   const newDate = new Date().toISOString().split('T')[0];
 
   const newReuniaoToInsert = {
       ...newReuniaoDataOriginal,
       tema: `${newReuniaoDataOriginal.tema} (Cópia - ${newDate})`,
-      data_reuniao: newDate, // Nova reunião com data de hoje
-      caminho_pdf: null, // Cópia não deve ter o mesmo PDF, pois é um novo evento
-      celula_id: celulaId // Garante que a nova reunião pertence à célula do usuário
+      data_reuniao: newDate,
+      caminho_pdf: null,
+      celula_id: celulaId
   };
 
   const { data: newReuniao, error: insertError } = await supabase
@@ -737,7 +881,6 @@ export async function duplicarReuniao(reuniaoId: string): Promise<string> { // R
     throw new Error(`Falha ao duplicar reunião: ${insertError.message}`); 
   }
 
-  // Duplicar contagem de crianças (opcional, mas comum para duplicação)
   const { data: criancasOriginal, error: criancasError } = await supabase
     .from('criancas_reuniao')
     .select('numero_criancas')
@@ -751,11 +894,18 @@ export async function duplicarReuniao(reuniaoId: string): Promise<string> { // R
       });
   }
 
-
   revalidatePath('/reunioes');
-  return newReuniao.id; // Retorna o ID da nova reunião
+  return newReuniao.id;
 }
 
+/**
+ * Verifica a existência de uma reunião duplicada para uma dada data e tema.
+ * @param dataReuniao A data da reunião.
+ * @param tema O tema da reunião.
+ * @param reuniaoId ID da reunião atual (para exclusão na verificação de edição).
+ * @returns True se houver duplicidade, false caso contrário.
+ * @throws {Error} Se não autorizado, célula não definida ou falha na consulta.
+ */
 export async function verificarDuplicidadeReuniao(dataReuniao: string, tema: string, reuniaoId?: string): Promise<boolean> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) {
@@ -766,53 +916,56 @@ export async function verificarDuplicidadeReuniao(dataReuniao: string, tema: str
     .from('reunioes')
     .select('id')
     .eq('data_reuniao', dataReuniao)
-    .ilike('tema', tema) // Compara temas de forma case-insensitive
+    .ilike('tema', tema)
     .eq('celula_id', celulaId);
 
   if (reuniaoId) {
-    query = query.neq('id', reuniaoId); // Exclui a própria reunião em edição
+    query = query.neq('id', reuniaoId);
   }
 
   const { data, error } = await query;
 
   if (error) {
     console.error("Erro ao verificar duplicidade:", error);
-    // Em caso de erro, é mais seguro assumir que não é duplicado para não bloquear a criação/edição
-    // ou lançar o erro se for um problema crítico do banco.
     throw new Error(`Falha ao verificar duplicidade de reunião: ${error.message}`);
   }
 
   return (data?.length || 0) > 0;
 }
 
+/**
+ * Realiza o upload de um arquivo de material de reunião (PDF, etc.).
+ * @param reuniaoId ID da reunião à qual o material será anexado.
+ * @param file O arquivo a ser carregado.
+ * @returns A URL pública do arquivo.
+ * @throws {Error} Se não autorizado, reunião não encontrada ou falha no upload/atualização.
+ */
 export async function uploadMaterialReuniao(reuniaoId: string, file: File): Promise<string> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) {
     throw new Error("Não autorizado.");
   }
 
-  // Verificar se a reunião existe e pertence à célula do usuário
   const { data: reuniao, error: reuniaoError } = await supabase
     .from('reunioes')
     .select('id, celula_id')
     .eq('id', reuniaoId)
-    .eq('celula_id', celulaId) // Garante que a reunião pertence à célula do usuário
+    .eq('celula_id', celulaId)
     .single();
 
   if (reuniaoError || !reuniao) {
     throw new Error("Reunião não encontrada ou você não tem permissão para anexar material a ela.");
   }
 
-  // Fazer upload do arquivo
   const fileExt = file.name.split('.').pop();
-  const fileName = `${reuniaoId}.${fileExt}`; // Nome do arquivo será o ID da reunião para unicidade
-  const filePath = `reunioes/${reuniao.celula_id}/${fileName}`; // Organiza por célula
+  const fileName = `${reuniaoId}.${fileExt}`;
+  const filePath = `reunioes/${reuniao.celula_id}/${fileName}`;
 
   const { error: uploadError } = await supabase
     .storage
-    .from('materiais') // Seu bucket de storage
+    .from('materiais')
     .upload(filePath, file, { 
-      upsert: true, // Se já existir um arquivo com o mesmo nome, ele será substituído
+      upsert: true,
       contentType: file.type
     });
 
@@ -820,13 +973,11 @@ export async function uploadMaterialReuniao(reuniaoId: string, file: File): Prom
     throw new Error(`Erro no upload do material: ${uploadError.message}`);
   }
 
-  // Obter URL pública
   const { data: { publicUrl } } = supabase
     .storage
     .from('materiais')
     .getPublicUrl(filePath);
 
-  // Atualizar reunião com o caminho do PDF
   const { error: updateError } = await supabase
     .from('reunioes')
     .update({ caminho_pdf: publicUrl })
@@ -847,13 +998,19 @@ export async function uploadMaterialReuniao(reuniaoId: string, file: File): Prom
 //                                FUNÇÕES DE PRESENÇA
 // ============================================================================
 
+/**
+ * Lista todos os membros de uma célula com seu status de presença para uma reunião específica.
+ * Ministradores e responsável Kids são automaticamente marcados como presentes.
+ * @param reuniaoId ID da reunião.
+ * @returns Uma lista de membros com status de presença.
+ * @throws {Error} Se não autorizado, reunião não encontrada ou falha na consulta.
+ */
 export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<MembroComPresenca[]> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado."); 
   }
   
-  // Verifica se a reunião existe e pertence à célula do usuário logado
   const { data: reuniao, error: reuniaoError } = await supabase
     .from('reunioes')
     .select('celula_id, ministrador_principal, ministrador_secundario, responsavel_kids')
@@ -865,7 +1022,6 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
     throw new Error("Reunião não encontrada ou você não tem permissão para gerenciar a presença desta reunião."); 
   }
   
-  // Busca todos os membros da célula da reunião
   const { data: membros, error: membrosError } = await supabase
     .from('membros')
     .select('*')
@@ -876,7 +1032,6 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
     throw new Error("Erro ao listar membros da célula."); 
   }
   
-  // Busca as presenças já registradas para esta reunião
   const { data: presencas, error: presencasError } = await supabase
     .from('presencas_membros')
     .select('membro_id, presente')
@@ -888,9 +1043,7 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
   
   const presencasMap = new Map(presencas.map(p => [p.membro_id, p.presente]));
   
-  // Combina dados dos membros com o status de presença
   return (membros || []).map(membro => {
-      // Força a presença para ministradores e responsável Kids, se existirem
       let presente = presencasMap.get(membro.id) || false;
       if (membro.id === reuniao.ministrador_principal || 
           membro.id === reuniao.ministrador_secundario || 
@@ -904,13 +1057,18 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
   });
 }
 
+/**
+ * Lista todos os visitantes de uma célula com seu status de presença para uma reunião específica.
+ * @param reuniaoId ID da reunião.
+ * @returns Uma lista de visitantes com status de presença.
+ * @throws {Error} Se não autorizado, reunião não encontrada ou falha na consulta.
+ */
 export async function listarTodosVisitantesComPresenca(reuniaoId: string): Promise<VisitanteComPresenca[]> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado."); 
   }
   
-  // Verifica se a reunião existe e pertence à célula do usuário logado
   const { data: reuniao, error: reuniaoError } = await supabase
     .from('reunioes')
     .select('celula_id')
@@ -948,13 +1106,19 @@ export async function listarTodosVisitantesComPresenca(reuniaoId: string): Promi
   }));
 }
 
+/**
+ * Registra ou atualiza a presença de um membro em uma reunião.
+ * @param reuniaoId ID da reunião.
+ * @param membroId ID do membro.
+ * @param presente Status de presença (true/false).
+ * @throws {Error} Se não autorizado, reunião não encontrada ou falha no registro.
+ */
 export async function registrarPresencaMembro(reuniaoId: string, membroId: string, presente: boolean): Promise<void> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado."); 
   }
   
-  // Verifica se a reunião pertence à célula do usuário logado
   const { data: reuniaoCheck, error: reuniaoCheckError } = await supabase
     .from('reunioes')
     .select('id')
@@ -981,13 +1145,19 @@ export async function registrarPresencaMembro(reuniaoId: string, membroId: strin
   revalidatePath('/dashboard');
 }
 
+/**
+ * Registra ou atualiza a presença de um visitante em uma reunião.
+ * @param reuniaoId ID da reunião.
+ * @param visitanteId ID do visitante.
+ * @param presente Status de presença (true/false).
+ * @throws {Error} Se não autorizado, reunião não encontrada ou falha no registro.
+ */
 export async function registrarPresencaVisitante(reuniaoId: string, visitanteId: string, presente: boolean): Promise<void> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado."); 
   }
 
-  // Verifica se a reunião pertence à célula do usuário logado
   const { data: reuniaoCheck, error: reuniaoCheckError } = await supabase
     .from('reunioes')
     .select('id')
@@ -1014,13 +1184,18 @@ export async function registrarPresencaVisitante(reuniaoId: string, visitanteId:
   revalidatePath('/dashboard');
 }
 
+/**
+ * Obtém o número de crianças registradas para uma reunião.
+ * @param reuniaoId ID da reunião.
+ * @returns O número de crianças ou 0 se não houver registro ou não autorizado.
+ * @throws {Error} Se não autorizado.
+ */
 export async function getNumCriancasReuniao(reuniaoId: string): Promise<number> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
-    throw new Error("Não autorizado."); 
+    return 0; // Se não autorizado, não deve ver número de crianças
   }
   
-  // Verifica se a reunião pertence à célula do usuário logado
   const { data: reuniaoCheck, error: reuniaoCheckError } = await supabase
     .from('reunioes')
     .select('id')
@@ -1029,7 +1204,6 @@ export async function getNumCriancasReuniao(reuniaoId: string): Promise<number> 
     .single();
 
   if (reuniaoCheckError || !reuniaoCheck) {
-      // Se a reunião não for encontrada ou não pertencer ao usuário, retorna 0 crianças
       return 0; 
   }
 
@@ -1040,18 +1214,24 @@ export async function getNumCriancasReuniao(reuniaoId: string): Promise<number> 
     .single();
   
   if (error) { 
+    console.error("Erro ao buscar número de crianças:", error);
     return 0; 
   }
   return data?.numero_criancas || 0;
 }
 
+/**
+ * Define o número de crianças para uma reunião.
+ * @param reuniaoId ID da reunião.
+ * @param numCriancas O número de crianças.
+ * @throws {Error} Se não autorizado, reunião não encontrada ou falha no registro.
+ */
 export async function setNumCriancasReuniao(reuniaoId: string, numCriancas: number): Promise<void> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado."); 
   }
 
-  // Verifica se a reunião pertence à célula do usuário logado
   const { data: reuniaoCheck, error: reuniaoCheckError } = await supabase
     .from('reunioes')
     .select('id')
@@ -1078,13 +1258,18 @@ export async function setNumCriancasReuniao(reuniaoId: string, numCriancas: numb
   revalidatePath('/dashboard');
 }
 
+/**
+ * Obtém detalhes completos de uma reunião para fins de resumo, incluindo listas de presentes/ausentes.
+ * @param reuniaoId ID da reunião.
+ * @returns Os detalhes da reunião para resumo ou null se não autorizado/não encontrada.
+ * @throws {Error} Se não autorizado ou falha na consulta RPC.
+ */
 export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<ReuniaoDetalhesParaResumo | null> {
   const { supabase, isAuthorized, celulaId } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
     throw new Error("Não autorizado."); 
   }
 
-  // Verifica se a reunião pertence à célula do usuário logado
   const { data: reuniaoCheck, error: reuniaoCheckError } = await supabase
     .from('reunioes')
     .select('id')
@@ -1097,44 +1282,43 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
       return null;
   }
   
-  // Chama a RPC para obter o resumo (otimizado no banco)
   const { data, error } = await supabase.rpc('get_reuniao_summary', { p_reuniao_id: reuniaoId });
   
-  if (error || !data) { 
+  if (error || !data || data.length === 0) { 
     console.error("Erro ao buscar resumo da reunião:", error); 
     return null; 
   }
 
-  // A RPC retorna um array de um objeto. Precisa pegar o primeiro item.
-  // Também precisa mapear o formato da RPC para a interface ReuniaoDetalhesParaResumo.
-  const resumoRaw = data[0]; // Assumindo que a RPC retorna um array com um único objeto
-  if (!resumoRaw) return null;
-
-  // Processa membros e visitantes para adicionar telefones
-  const allMemberIds = new Set([...resumoRaw.membros_presentes.map((m: any) => m.id), ...resumoRaw.membros_ausentes.map((m: any) => m.id)]);
+  const resumoRaw = data[0];
+  
+  const allMemberIds = new Set([
+    ...resumoRaw.membros_presentes.map((m: any) => m.id),
+    ...resumoRaw.membros_ausentes.map((m: any) => m.id)
+  ]);
   const allVisitorIds = new Set(resumoRaw.visitantes_presentes.map((v: any) => v.id));
 
-  const [memberPhonesMap, visitorPhonesMap] = await Promise.all([
-      getMemberNamesMap(allMemberIds, supabase), // Reutiliza getMemberNamesMap (que retorna nome e telefone)
-      getMemberNamesMap(allVisitorIds, supabase) // Reutiliza para visitantes, pois retorna a mesma estrutura
+  // Usa getMemberDataMap para obter nome E telefone
+  const [memberDataMap, visitorDataMap] = await Promise.all([
+      getMemberDataMap(allMemberIds, supabase),
+      getMemberDataMap(allVisitorIds, supabase) // Pode reutilizar para visitantes se a estrutura for similar
   ]);
   
   const membrosPresentesComTelefone = resumoRaw.membros_presentes.map((m: any) => ({
     id: m.id,
-    nome: m.nome,
-    telefone: memberPhonesMap.get(m.id) || null, // Atualiza com o telefone
+    nome: memberDataMap.get(m.id)?.nome || m.nome, // Fallback para nome original
+    telefone: memberDataMap.get(m.id)?.telefone || null,
   }));
 
   const membrosAusentesComTelefone = resumoRaw.membros_ausentes.map((m: any) => ({
     id: m.id,
-    nome: m.nome,
-    telefone: memberPhonesMap.get(m.id) || null,
+    nome: memberDataMap.get(m.id)?.nome || m.nome,
+    telefone: memberDataMap.get(m.id)?.telefone || null,
   }));
 
   const visitantesPresentesComTelefone = resumoRaw.visitantes_presentes.map((v: any) => ({
     id: v.id,
-    nome: v.nome,
-    telefone: visitorPhonesMap.get(v.id) || null,
+    nome: visitorDataMap.get(v.id)?.nome || v.nome,
+    telefone: visitorDataMap.get(v.id)?.telefone || null,
   }));
 
   return { 
@@ -1159,24 +1343,29 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
 //                                FUNÇÕES DE PERFIL
 // ============================================================================
 
+/**
+ * Obtém os dados do perfil do usuário logado.
+ * @returns Os dados do perfil ou null se não autorizado.
+ * @throws {Error} Se não autorizado.
+ */
 export async function getUserProfile(): Promise<Profile | null> {
   const { supabase, isAuthorized, role, celulaId } = await checkUserAuthorization();
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const { data: { user } } = await supabase.auth.getUser(); // Reobtém o user para ter `email`
+
   if (!isAuthorized || !user) {
+    // Se checkUserAuthorization já falhou, relança a não autorização.
     throw new Error("Não autorizado.");
   }
   
-  // Busca o perfil completo do usuário para ter nome_completo e telefone
   const { data: profileData, error: profileError } = await supabase
     .from('profiles')
-    .select('nome_completo, telefone')
+    .select('nome_completo, telefone, created_at') // Incluído created_at aqui também
     .eq('id', user.id)
     .single();
 
   if (profileError || !profileData) {
       console.error("Erro ao buscar detalhes adicionais do perfil:", profileError);
-      // Retorna com campos opcionais nulos se der erro
+      // Retorna com campos opcionais nulos se der erro, mas mantém o `created_at` vazio.
       return { 
           id: user.id, 
           email: user.email!, 
@@ -1184,11 +1373,12 @@ export async function getUserProfile(): Promise<Profile | null> {
           celula_id: celulaId, 
           celula_nome: undefined, 
           nome_completo: null, 
-          telefone: null 
+          telefone: null,
+          created_at: '' // Valor padrão para created_at se não puder ser obtido.
       };
   }
 
-  let celulaNome = null;
+  let celulaNome = undefined; // Alterado para undefined para corresponder à interface
   if (celulaId) {
     const { data: celulaData, error: celulaError } = await supabase
       .from('celulas')
@@ -1206,12 +1396,19 @@ export async function getUserProfile(): Promise<Profile | null> {
     email: user.email!, 
     role, 
     celula_id: celulaId, 
-    celula_nome: celulaNome || undefined,
+    celula_nome: celulaNome,
     nome_completo: profileData.nome_completo,
-    telefone: profileData.telefone
+    telefone: profileData.telefone,
+    created_at: profileData.created_at // Atribuindo o valor correto
   };
 }
 
+/**
+ * Atualiza os dados do perfil de um usuário.
+ * @param userId ID do usuário.
+ * @param profileData Dados do perfil a serem atualizados.
+ * @throws {Error} Se não autorizado ou falha na atualização.
+ */
 export async function updateUserProfileData(userId: string, profileData: Partial<Profile>): Promise<void> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -1227,9 +1424,15 @@ export async function updateUserProfileData(userId: string, profileData: Partial
     throw new Error(`Erro ao atualizar perfil: ${error.message}`); 
   }
   revalidatePath('/profile');
-  revalidatePath('/dashboard'); // Para atualizar o nome no dashboard
+  revalidatePath('/dashboard');
 }
 
+/**
+ * Atualiza a senha do usuário logado.
+ * @param newPassword A nova senha.
+ * @returns Um objeto indicando sucesso e uma mensagem.
+ * @throws {Error} Se não autorizado.
+ */
 export async function updateUserPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized) { 
@@ -1248,13 +1451,19 @@ export async function updateUserPassword(newPassword: string): Promise<{ success
 //                        FUNÇÕES ADMINISTRATIVAS
 // ============================================================================
 
+/**
+ * Realiza o upload ou atualização da Palavra da Semana (apenas para admin).
+ * @param formData FormData contendo título, descrição, data e opcionalmente o arquivo.
+ * @returns Um objeto indicando sucesso e uma mensagem.
+ * @throws {Error} Se acesso negado ou falha no upload/salvamento.
+ */
 export async function uploadPalavraDaSemana(formData: FormData): Promise<{ success: boolean; message: string }> {
   const { supabase, role } = await checkUserAuthorization();
   if (role !== 'admin') { 
     return { success: false, message: "Acesso negado. Apenas administradores podem fazer upload." };
   }
   
-  const file = formData.get('file') as File | null; // Pode ser nulo se for só atualização de texto
+  const file = formData.get('file') as File | null;
   const titulo = formData.get('titulo') as string;
   const data_semana = formData.get('data_semana') as string;
   const descricao = formData.get('descricao') as string;
@@ -1266,15 +1475,14 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
   try {
     let publicUrl = '';
     
-    // Se há um arquivo, faz o upload
-    if (file) {
+    if (file && file.size > 0) { // Verifica se um arquivo foi realmente enviado
       const fileExt = file.name.split('.').pop();
-      const filePath = `palavra_semana/${data_semana}-${titulo.replace(/\s/g, '_')}.${fileExt}`; // Nome único
+      const filePath = `palavra_semana/${data_semana}-${titulo.replace(/\s/g, '_')}.${fileExt}`;
       const { error: uploadError } = await supabase
         .storage
-        .from('materiais') // Seu bucket de storage
+        .from('materiais')
         .upload(filePath, file, { 
-          upsert: true, // Se já existir um arquivo com o mesmo nome, ele será substituído
+          upsert: true,
           contentType: file.type
         });
       
@@ -1290,34 +1498,46 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
       publicUrl = urlData.publicUrl;
     }
 
-    // Verifica se já existe uma palavra da semana para esta data
     const { data: existingPalavra } = await supabase
       .from('palavra_semana')
-      .select('id')
+      .select('id, url_arquivo') // Seleciona url_arquivo para usar em caso de update
       .eq('data_semana', data_semana)
-      .single();
+      .maybeSingle(); // Usar maybeSingle se não tem certeza que existirá
 
     let dbError;
     
     if (existingPalavra) {
-      // Atualiza existente
+      // Se existe uma palavra, atualiza
+      const updateData: {
+        titulo: string;
+        descricao: string;
+        url_arquivo?: string;
+      } = { 
+        titulo, 
+        descricao, 
+      };
+      if (publicUrl) { // Só atualiza URL se um novo arquivo foi carregado
+        updateData.url_arquivo = publicUrl;
+      } else if (existingPalavra.url_arquivo) {
+        // Se nenhum novo arquivo foi carregado, mas já existia um, mantém o antigo
+        updateData.url_arquivo = existingPalavra.url_arquivo;
+      } else {
+        // Se não tinha arquivo e nenhum novo foi carregado, mantém como null
+        updateData.url_arquivo = null;
+      }
+
       const { error } = await supabase
         .from('palavra_semana')
-        .update({ 
-          titulo, 
-          descricao, 
-          ...(file && { url_arquivo: publicUrl }) // Só atualiza URL se houver novo arquivo
-        })
+        .update(updateData)
         .eq('id', existingPalavra.id);
       
       dbError = error;
     } else {
-      // Cria novo - arquivo é obrigatório para nova Palavra da Semana
-      if (!file) {
+      // Cria novo
+      if (!file || file.size === 0) { // Arquivo obrigatório para nova palavra
         return { success: false, message: "Um arquivo é obrigatório para publicar uma nova Palavra da Semana." };
       }
       
-      // Obtém o email do usuário logado para created_by_email
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       const createdByEmail = userError ? null : user?.email || null;
 
@@ -1339,7 +1559,7 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
     }
     
     revalidatePath('/admin/palavra-semana');
-    revalidatePath('/dashboard'); // Para atualizar o card no dashboard
+    revalidatePath('/dashboard');
     return { 
       success: true, 
       message: existingPalavra 
@@ -1353,6 +1573,12 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
   }
 }
 
+/**
+ * Exclui a Palavra da Semana (apenas para admin), incluindo o arquivo de storage associado.
+ * @param id ID da Palavra da Semana a ser excluída.
+ * @returns Um objeto indicando sucesso e uma mensagem.
+ * @throws {Error} Se acesso negado ou falha na exclusão.
+ */
 export async function deletePalavraDaSemana(id: string): Promise<{ success: boolean; message: string }> {
   const { supabase, role } = await checkUserAuthorization();
   if (role !== 'admin') { 
@@ -1360,7 +1586,6 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
   }
   
   try {
-    // Primeiro busca a palavra para obter a URL do arquivo
     const { data: palavra, error: fetchError } = await supabase
       .from('palavra_semana')
       .select('url_arquivo')
@@ -1371,9 +1596,7 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
       return { success: false, message: `Erro ao buscar palavra: ${fetchError.message}` };
     }
     
-    // Tenta deletar o arquivo do storage se existir
     if (palavra?.url_arquivo) {
-      // Extrai o caminho do arquivo do URL público
       const pathSegments = palavra.url_arquivo.split('/materiais/');
       const filePath = pathSegments.length > 1 ? pathSegments[1] : null;
 
@@ -1391,7 +1614,6 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
       }
     }
     
-    // Deleta do banco de dados
     const { error: dbError } = await supabase
       .from('palavra_semana')
       .delete()
@@ -1402,7 +1624,7 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
     }
     
     revalidatePath('/admin/palavra-semana');
-    revalidatePath('/dashboard'); // Para atualizar o card no dashboard
+    revalidatePath('/dashboard');
     return { success: true, message: 'Palavra da Semana excluída com sucesso!' };
     
   } catch (error: any) {
@@ -1411,6 +1633,11 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
   }
 }
 
+/**
+ * Lista todas as células para administradores.
+ * @returns Uma lista de opções de células.
+ * @throws {Error} Se acesso negado ou falha na consulta.
+ */
 export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
   const { supabase, role } = await checkUserAuthorization();
   if (role !== 'admin') {
@@ -1428,21 +1655,23 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
   return data || [];
 }
 
+/**
+ * Obtém a Palavra da Semana mais recente.
+ * @returns A Palavra da Semana ou null se não encontrada ou não autorizado.
+ */
 export async function getPalavraDaSemana(): Promise<PalavraDaSemana | null> {
   const { supabase, isAuthorized } = await checkUserAuthorization();
-  // Se não estiver autorizado, não deve ver a palavra da semana (embora para líderes possa ser público)
-  // Mas a regra atual do `checkUserAuthorization` já cuida disso.
-  if (!isAuthorized) return null;
+  if (!isAuthorized) return null; // Se não autorizado, não retorna a palavra
   
   const { data, error } = await supabase
     .from('palavra_semana')
     .select('*')
-    .order('data_semana', { ascending: false }) // Pega a mais recente
+    .order('data_semana', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle(); // Use maybeSingle para lidar com a ausência de dados sem erro
 
   if (error) {
-    // console.error("Erro ao buscar palavra da semana:", error); // Pode ser que não haja nenhuma, não é um erro crítico
+    console.error("Erro ao buscar palavra da semana:", error);
     return null;
   }
   return data;
@@ -1452,12 +1681,23 @@ export async function getPalavraDaSemana(): Promise<PalavraDaSemana | null> {
 //                        FUNÇÕES DE IMPORT/EXPORT CSV
 // ============================================================================
 
+/**
+ * Escapa um valor para ser usado em CSV, tratando aspas duplas e valores nulos.
+ * @param value O valor a ser escapado.
+ * @returns O valor formatado para CSV.
+ */
 function escapeCsv(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
-  const strValue = String(value).replace(/"/g, '""'); // Escapa aspas duplas
-  return `"${strValue}"`; // Envolve em aspas duplas
+  const strValue = String(value).replace(/"/g, '""');
+  return `"${strValue}"`;
 }
 
+/**
+ * Importa membros a partir de um conteúdo CSV.
+ * @param csvContent O conteúdo do arquivo CSV.
+ * @returns Um objeto com a contagem de sucessos e uma lista de erros.
+ * @throws {Error} Se não autorizado, célula não definida ou cabeçalhos ausentes.
+ */
 export async function importarMembrosCSV(csvContent: string): Promise<{ success: number; errors: { rowIndex: number; data: any; error: string }[] }> {
   const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
   if (!isAuthorized || !celulaId) { 
@@ -1465,14 +1705,13 @@ export async function importarMembrosCSV(csvContent: string): Promise<{ success:
   }
   
   const lines = csvContent.split('\n').filter(line => line.trim() !== '');
-  if (lines.length === 0) {
-      return { success: 0, errors: [], message: "Nenhum dado encontrado no CSV." } as any; // Ajuste para o tipo correto
+  if (lines.length <= 1) { // Pelo menos uma linha de cabeçalho e uma de dados
+      return { success: 0, errors: [], message: "Nenhum dado encontrado no CSV para importação." } as any;
   }
 
   const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
   const expectedHeaders = ['nome', 'telefone', 'data_ingresso', 'data_nascimento', 'endereco', 'status'];
 
-  // Verifica se todos os cabeçalhos esperados estão presentes
   const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
   if (missingHeaders.length > 0) {
       throw new Error(`Cabeçalhos ausentes no CSV: ${missingHeaders.join(', ')}. Esperados: ${expectedHeaders.join(', ')}`);
@@ -1483,12 +1722,12 @@ export async function importarMembrosCSV(csvContent: string): Promise<{ success:
   
   for (let i = 1; i < lines.length; i++) {
     const row = lines[i];
-    const values = row.split(',').map(v => v.trim());
+    if (row.trim() === '') continue; // Pula linhas vazias
+    const values = row.split(',').map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"')); // Remove aspas duplas e desescapa
     const rowData: { [key: string]: string | null } = {};
 
-    // Mapeia os valores para os cabeçalhos
     headers.forEach((header, index) => {
-        rowData[header] = values[index] || null;
+        rowData[header] = values[index] === undefined ? null : values[index];
     });
 
     try {
@@ -1496,28 +1735,30 @@ export async function importarMembrosCSV(csvContent: string): Promise<{ success:
         throw new Error("Nome e data_ingresso são obrigatórios.");
       }
 
-      // Validação do status
       const validStatuses: Membro['status'][] = ['Ativo', 'Inativo', 'Em transição'];
-      const status = (rowData.status || 'Ativo') as Membro['status'];
-      if (!validStatuses.includes(status)) {
-          throw new Error(`Status inválido: ${rowData.status}. Deve ser 'Ativo', 'Inativo' ou 'Em transição'.`);
-      }
-
+      const status = (rowData.status && validStatuses.includes(rowData.status as Membro['status']) ? rowData.status : 'Ativo') as Membro['status'];
+      
       const { error } = await supabase.from('membros').insert({
         nome: rowData.nome,
-        telefone: rowData.telefone,
+        telefone: rowData.telefone || null,
         data_ingresso: rowData.data_ingresso,
-        data_nascimento: rowData.data_nascimento,
-        endereco: rowData.endereco,
+        data_nascimento: rowData.data_nascimento || null,
+        endereco: rowData.endereco || null,
         status: status,
         celula_id: celulaId
       });
       
-      if (error) throw error;
+      if (error) {
+        // Trata erro de duplicidade de forma mais específica, se desejar
+        if (error.code === '23505') { // Código de erro para violação de unique constraint
+          throw new Error("Membro com nome e/ou telefone já existente na célula.");
+        }
+        throw error;
+      }
       successCount++;
     } catch (e: any) {
       errors.push({
-          rowIndex: i + 1, // +1 para corresponder ao número da linha no CSV
+          rowIndex: i + 1,
           data: rowData,
           error: e.message
       });
@@ -1528,6 +1769,14 @@ export async function importarMembrosCSV(csvContent: string): Promise<{ success:
   return { success: successCount, errors };
 }
 
+/**
+ * Exporta membros para um formato CSV.
+ * @param celulaIdFilter ID da célula para filtrar.
+ * @param searchTerm Termo de busca por nome ou telefone.
+ * @param birthdayMonth Mês de aniversário para filtrar.
+ * @param statusFilter Status do membro para filtrar.
+ * @returns Uma string no formato CSV.
+ */
 export async function exportarMembrosCSV(
     celulaIdFilter: string | null = null,
     searchTerm: string | null = null,
