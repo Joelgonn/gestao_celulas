@@ -305,7 +305,7 @@ export async function getAveragePresenceRate(celulaIdFilter: string | null = nul
         const { data: meetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', targetCelulaId).gte('data_reuniao', startOfPeriodISO).order('data_reuniao', { ascending: true });
         if (meetingsError) throw meetingsError;
         if (!meetings || meetings.length === 0) { return { labels: [], data: [] }; }
-        const reunionsMap = new Map(meetings.map((m: ReuniaoDate) => [m.id, m.data_reuniao]));
+        const reunionsMap = new Map<string, string>(meetings.map((m: ReuniaoDate) => [m.id, m.data_reuniao]));
         const reunionIds = meetings.map((m: ReuniaoSimple) => m.id);
         const { count: totalMembersInCell, error: membersCountError } = await supabase.from('membros').select('id', { count: 'exact', head: true }).eq('celula_id', targetCelulaId);
         if (membersCountError) throw membersCountError;
