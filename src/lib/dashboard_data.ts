@@ -197,8 +197,6 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
     return processedData;
 }
 
-// ... (O restante das funções permanece igual, pois já estavam corrigidas ou não apresentavam erro)
-
 export async function getFaltososAlert(celulaIdFilter: string | null = null, minAbsences: number = 3, numLastMeetings: number = 3): Promise<FaltososAlert> {
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return { count: 0, members: [], startDate: '', endDate: '', totalMeetingsPeriod: 0 }; }
@@ -240,7 +238,8 @@ export async function getUnconvertedVisitorsAlert(celulaIdFilter: string | null 
         const { data: visitors, error } = await supabase.from('visitantes').select('id, nome, data_primeira_visita, telefone').eq('celula_id', targetCelulaId).lt('data_primeira_visita', thirtyDaysAgoISO).order('data_primeira_visita', { ascending: true });
         if (error) throw error;
         const unconvertedVisitors = visitors || [];
-        return { count: unconvertedVisitors.length, visitors: unconvertedVisitors.sort((a, b) => a.nome.localeCompare(b.nome)), };
+        type VisitorSort = { nome: string };
+        return { count: unconvertedVisitors.length, visitors: unconvertedVisitors.sort((a: VisitorSort, b: VisitorSort) => a.nome.localeCompare(b.nome)), };
     } catch (e: any) { throw new Error(`Falha ao obter alerta de visitantes não convertidos: ${e.message}`); }
 }
 
@@ -263,9 +262,10 @@ export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null)
             const currentYearBirthDate = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
             return currentYearBirthDate >= startOfThisWeek && currentYearBirthDate <= endOfThisWeek;
         });
+        type BirthdaySort = { data_nascimento: string };
         return {
             count: birthdaysThisWeek.length,
-            members: birthdaysThisWeek.map((m: any) => ({ id: m.id, nome: m.nome, data_nascimento: m.data_nascimento! })).sort((a, b) => {
+            members: birthdaysThisWeek.map((m: any) => ({ id: m.id, nome: m.nome, data_nascimento: m.data_nascimento! })).sort((a: BirthdaySort, b: BirthdaySort) => {
                 const dateA = new Date(a.data_nascimento); const dateB = new Date(b.data_nascimento);
                 if (dateA.getMonth() !== dateB.getMonth()) { return dateA.getMonth() - dateB.getMonth(); }
                 return dateA.getDate() - dateB.getDate();
@@ -398,7 +398,7 @@ export async function getMembersByCelulaDistribution(): Promise<MembersByCelulaD
     try {
         const { data: allMembers, error } = await supabase.from('membros').select('celula_id');
         if (error) throw error;
-        const countsMap = (allMembers || []).reduce((acc, member: { celula_id: string }) => { acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const countsMap = (allMembers || []).reduce((acc, member: { celula_id: string | null }) => { if (member.celula_id) { acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1); } return acc; }, new Map<string, number>());
         const celulaIds = new Set(Array.from(countsMap.keys()).filter(Boolean) as string[]);
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const result: MembersByCelulaDistribution[] = [];
@@ -413,7 +413,7 @@ export async function getVisitorsByCelulaDistribution(): Promise<VisitorsByCelul
     try {
         const { data: allVisitors, error } = await supabase.from('visitantes').select('celula_id');
         if (error) throw error;
-        const countsMap = (allVisitors || []).reduce((acc, visitor: { celula_id: string }) => { acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const countsMap = (allVisitors || []).reduce((acc, visitor: { celula_id: string | null }) => { if (visitor.celula_id) { acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1); } return acc; }, new Map<string, number>());
         const celulaIds = new Set(Array.from(countsMap.keys()).filter(Boolean) as string[]);
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const result: VisitorsByCelulaDistribution[] = [];
