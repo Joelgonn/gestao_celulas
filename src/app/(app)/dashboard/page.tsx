@@ -48,6 +48,7 @@ import {
 } from 'react-icons/fa';
 import { useToastStore } from '@/lib/toast';
 
+// --- IMPORTAÇÕES DE FUNÇÕES DE dashboard_data.ts ---
 import {
     getTotalMembros,
     getTotalVisitantesDistintos,
@@ -55,44 +56,44 @@ import {
     getRecentesMembros, 
     getRecentesVisitantes, 
     getUltimasReunioes, 
+    getFaltososAlert, 
+    getUnconvertedVisitorsAlert, 
+    getBirthdaysThisWeek, 
+    getCelulasOptionsForAdmin,
+    getAveragePresenceRate, 
+    getCelulasSummary, 
+    getTopBottomPresence, 
+    getCelulaGrowth, 
+    getMembersByCelulaDistribution, 
+    getVisitorsByCelulaDistribution,
+    getGlobalRecentActivity, 
+    getVisitorsConversionAnalysis,
+    getNewVisitorsTrend,
+    detectDuplicateVisitors,
+} from '@/lib/dashboard_data';
+
+// --- IMPORTAÇÕES DE INTERFACES DO NOVO ARQUIVO types.ts (ALTERADO AQUI) ---
+import { 
     LastMeetingPresence, 
     MembroDashboard,     
     VisitanteDashboard,  
     ReuniaoComNomes,     
-    getFaltososAlert, 
-    getUnconvertedVisitorsAlert, 
-    getBirthdaysThisWeek, 
     FaltososAlert, 
     UnconvertedVisitorsAlert, 
     BirthdayAlert, 
-    getCelulasOptionsForAdmin,
-    getAveragePresenceRate, 
     AveragePresenceRateData, 
-    getCelulasSummary, 
     CelulasSummary,
-    getTopBottomPresence, 
     TopFlopPresence, 
-    getCelulaGrowth, 
     CelulaGrowth, 
-    getMembersByCelulaDistribution, 
     MembersByCelulaDistribution, 
-    getVisitorsByCelulaDistribution, 
     VisitorsByCelulaDistribution,
-    getGlobalRecentActivity, 
     ActivityLogItem,
-    getVisitorsConversionAnalysis,
     VisitorsConversionAnalysis,
-    getNewVisitorsTrend,
     NewVisitorsTrendData,
-    detectDuplicateVisitors,
     DuplicateVisitorGroup,
-} from '@/lib/dashboard_data';
+} from '@/lib/types'; 
 
-// --- INÍCIO DA CORREÇÃO ---
-// Importa PalavraDaSemana e getPalavraDaSemana do lugar correto (`data.ts`)
 import { getPalavraDaSemana, PalavraDaSemana, CelulaOption } from '@/lib/data';
-// --- FIM DA CORREÇÃO ---
-
 
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -403,20 +404,14 @@ export default function DashboardPage() {
     const handleRefresh = () => { fetchDashboardData(true); };
     const handleFilterChange = (value: string) => { setSelectedFilterCelulaId(value); addToast(`Filtro aplicado: ${celulasFilterOptions.find(c => c.id === value)?.nome || 'Todas as células'}`, 'info'); };
     
-    // ALTERADO AQUI: chartOptions para weight numérico
+    // CONFIGURAÇÕES DOS GRÁFICOS - weight numérico (ALTERADO AQUI)
     const chartData = { labels: averagePresenceRateData?.labels || [], datasets: [{ label: 'Presença Média (%)', data: averagePresenceRateData?.data || [], fill: true, backgroundColor: 'rgba(79, 70, 229, 0.2)', borderColor: 'rgba(79, 70, 229, 1)', tension: 0.3, pointBackgroundColor: 'rgba(79, 70, 229, 1)', pointBorderColor: '#fff', pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgba(79, 70, 229, 1)', pointRadius: 5, pointHoverRadius: 8, },], };
     const chartOptions = { responsive: true, plugins: { legend: { position: 'top' as const, labels: { font: { size: 14, weight: 700, }, color: '#333', }, }, title: { display: true, text: 'Média de Presença da Célula (Últimas 8 Semanas)', font: { size: 16, weight: 700, }, color: '#333', }, tooltip: { callbacks: { label: function(context: any) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += context.parsed.y + '%'; } return label; } } } }, scales: { x: { title: { display: true, text: 'Semana', font: { size: 12, weight: 700, }, color: '#555', }, grid: { display: false, }, }, y: { title: { display: true, text: 'Percentual (%)', font: { size: 12, weight: 700, }, beginAtZero: true, max: 100, ticks: { callback: function(value: any) { return value + '%'; } } }, }, }, };
-    
-    // ALTERADO AQUI: membersPieData (não tem alteração, apenas para manter a visibilidade)
     const membersPieData = { labels: membersDistribution.map(d => d.celula_nome), datasets: [{ label: 'Membros', data: membersDistribution.map(d => d.count), backgroundColor: ['#4F46E5', '#34D399', '#FCD34D', '#F87171', '#A78BFA', '#2DD4BF', '#FB923C', '#E879F9', '#60A5FA', '#F472B6'], hoverOffset: 4, },], };
     const visitorsPieData = { labels: visitorsDistribution.map(d => d.celula_nome), datasets: [{ label: 'Visitantes', data: visitorsDistribution.map(d => d.count), backgroundColor: ['#4F46E5', '#34D399', '#FCD34D', '#F87171', '#A78BFA', '#2DD4BF', '#FB923C', '#E879F9', '#60A5FA', '#F472B6'], hoverOffset: 4, },], };
     const pieOptions = { responsive: true, plugins: { legend: { position: 'right' as const, labels: { font: { size: 12, }, color: '#333', }, }, title: { display: false, }, tooltip: { callbacks: { label: function(context: any) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed + ' (' + context.raw + ')'; } return label; } } } }, };
-    
-    // ALTERADO AQUI: newVisitorsTrendChartOptions para weight numérico
     const newVisitorsTrendChartData = { labels: newVisitorsTrendData?.labels || [], datasets: [{ label: 'Novos Visitantes', data: newVisitorsTrendData?.data || [], fill: true, backgroundColor: 'rgba(52, 211, 153, 0.2)', borderColor: 'rgba(52, 211, 153, 1)', tension: 0.3, pointBackgroundColor: 'rgba(52, 211, 153, 1)', pointBorderColor: '#fff', pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgba(52, 211, 153, 1)', pointRadius: 5, pointHoverRadius: 8, },], };
     const newVisitorsTrendChartOptions = { responsive: true, plugins: { legend: { position: 'top' as const, labels: { font: { size: 14, weight: 700, }, color: '#333', }, }, title: { display: true, text: 'Tendência de Novos Visitantes (Últimos 6 Meses)', font: { size: 16, weight: 700, }, color: '#333', }, }, scales: { x: { title: { display: true, text: 'Mês', font: { size: 12, weight: 700, }, color: '#555', }, grid: { display: false, }, }, y: { title: { display: true, text: 'Número de Visitantes', font: { size: 12, weight: 700, }, beginAtZero: true, ticks: { stepSize: 1, }, }, }, }, };
-    
-    // ALTERADO AQUI: growthBarData (não tem alteração, apenas para manter a visibilidade)
     const growthBarData = { labels: celulaGrowth?.top_members.map(cell => cell.celula_nome) || [], datasets: [{ label: 'Novos Membros', data: celulaGrowth?.top_members.map(cell => cell.growth_members) || [], backgroundColor: 'rgba(59, 130, 246, 0.8)', borderColor: 'rgba(59, 130, 246, 1)', borderWidth: 1, }, { label: 'Novos Visitantes', data: celulaGrowth?.top_visitors.map(cell => cell.growth_visitors) || [], backgroundColor: 'rgba(16, 185, 129, 0.8)', borderColor: 'rgba(16, 185, 129, 1)', borderWidth: 1, },], };
     const growthBarOptions = { responsive: true, plugins: { legend: { position: 'top' as const, }, title: { display: true, text: 'Crescimento nas Células (Últimos 30 Dias)', }, }, scales: { x: { grid: { display: false, }, }, y: { beginAtZero: true, ticks: { stepSize: 1, }, }, }, };
     const getActivityIcon = (type: ActivityLogItem['type']) => { switch (type) { case 'member_added': return <FaUserPlus className="text-blue-500" />; case 'visitor_added': return <FaUsers className="text-green-500" />; case 'reunion_added': return <FaCalendarCheck className="text-purple-500" />; case 'celula_created': return <FaHome className="text-orange-500" />; case 'visitor_converted': return <FaUserCheck className="text-emerald-500" />; case 'profile_activated': return <FaGlobe className="text-indigo-500" />; default: return null; } };
@@ -567,7 +562,7 @@ export default function DashboardPage() {
                     {/* Admin Global Views */}
                     {userRole === 'admin' && !selectedFilterCelulaId && (
                         <>
-                           {/* (Seções de Admin omitidas para brevidade, mas devem estar aqui no seu código) */}
+                        {/* (Seções de Admin omitidas para brevidade, mas devem estar aqui no seu código) */}
                             {celulasSummary && (
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-indigo-100 rounded-lg"><FaHome className="text-indigo-600" /></div><span>Resumo de Células</span></h2>
@@ -577,7 +572,7 @@ export default function DashboardPage() {
                             {topBottomPresence && (
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-emerald-100 rounded-lg"><FaChartLine className="text-emerald-600" /></div><span>Top/Flop de Presença</span></h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><FaArrowUp className="text-emerald-600" /><span>Top Presença</span></h3>{topBottomPresence.top.length > 0 ? (<ul className="space-y-3">{topBottomPresence.top.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-emerald-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-emerald-600 bg-white px-3 py-1 rounded-full text-sm border border-emerald-200">{cell.avg_presence}%</span></li>))}</ul>) : (<p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>)}</div><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><FaArrowDown className="text-red-600" /><span>Pior Presença</span></h3>{topBottomPresence.bottom.length > 0 ? (<ul className="space-y-3">{topBottomPresence.bottom.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-red-600 bg-white px-3 py-1 rounded-full text-sm border border-red-200">{cell.avg_presence}%</span></li>))}</ul>) : (<p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>)}</div></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><FaArrowUp className="text-emerald-600" /><span>Top Presença</span></h3>{topBottomPresence.top.length > 0 ? (<ul className="space-y-3">{topBottomPresence.top.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-emerald-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-emerald-600 bg-white px-3 py-1 rounded-full text-sm border border-emerald-200">{cell.avg_presence}%</span></li>))}</ul>) : (<p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>)}</div><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><FaArrowDown className="text-red-600" /></div><span>Pior Presença</span></h3>{topBottomPresence.bottom.length > 0 ? (<ul className="space-y-3">{topBottomPresence.bottom.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-red-600 bg-white px-3 py-1 rounded-full text-sm border border-red-200">{cell.avg_presence}%</span></li>))}</ul>) : (<p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>)}</div></div>
                                 </div>
                             )}
                             {/* Restante das seções de admin... */}
@@ -661,7 +656,7 @@ export default function DashboardPage() {
                     {/* Engagement Chart */}
                     {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && averagePresenceRateData && averagePresenceRateData.labels.length > 0 && (
                         <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-indigo-100 rounded-lg"><FaChartLine className="text-indigo-600" /></div><span>Engajamento da Célula</span></h2><div className="h-64"><Line data={chartData} options={chartOptions} /></div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-indigo-100 rounded-lg"><FaChartLine className="text-indigo-600" /></div><span>Engajamento da Célula</span></h2><div className="h-64"><Line data={chartData} options={chartOptions} /></div>
                         </div>
                     )}
                     

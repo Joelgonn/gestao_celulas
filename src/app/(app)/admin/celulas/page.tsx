@@ -28,7 +28,12 @@ import {
     deleteCelulaAdmin,
     Celula
 } from '@/app/api/admin/celulas/actions';
-import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin, ChaveAtivacao } from '@/app/api/admin/chaves-ativacao/actions';
+
+// --- IMPORTAÇÃO DE CHAVEATIVACAO DO NOVO ARQUIVO types.ts (ALTERADO AQUI) ---
+import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions';
+import { ChaveAtivacao } from '@/lib/types'; // Importado de types.ts
+// --- FIM DA ALTERAÇÃO ---
+
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function AdminCelulasPage() {

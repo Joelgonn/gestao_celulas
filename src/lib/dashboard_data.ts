@@ -1,144 +1,33 @@
 // src/lib/dashboard_data.ts
 
-
+'use server'; // Mantido aqui para indicar que este é um módulo de servidor
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { startOfWeek, endOfWeek, format, getDay, isSameDay, subMonths, eachWeekOfInterval, subWeeks, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// --- REMOÇÃO DA IMPORTAÇÃO INCORRETA ---
-// A linha 'import { getPalavraDaSemana } from '@/lib/data';' foi removida daqui,
-// pois esta função não é usada neste arquivo.
-
-// ============================================================================
-//                                INTERFACES EXPORTADAS
-// ============================================================================
-
-export interface LastMeetingPresence {
-  id: string;
-  data_reuniao: string;
-  num_presentes_membros: number;
-  num_ausentes_membros: number;
-  num_presentes_visitantes: number;
-  num_criancas: number;
-  tema?: string;
-  ministrador_principal_nome?: string | null; 
-  celula_nome?: string | null;
-}
-
-export interface MembroDashboard {
-    id: string;
-    nome: string;
-    data_ingresso: string;
-    celula_nome?: string | null;
-    data_nascimento?: string | null;
-}
-
-export interface VisitanteDashboard {
-    id: string;
-    nome: string;
-    data_primeira_visita: string;
-    celula_nome?: string | null;
-}
-
-export interface ReuniaoComNomes {
-    id: string;
-    data_reuniao: string;
-    tema: string;
-    ministrador_principal_nome?: string | null;
-    ministrador_secundario_nome?: string | null;
-    responsavel_kids_nome?: string | null;
-    num_criancas: number;
-    celula_id: string; 
-    celula_nome?: string | null; 
-    caminho_pdf: string | null; 
-+   num_presentes_membros: number; // ADICIONADO AQUI!
-+   num_presentes_visitantes: number; // ADICIONADO AQUI!
-}
-export interface FaltososAlert {
-    count: number;
-    members: { id: string; nome: string; telefone: string | null }[];
-    startDate: string;
-    endDate: string;
-    totalMeetingsPeriod: number;
-}
-
-export interface UnconvertedVisitorsAlert {
-    count: number;
-    visitors: { id: string; nome: string; data_primeira_visita: string; telefone: string | null }[];
-}
-
-export interface BirthdayAlert {
-    count: number;
-    members: { id: string; nome: string; data_nascimento: string }[];
-}
-
-export interface AveragePresenceRateData {
-    labels: string[];
-    data: number[];
-}
-
-export interface CelulasSummary {
-    totalCelulas: number;
-    celulasWithoutLeaders: number;
-}
-
-export interface TopFlopPresence {
-    celula_id: string;
-    celula_nome: string;
-    avg_presence: number;
-}
-
-export interface CelulaGrowth {
-    celula_id: string;
-    celula_nome: string;
-    growth_members: number;
-    growth_visitors: number;
-}
-
-export interface MembersByCelulaDistribution {
-    celula_nome: string;
-    count: number;
-}
-
-export interface VisitorsByCelulaDistribution {
-    celula_nome: string;
-    count: number;
-}
-
-export interface VisitorsConversionAnalysis {
-    celula_id: string;
-    celula_nome: string;
-    visitors: {
-        id: string;
-        nome: string;
-        telefone: string | null;
-        total_presences: number;
-        data_primeira_visita: string;
-    }[];
-    total_unconverted_with_presences: number;
-}
-
-export interface NewVisitorsTrendData {
-    labels: string[];
-    data: number[];
-}
-
-export interface DuplicateVisitorGroup {
-    group_id: string;
-    visitors: { id: string; nome: string; telefone: string | null; celula_nome: string | null }[];
-    common_value: string;
-    type: 'nome' | 'telefone';
-}
-
-export interface ActivityLogItem {
-    id: string;
-    type: 'member_added' | 'visitor_added' | 'reunion_added' | 'visitor_converted' | 'celula_created' | 'celula_updated' | 'profile_activated';
-    description: string;
-    created_at: string;
-    celula_nome?: string | null;
-}
+// --- NOVA IMPORTAÇÃO DAS INTERFACES AQUI ---
+import {
+    LastMeetingPresence,
+    MembroDashboard,
+    VisitanteDashboard,
+    ReuniaoComNomes,
+    FaltososAlert,
+    UnconvertedVisitorsAlert,
+    BirthdayAlert,
+    AveragePresenceRateData,
+    CelulasSummary,
+    TopFlopPresence,
+    CelulaGrowth,
+    MembersByCelulaDistribution,
+    VisitorsByCelulaDistribution,
+    VisitorsConversionAnalysis,
+    NewVisitorsTrendData,
+    DuplicateVisitorGroup,
+    ActivityLogItem
+} from './types'; // Importa do novo arquivo types.ts
+// --- FIM DA NOVA IMPORTAÇÃO ---
 
 // ============================================================================
 //                          FUNÇÕES AUXILIARES (INTERNAS)
@@ -204,7 +93,6 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any)
 // ============================================================================
 //                               FUNÇÕES DE DASHBOARD (Server Actions)
 // ============================================================================
-// (O restante das funções permanece o mesmo)
 
 export async function getTotalMembros(celulaIdFilter: string | null = null): Promise<number> {
   const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
@@ -299,18 +187,37 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
     const { data, error } = await query.order('data_reuniao', { ascending: false }).limit(limit);
     if (error) { throw new Error(`Falha ao carregar últimas reuniões: ${error.message}`); }
     if (!data || data.length === 0) { return []; }
-    const celulaIds = new Set(data.map(item => item.celula_id)); const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
-    const processedData: ReuniaoComNomes[] = data.map((item) => {
+
+    const celulaIds = new Set(data.map(item => item.celula_id));
+    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
+    
+    const processedData: ReuniaoComNomes[] = [];
+
+    for (const item of data) {
         const numCriancas = item.criancas_reuniao?.[0]?.numero_criancas || 0;
-        return {
-            id: item.id, data_reuniao: item.data_reuniao, tema: item.tema, caminho_pdf: item.caminho_pdf, celula_id: item.celula_id,
+
+        // Busque contagens de presença para esta reunião específica
+        const { count: presentesMembrosCount, error: pmError } = await supabase.from('presencas_membros').select('id', { count: 'exact', head: true }).eq('reuniao_id', item.id).eq('presente', true);
+        if (pmError) { console.error(`Falha ao contar membros presentes para reunião ${item.id}: ${pmError.message}`); }
+
+        const { count: presentesVisitantesCount, error: pvError } = await supabase.from('presencas_visitantes').select('id', { count: 'exact', head: true }).eq('reuniao_id', item.id).eq('presente', true);
+        if (pvError) { console.error(`Falha ao contar visitantes presentes para reunião ${item.id}: ${pvError.message}`); }
+
+        processedData.push({
+            id: item.id, 
+            data_reuniao: item.data_reuniao, 
+            tema: item.tema, 
+            caminho_pdf: item.caminho_pdf, 
+            celula_id: item.celula_id,
             celula_nome: celulasNamesMap.get(item.celula_id) || null, 
             ministrador_principal_nome: item.ministrador_principal?.nome || null,
             ministrador_secundario_nome: item.ministrador_secundario?.nome || null,
             responsavel_kids_nome: item.responsavel_kids?.nome || null,
             num_criancas: numCriancas,
-        };
-    });
+            num_presentes_membros: presentesMembrosCount || 0, // Adicionado aqui
+            num_presentes_visitantes: presentesVisitantesCount || 0, // Adicionado aqui
+        });
+    }
     return processedData;
 }
 
