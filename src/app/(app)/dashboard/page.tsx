@@ -72,7 +72,7 @@ import {
     detectDuplicateVisitors,
 } from '@/lib/dashboard_data';
 
-// --- IMPORTAÇÕES DE INTERFACES DO NOVO ARQUIVO types.ts (ALTERADO AQUI) ---
+// --- IMPORTAÇÕES DE INTERFACES DO NOVO ARQUIVO types.ts ---
 import { 
     LastMeetingPresence, 
     MembroDashboard,     
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                 getRecentesMembros(5, celulaIdToFetch),
                 getRecentesVisitantes(5, celulaIdToFetch),
                 getUltimasReunioes(5, celulaIdToFetch),
-                getPalavraDaSemana(), // A chamada correta
+                getPalavraDaSemana(),
             ];
             
             let specificRoleDataPromises: Promise<any>[] = [];
@@ -340,7 +340,7 @@ export default function DashboardPage() {
                 recentMembrosList,
                 recentVisitantesList,
                 lastMeetingsList,
-                fetchedPalavraDaSemana, // Palavra da Semana é o 7º item
+                fetchedPalavraDaSemana,
                 ...specificRoleData
             ] = results;
 
@@ -400,11 +400,9 @@ export default function DashboardPage() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    // O restante das funções (handleRefresh, handleFilterChange, configurações de gráficos) permanecem iguais...
     const handleRefresh = () => { fetchDashboardData(true); };
     const handleFilterChange = (value: string) => { setSelectedFilterCelulaId(value); addToast(`Filtro aplicado: ${celulasFilterOptions.find(c => c.id === value)?.nome || 'Todas as células'}`, 'info'); };
     
-    // CONFIGURAÇÕES DOS GRÁFICOS - weight numérico (ALTERADO AQUI)
     const chartData = { labels: averagePresenceRateData?.labels || [], datasets: [{ label: 'Presença Média (%)', data: averagePresenceRateData?.data || [], fill: true, backgroundColor: 'rgba(79, 70, 229, 0.2)', borderColor: 'rgba(79, 70, 229, 1)', tension: 0.3, pointBackgroundColor: 'rgba(79, 70, 229, 1)', pointBorderColor: '#fff', pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgba(79, 70, 229, 1)', pointRadius: 5, pointHoverRadius: 8, },], };
     const chartOptions = { responsive: true, plugins: { legend: { position: 'top' as const, labels: { font: { size: 14, weight: 700, }, color: '#333', }, }, title: { display: true, text: 'Média de Presença da Célula (Últimas 8 Semanas)', font: { size: 16, weight: 700, }, color: '#333', }, tooltip: { callbacks: { label: function(context: any) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += context.parsed.y + '%'; } return label; } } } }, scales: { x: { title: { display: true, text: 'Semana', font: { size: 12, weight: 700, }, color: '#555', }, grid: { display: false, }, }, y: { title: { display: true, text: 'Percentual (%)', font: { size: 12, weight: 700, }, beginAtZero: true, max: 100, ticks: { callback: function(value: any) { return value + '%'; } } }, }, }, };
     const membersPieData = { labels: membersDistribution.map(d => d.celula_nome), datasets: [{ label: 'Membros', data: membersDistribution.map(d => d.count), backgroundColor: ['#4F46E5', '#34D399', '#FCD34D', '#F87171', '#A78BFA', '#2DD4BF', '#FB923C', '#E879F9', '#60A5FA', '#F472B6'], hoverOffset: 4, },], };
@@ -562,20 +560,48 @@ export default function DashboardPage() {
                     {/* Admin Global Views */}
                     {userRole === 'admin' && !selectedFilterCelulaId && (
                         <>
-                        {/* (Seções de Admin omitidas para brevidade, mas devem estar aqui no seu código) */}
                             {celulasSummary && (
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-indigo-100 rounded-lg"><FaHome className="text-indigo-600" /></div><span>Resumo de Células</span></h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700">Total de Células Ativas</h3><p className="text-4xl font-bold text-cyan-700 mt-2">{celulasSummary.totalCelulas}</p><Link href="/admin/celulas" className="text-indigo-600 hover:text-indigo-800 font-medium text-sm mt-2 inline-flex items-center space-x-1 transition-colors duration-200"><FaEye className="text-sm" /><span>Gerenciar Células</span></Link></div><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700">Células sem Líder</h3><p className="text-4xl font-bold text-yellow-700 mt-2">{celulasSummary.celulasWithoutLeaders}</p><p className="text-sm text-gray-600 mt-1">{celulasSummary.celulasWithoutLeaders > 0 ? 'Requer atenção' : 'Todas com líderes'}</p></div></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700">Total de Células Ativas</h3><p className="text-4xl font-bold text-cyan-700 mt-2">{celulasSummary.totalCelulas}</p><Link href="/admin/celulas" className="text-indigo-600 hover:text-indigo-800 font-medium text-sm mt-2 inline-flex items-center space-x-1 transition-colors duration-200"><FaEye className="text-sm" /><span>Gerenciar Células</span></Link></div>
+                                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"><h3 className="text-lg font-semibold text-gray-700">Células sem Líder</h3><p className="text-4xl font-bold text-yellow-700 mt-2">{celulasSummary.celulasWithoutLeaders}</p><p className="text-sm text-gray-600 mt-1">{celulasSummary.celulasWithoutLeaders > 0 ? 'Requer atenção' : 'Todas com líderes'}</p></div>
+                                    </div>
                                 </div>
                             )}
+                            
+                            {/* --- INÍCIO DA CORREÇÃO JSX --- */}
                             {topBottomPresence && (
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-emerald-100 rounded-lg"><FaChartLine className="text-emerald-600" /></div><span>Top/Flop de Presença</span></h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">-<h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><FaArrowDown className="text-red-600" / ></div><span>Pior Presença</span></h3>{topBottomPresence.bottom.length > 0 ? (<ul className="space-y-3">{topBottomPresence.bottom.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-red-600 bg-white px-3 py-1 rounded-full text-sm border border-red-200">{cell.avg_presence}%</span></li>))}</ul>) : (<p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>)}</div></div>
-+                                         <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><FaArrowDown className="text-red-600" /><span>Pior Presença</span></h3>{topBottomPresence.bottom.length > 0 ? (<ul className="space-y-3">{topBottomPresence.bottom.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-red-600 bg-white px-3 py-1 rounded-full text-sm border border-red-200">{cell.avg_presence}%</span></li>))}</ul>) : (<p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>)}</div></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2">
+                                                <FaArrowUp className="text-emerald-600" />
+                                                <span>Top Presença</span>
+                                            </h3>
+                                            {topBottomPresence.top.length > 0 ? (
+                                                <ul className="space-y-3">{topBottomPresence.top.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-emerald-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-emerald-600 bg-white px-3 py-1 rounded-full text-sm border border-emerald-200">{cell.avg_presence}%</span></li>))}</ul>
+                                            ) : (
+                                                <p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>
+                                            )}
+                                        </div>
+                                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2">
+                                                <FaArrowDown className="text-red-600" />
+                                                <span>Pior Presença</span>
+                                            </h3>
+                                            {topBottomPresence.bottom.length > 0 ? (
+                                                <ul className="space-y-3">{topBottomPresence.bottom.map((cell, index) => (<li key={cell.celula_id} className="flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition-colors duration-200"><span className="font-medium text-gray-800">{index + 1}. {cell.celula_nome}</span><span className="font-bold text-red-600 bg-white px-3 py-1 rounded-full text-sm border border-red-200">{cell.avg_presence}%</span></li>))}</ul>
+                                            ) : (
+                                                <p className="text-gray-500 text-center py-4">Nenhum dado disponível</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
+                            {/* --- FIM DA CORREÇÃO JSX --- */}
+
                             {/* Restante das seções de admin... */}
                         </>
                     )}
