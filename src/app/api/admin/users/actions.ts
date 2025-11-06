@@ -91,7 +91,8 @@ export async function listAllProfiles(): Promise<UserProfile[]> {
         
         const authUsersMap = new Map((authUsers?.users || []).map((u: User) => [u.id, u.last_sign_in_at]));
 
-        const celulaIds = new Set((profiles || []).map(p => p.celula_id).filter(Boolean) as string[]);
+        const celulaIds = new Set((profiles || []).map((p: { celula_id: string | null }) => p.celula_id).filter(Boolean) as string[]);
+        
         const celulasNamesMap = new Map<string, string>();
         if (celulaIds.size > 0) {
              const { data: celulas, error: celulasError } = await supabaseAdmin
