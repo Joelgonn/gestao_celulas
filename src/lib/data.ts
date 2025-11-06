@@ -59,6 +59,7 @@ export interface PalavraDaSemana {
   descricao: string | null;
   data_semana: string;
   url_arquivo: string;
+  created_by_email?: string;
 }
 
 export interface CelulaOption {
@@ -911,10 +912,10 @@ export async function updateUserPassword(newPassword: string): Promise<void> {
 //                        FUNÇÕES ADMINISTRATIVAS
 // ============================================================================
 
-export async function uploadPalavraDaSemana(formData: FormData): Promise<void> {
+export async function uploadPalavraDaSemana(formData: FormData): Promise<{ success: boolean; message: string }> {
   const { supabase, role } = await checkUserAuthorization();
   if (role !== 'admin') { 
-    throw new Error("Acesso negado."); 
+    return { success: false, message: "Acesso negado. Apenas administradores podem fazer upload." };
   }
   
   const file = formData.get('file') as File;
@@ -922,60 +923,138 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<void> {
   const data_semana = formData.get('data_semana') as string;
   const descricao = formData.get('descricao') as string;
   
-  if (!file || !titulo || !data_semana) { 
-    throw new Error("Campos obrigatórios faltando."); 
+  if (!titulo || !data_semana) { 
+    return { success: false, message: "Título e data da semana são obrigatórios." };
   }
-  
-  const filePath = `palavra_semana/${file.name}`;
-  const { error: uploadError } = await supabase
-    .storage
-    .from('materiais')
-    .upload(filePath, file, { upsert: true });
-  
-  if (uploadError) { 
-    throw new Error(`Erro no upload: ${uploadError.message}`); 
+
+  try {
+    let publicUrl = '';
+    
+    // Se há um arquivo, faz o upload
+    if (file) {
+      const filePath = `palavra_semana/${file.name}`;
+      const { error: uploadError } = await supabase
+        .storage
+        .from('materiais')
+        .upload(filePath, file, { upsert: true });
+      
+      if (uploadError) { 
+        return { success: false, message: `Erro no upload do arquivo: ${uploadError.message}` };
+      }
+      
+      const { data: urlData } = supabase
+        .storage
+        .from('materiais')
+        .getPublicUrl(filePath);
+      
+      publicUrl = urlData.publicUrl;
+    }
+
+    // Verifica se já existe uma palavra da semana para esta data
+    const { data: existingPalavra } = await supabase
+      .from('palavra_semana')
+      .select('id')
+      .eq('data_semana', data_semana)
+      .single();
+
+    let dbError;
+    
+    if (existingPalavra) {
+      // Atualiza existente
+      const { error } = await supabase
+        .from('palavra_semana')
+        .update({ 
+          titulo, 
+          descricao, 
+          ...(file && { url_arquivo: publicUrl }) // Só atualiza URL se houver novo arquivo
+        })
+        .eq('id', existingPalavra.id);
+      
+      dbError = error;
+    } else {
+      // Cria novo - arquivo é obrigatório para novo
+      if (!file) {
+        return { success: false, message: "Arquivo PDF é obrigatório para uma nova Palavra da Semana." };
+      }
+      
+      const { error } = await supabase
+        .from('palavra_semana')
+        .insert({ 
+          titulo, 
+          descricao, 
+          data_semana, 
+          url_arquivo: publicUrl 
+        });
+      
+      dbError = error;
+    }
+    
+    if (dbError) { 
+      return { success: false, message: `Erro ao salvar no banco: ${dbError.message}` };
+    }
+    
+    revalidatePath('/admin/palavra-semana');
+    return { 
+      success: true, 
+      message: existingPalavra 
+        ? 'Palavra da Semana atualizada com sucesso!' 
+        : 'Palavra da Semana publicada com sucesso!' 
+    };
+    
+  } catch (error: any) {
+    return { success: false, message: `Erro inesperado: ${error.message}` };
   }
-  
-  const { data: { publicUrl } } = supabase
-    .storage
-    .from('materiais')
-    .getPublicUrl(filePath);
-  
-  const { error: dbError } = await supabase
-    .from('palavra_semana')
-    .insert({ titulo, descricao, data_semana, url_arquivo: publicUrl });
-  
-  if (dbError) { 
-    throw new Error(`Erro ao salvar no banco: ${dbError.message}`); 
-  }
-  revalidatePath('/admin/palavra-semana');
 }
 
-export async function deletePalavraDaSemana(id: string, url_arquivo: string): Promise<void> {
+export async function deletePalavraDaSemana(id: string): Promise<{ success: boolean; message: string }> {
   const { supabase, role } = await checkUserAuthorization();
   if (role !== 'admin') { 
-    throw new Error("Acesso negado."); 
+    return { success: false, message: "Acesso negado." };
   }
   
-  const filePath = url_arquivo.split('/materiais/')[1];
-  const { error: storageError } = await supabase
-    .storage
-    .from('materiais')
-    .remove([filePath]);
-  
-  if (storageError) { 
-    console.warn(`Aviso: não foi possível deletar o arquivo do storage: ${storageError.message}`); 
+  try {
+    // Primeiro busca a palavra para obter a URL do arquivo
+    const { data: palavra, error: fetchError } = await supabase
+      .from('palavra_semana')
+      .select('url_arquivo')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) {
+      return { success: false, message: `Erro ao buscar palavra: ${fetchError.message}` };
+    }
+    
+    // Tenta deletar o arquivo do storage se existir
+    if (palavra?.url_arquivo) {
+      const filePath = palavra.url_arquivo.split('/materiais/')[1];
+      if (filePath) {
+        const { error: storageError } = await supabase
+          .storage
+          .from('materiais')
+          .remove([filePath]);
+        
+        if (storageError) { 
+          console.warn(`Aviso: não foi possível deletar o arquivo do storage: ${storageError.message}`);
+        }
+      }
+    }
+    
+    // Deleta do banco de dados
+    const { error: dbError } = await supabase
+      .from('palavra_semana')
+      .delete()
+      .eq('id', id);
+    
+    if (dbError) { 
+      return { success: false, message: `Erro ao deletar: ${dbError.message}` };
+    }
+    
+    revalidatePath('/admin/palavra-semana');
+    return { success: true, message: 'Palavra da Semana excluída com sucesso!' };
+    
+  } catch (error: any) {
+    return { success: false, message: `Erro inesperado: ${error.message}` };
   }
-  
-  const { error: dbError } = await supabase
-    .from('palavra_semana')
-    .delete()
-    .eq('id', id);
-  
-  if (dbError) { 
-    throw new Error(`Erro ao deletar do banco de dados: ${dbError.message}`); 
-  }
-  revalidatePath('/admin/palavra-semana');
 }
 
 export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
