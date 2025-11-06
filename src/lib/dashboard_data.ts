@@ -27,6 +27,14 @@ import {
     ActivityLogItem
 } from './types';
 
+// Tipos locais para os parâmetros das funções
+type MemberData = { id: string; nome: string; telefone: string | null };
+type CelulaData = { id: string; nome: string };
+type ReuniaoSimple = { id: string };
+type ProfileData = { celula_id: string | null };
+type ReuniaoDate = { id: string; data_reuniao: string };
+type PresenceData = { reuniao_id: string };
+
 async function checkUserAuthorizationDashboard(): Promise<{
     supabase: any;
     role: 'admin' | 'líder' | null;
@@ -63,7 +71,7 @@ async function checkUserAuthorizationDashboard(): Promise<{
 }
 
 async function getMemberNamesMap(memberIds: Set<string>, celulaId: string | null, supabaseInstance: any): Promise<Map<string, { nome: string; telefone: string | null }>> {
-    let namesMap = new Map<string, { nome: string; telefone: string | null }>();
+    const namesMap = new Map<string, { nome: string; telefone: string | null }>();
     if (memberIds.size === 0) return namesMap;
     let query = supabaseInstance.from('membros').select('id, nome, telefone').in('id', Array.from(memberIds));
     if (celulaId !== null) { query = query.eq('celula_id', celulaId); }
@@ -71,19 +79,19 @@ async function getMemberNamesMap(memberIds: Set<string>, celulaId: string | null
     if (membersError) { 
         console.error("Erro ao buscar nomes e telefones de membros (getMemberNamesMap):", membersError); 
     } else { 
-        membersData?.forEach((m: { id: string; nome: string; telefone: string | null }) => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone })); 
+        membersData?.forEach((m: MemberData) => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone })); 
     }
     return namesMap;
 }
 
 async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any): Promise<Map<string, string>> {
-    let namesMap = new Map<string, string>();
+    const namesMap = new Map<string, string>();
     if (celulaIds.size === 0) return namesMap;
     const { data, error } = await supabaseInstance.from('celulas').select('id, nome').in('id', Array.from(celulaIds));
     if (error) { 
         console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error); 
     } else { 
-        data?.forEach((c: { id: string; nome: string; }) => namesMap.set(c.id, c.nome)); 
+        data?.forEach((c: CelulaData) => namesMap.set(c.id, c.nome)); 
     }
     return namesMap;
 }
@@ -153,7 +161,7 @@ export async function getRecentesMembros(limit: number = 5, celulaIdFilter: stri
     const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
     if (error) { throw new Error(`Falha ao carregar membros recentes: ${error.message}`); }
     const membros = data || []; if (membros.length === 0) return [];
-    const celulaIds = new Set(membros.map((m: { celula_id: string | null }) => m.celula_id).filter(Boolean) as string[]);
+    const celulaIds = new Set(membros.map((m: ProfileData) => m.celula_id).filter(Boolean) as string[]);
     const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
     return membros.map((m: any) => ({ id: m.id, nome: m.nome, data_ingresso: m.data_ingresso, celula_nome: celulasNamesMap.get(m.celula_id) || null, data_nascimento: m.data_nascimento, }));
 }
@@ -167,7 +175,7 @@ export async function getRecentesVisitantes(limit: number = 5, celulaIdFilter: s
     const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
     if (error) { throw new Error(`Falha ao carregar visitantes recentes: ${error.message}`); }
     const visitantes = data || []; if (visitantes.length === 0) return [];
-    const celulaIds = new Set(visitantes.map((v: { celula_id: string | null }) => v.celula_id).filter(Boolean) as string[]);
+    const celulaIds = new Set(visitantes.map((v: ProfileData) => v.celula_id).filter(Boolean) as string[]);
     const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
     return visitantes.map((v: any) => ({ id: v.id, nome: v.nome, data_primeira_visita: v.data_primeira_visita, celula_nome: celulasNamesMap.get(v.celula_id) || null, }));
 }
@@ -183,7 +191,7 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
     const { data, error } = await query.order('data_reuniao', { ascending: false }).limit(limit);
     if (error) { throw new Error(`Falha ao carregar últimas reuniões: ${error.message}`); }
     if (!data || data.length === 0) { return []; }
-    const celulaIds = new Set(data.map((item: { celula_id: string }) => item.celula_id).filter(Boolean) as string[]);
+    const celulaIds = new Set(data.map((item: ProfileData) => item.celula_id).filter(Boolean) as string[]);
     const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
     const processedData: ReuniaoComNomes[] = [];
     for (const item of data) {
@@ -208,7 +216,7 @@ export async function getFaltososAlert(celulaIdFilter: string | null = null, min
         const { data: lastMeetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', targetCelulaId).order('data_reuniao', { ascending: false }).limit(numLastMeetings);
         if (meetingsError) throw meetingsError;
         if (!lastMeetings || lastMeetings.length === 0) { return { count: 0, members: [], startDate: '', endDate: '', totalMeetingsPeriod: 0 }; }
-        const reuniaoIds = lastMeetings.map((m: { id: string }) => m.id);
+        const reuniaoIds = lastMeetings.map((m: ReuniaoSimple) => m.id);
         const startDate = lastMeetings[lastMeetings.length - 1].data_reuniao;
         const endDate = lastMeetings[0].data_reuniao;
         const totalMeetingsPeriod = lastMeetings.length;
@@ -297,15 +305,15 @@ export async function getAveragePresenceRate(celulaIdFilter: string | null = nul
         const { data: meetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', targetCelulaId).gte('data_reuniao', startOfPeriodISO).order('data_reuniao', { ascending: true });
         if (meetingsError) throw meetingsError;
         if (!meetings || meetings.length === 0) { return { labels: [], data: [] }; }
-        const reunionsMap = new Map(meetings.map((m: { id: string; data_reuniao: string }) => [m.id, m.data_reuniao]));
-        const reunionIds = meetings.map((m: { id: string }) => m.id);
+        const reunionsMap = new Map(meetings.map((m: ReuniaoDate) => [m.id, m.data_reuniao]));
+        const reunionIds = meetings.map((m: ReuniaoSimple) => m.id);
         const { count: totalMembersInCell, error: membersCountError } = await supabase.from('membros').select('id', { count: 'exact', head: true }).eq('celula_id', targetCelulaId);
         if (membersCountError) throw membersCountError;
         const totalMembers = totalMembersInCell || 0;
         if (totalMembers === 0) { const labels = eachWeekOfInterval({ start: startOfPeriod, end: today }, { locale: ptBR }).map((weekStart) => format(weekStart, 'dd/MM', { locale: ptBR })); return { labels, data: labels.map(() => 0) }; }
-        const { data: presences, error: presencesError } = await supabase.from('presencas_membros').select('reuniao_id, membro_id, presente').in('reuniao_id', reunionIds).eq('presente', true);
+        const { data: presences, error: presencesError } = await supabase.from('presencas_membros').select('reuniao_id').in('reuniao_id', reunionIds).eq('presente', true);
         if (presencesError) throw presencesError;
-        const presencesPerReunion = (presences || []).reduce((acc, p: { reuniao_id: string }) => { acc.set(p.reuniao_id, (acc.get(p.reuniao_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const presencesPerReunion = (presences || []).reduce((acc: Map<string, number>, p: PresenceData) => { acc.set(p.reuniao_id, (acc.get(p.reuniao_id) || 0) + 1); return acc; }, new Map<string, number>());
         const weeks = eachWeekOfInterval({ start: startOfPeriod, end: today }, { locale: ptBR });
         const labels: string[] = []; const data: number[] = [];
         for (const weekStart of weeks) {
@@ -331,10 +339,10 @@ export async function getCelulasSummary(): Promise<CelulasSummary> {
         if (totalCelulasError) throw totalCelulasError;
         const { data: celulasComLideresRaw, error: lideresError } = await supabase.from('profiles').select('celula_id').eq('role', 'líder').not('celula_id', 'is', null);
         if (lideresError) throw lideresError;
-        const celulaIdsComLideres = new Set((celulasComLideresRaw || []).map((p: { celula_id: string }) => p.celula_id));
+        const celulaIdsComLideres = new Set((celulasComLideresRaw || []).map((p: ProfileData) => p.celula_id));
         const { data: allCelulas, error: allCelulasError } = await supabase.from('celulas').select('id');
         if (allCelulasError) throw allCelulasError;
-        const celulasWithoutLeaders = (allCelulas || []).filter((celula: { id: string }) => !celulaIdsComLideres.has(celula.id)).length;
+        const celulasWithoutLeaders = (allCelulas || []).filter((celula: ReuniaoSimple) => !celulaIdsComLideres.has(celula.id)).length;
         return { totalCelulas: totalCelulas || 0, celulasWithoutLeaders: celulasWithoutLeaders, };
     } catch (e: any) { throw new Error(`Falha ao obter resumo de células: ${e.message}`); }
 }
@@ -350,7 +358,7 @@ export async function getTopBottomPresence(numMeetings: number = 5, limit: numbe
         for (const celula of celulasList) {
             const { data: lastMeetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', celula.id).order('data_reuniao', { ascending: false }).limit(numMeetings);
             if (meetingsError) console.warn(`Erro ao buscar reuniões para célula ${celula.nome}: ${meetingsError.message}`);
-            const relevantReunionIds = (lastMeetings || []).map((m: { id: string }) => m.id);
+            const relevantReunionIds = (lastMeetings || []).map((m: ReuniaoSimple) => m.id);
             const totalMeetingsConsidered = relevantReunionIds.length;
             if (totalMeetingsConsidered === 0) { presenceData.push({ celula_id: celula.id, celula_nome: celula.nome, avg_presence: 0 }); continue; }
             const { count: totalMembersInCell, error: membersCountError } = await supabase.from('membros').select('id', { count: 'exact', head: true }).eq('celula_id', celula.id);
@@ -398,7 +406,7 @@ export async function getMembersByCelulaDistribution(): Promise<MembersByCelulaD
     try {
         const { data: allMembers, error } = await supabase.from('membros').select('celula_id');
         if (error) throw error;
-        const countsMap = (allMembers || []).reduce((acc, member: { celula_id: string | null }) => { if (member.celula_id) { acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1); } return acc; }, new Map<string, number>());
+        const countsMap = (allMembers || []).reduce((acc: Map<string, number>, member: ProfileData) => { if (member.celula_id) { acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1); } return acc; }, new Map<string, number>());
         const celulaIds = new Set(Array.from(countsMap.keys()).filter(Boolean) as string[]);
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const result: MembersByCelulaDistribution[] = [];
@@ -413,7 +421,7 @@ export async function getVisitorsByCelulaDistribution(): Promise<VisitorsByCelul
     try {
         const { data: allVisitors, error } = await supabase.from('visitantes').select('celula_id');
         if (error) throw error;
-        const countsMap = (allVisitors || []).reduce((acc, visitor: { celula_id: string | null }) => { if (visitor.celula_id) { acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1); } return acc; }, new Map<string, number>());
+        const countsMap = (allVisitors || []).reduce((acc: Map<string, number>, visitor: ProfileData) => { if (visitor.celula_id) { acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1); } return acc; }, new Map<string, number>());
         const celulaIds = new Set(Array.from(countsMap.keys()).filter(Boolean) as string[]);
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const result: VisitorsByCelulaDistribution[] = [];
@@ -458,7 +466,7 @@ export async function getVisitorsConversionAnalysis(): Promise<VisitorsConversio
         if (visitorIds.length === 0) return [];
         const { data: presencesCount, error: presencesError } = await supabase.from('presencas_visitantes').select('visitante_id').in('visitante_id', visitorIds).eq('presente', true);
         if (presencesError) throw presencesError;
-        const countMap = (presencesCount || []).reduce((acc, p: { visitante_id: string }) => { acc.set(p.visitante_id, (acc.get(p.visitante_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const countMap = (presencesCount || []).reduce((acc: Map<string, number>, p: { visitante_id: string }) => { acc.set(p.visitante_id, (acc.get(p.visitante_id) || 0) + 1); return acc; }, new Map<string, number>());
         const unconvertedHighPresenceVisitors = visitorsList.filter((v: { id: string }) => (countMap.get(v.id) || 0) >= 2);
         if (unconvertedHighPresenceVisitors.length === 0) return [];
         const analysisMap = new Map<string, VisitorsConversionAnalysis>();
@@ -507,7 +515,7 @@ export async function detectDuplicateVisitors(): Promise<DuplicateVisitorGroup[]
         const { data: allVisitors, error: visitorsError } = await supabase.from('visitantes').select('id, nome, telefone, celula_id');
         if (visitorsError) throw visitorsError;
         const visitorsList = allVisitors || [];
-        const celulaIds = new Set(visitorsList.map((v: { celula_id: string | null }) => v.celula_id).filter(Boolean) as string[]);
+        const celulaIds = new Set(visitorsList.map((v: ProfileData) => v.celula_id).filter(Boolean) as string[]);
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const groupsByName = new Map<string, any[]>(); 
         const groupsByPhone = new Map<string, any[]>();
