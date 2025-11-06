@@ -102,12 +102,12 @@ export async function listAllProfiles(): Promise<UserProfile[]> {
             if (celulasError) {
                 console.warn("listAllProfiles: Erro ao buscar nomes de células:", celulasError);
             } else {
-                celulas?.forEach(c => celulasNamesMap.set(c.id, c.nome));
+                celulas?.forEach((c: { id: string; nome: string }) => celulasNamesMap.set(c.id, c.nome));
             }
         }
 
 
-        const userProfiles: UserProfile[] = (profiles || []).map(p => ({
+        const userProfiles: UserProfile[] = (profiles || []).map((p: any) => ({
             id: p.id,
             email: p.email,
             role: p.role,
