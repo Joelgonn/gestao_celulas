@@ -1,4 +1,4 @@
-# python-service/formatters.py
+# src/app/api/python_pdf_generator/formatters.py
 from datetime import datetime
 
 def format_phone_number_for_pdf(number_str):
@@ -18,7 +18,13 @@ def format_date_for_pdf(date_str):
         dt_obj = datetime.strptime(date_str, "%Y-%m-%d")
         return dt_obj.strftime("%d/%m/%Y")
     except ValueError:
-        return date_str # Retorna a string original se o formato não for o esperado
+        # Se a string não estiver no formato esperado, tenta parsear como datetime com timezone
+        # e, se falhar, retorna a string original.
+        try:
+            dt_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00')) # Suporta ISO com 'Z'
+            return dt_obj.strftime("%d/%m/%Y")
+        except ValueError:
+            return date_str # Retorna a string original se nenhum formato for o esperado
 
 # --- INÍCIO DA REFATORAÇÃO 1.3 ---
 def format_nullable_data(data):

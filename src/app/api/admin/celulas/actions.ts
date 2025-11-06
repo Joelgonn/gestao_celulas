@@ -108,6 +108,8 @@ export async function createCelulaAdmin(name: string, liderPrincipal: string | n
             await createChaveAtivacaoAdmin(newCelula.id);
         } catch (keyError: any) {
             console.warn("Aviso: Célula criada, mas falha ao gerar chave de ativação:", keyError.message);
+            // Decide se quer lançar o erro aqui ou apenas registrar.
+            // Para este cenário, como a célula foi criada, apenas o aviso é suficiente.
         }
 
         revalidatePath('/admin/celulas');

@@ -117,7 +117,7 @@ export default function AdminCelulasPage() {
             setNewCelulaLider('');
             setNewCelulaEndereco('');
             await loadCelulas();
-            await loadChavesAtivacao();
+            await loadChavesAtivacao(); // Recarrega chaves após criar nova célula e chave
             addToast('Célula e chave de ativação criadas com sucesso!', 'success');
         } catch (err: any) {
             console.error("Erro ao criar célula (Admin):", err);
@@ -176,7 +176,7 @@ export default function AdminCelulasPage() {
         try {
             await deleteCelulaAdmin(celulaId);
             await loadCelulas();
-            await loadChavesAtivacao();
+            await loadChavesAtivacao(); // Recarrega chaves após excluir célula
             addToast(`Célula "${celulaName}" excluída com sucesso!`, 'success');
         } catch (err: any) {
             console.error("Erro ao excluir célula (Admin):", err);
@@ -195,7 +195,7 @@ export default function AdminCelulasPage() {
         setError(null);
         try {
             const newKey = await createChaveAtivacaoAdmin(celulaId);
-            await loadChavesAtivacao();
+            await loadChavesAtivacao(); // Recarrega chaves para mostrar a nova
             addToast(`Chave gerada para ${celulaName}: ${newKey.chave}`, 'success');
         } catch (err: any) {
             console.error("Erro ao gerar chave de ativação:", err);

@@ -63,6 +63,10 @@ export default function AdminPalavraSemanaPage() {
                 setTitulo('');
                 setDescricao('');
                 setDataSemana(getDefaultDateForWeek);
+                setSelectedFile(null); // Garante que o arquivo selecionado é limpo para um novo post
+                if (document.getElementById('file')) {
+                    (document.getElementById('file') as HTMLInputElement).value = '';
+                }
             }
         } catch (error: any) {
             console.error("Erro ao carregar a Palavra da Semana:", error);
@@ -79,8 +83,9 @@ export default function AdminPalavraSemanaPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            if (file.type !== 'application/pdf') {
-                addToast('Por favor, selecione um arquivo PDF.', 'error');
+            // Verifica o tipo do arquivo (apenas PDF ou PPT/PPTX)
+            if (!['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'].includes(file.type)) {
+                addToast('Por favor, selecione um arquivo PDF, PPT ou PPTX.', 'error');
                 e.target.value = ''; // Limpa o input
                 setSelectedFile(null);
                 return;
@@ -96,8 +101,6 @@ export default function AdminPalavraSemanaPage() {
         setSubmitting(true);
         setUploadProgress(0);
 
-        // --- INÍCIO DA REFATORAÇÃO ---
-
         if (!titulo.trim() || !dataSemana) {
             addToast('Por favor, preencha o título e a data da semana.', 'error');
             setSubmitting(false);
@@ -107,18 +110,19 @@ export default function AdminPalavraSemanaPage() {
         // Se for uma NOVA palavra (não existe `currentPalavra` para a data selecionada), um arquivo é obrigatório.
         // A lógica do servidor já lida com a verificação de `currentPalavra` pela data.
         if (!currentPalavra && !selectedFile) {
-            addToast('É necessário selecionar um arquivo PDF para uma nova Palavra da Semana.', 'error');
+            addToast('É necessário selecionar um arquivo PDF/PPT para uma nova Palavra da Semana.', 'error');
             setSubmitting(false);
             return;
         }
 
         // Verifica se há alguma alteração antes de submeter
+        // Se `currentPalavra` existe, verifica se os campos de texto mudaram OU se um novo arquivo foi selecionado.
         const noChanges = 
             currentPalavra &&
             currentPalavra.titulo === titulo.trim() &&
-            currentPalavra.descricao === (descricao || null) &&
+            currentPalavra.descricao === (descricao.trim() || null) && // Compara trim() e null
             currentPalavra.data_semana === dataSemana &&
-            !selectedFile;
+            !selectedFile; // Não tem novo arquivo selecionado
 
         if (noChanges) {
             addToast('Nenhuma alteração detectada para salvar.', 'info');
@@ -130,14 +134,12 @@ export default function AdminPalavraSemanaPage() {
         formData.append('titulo', titulo.trim());
         formData.append('descricao', descricao.trim());
         formData.append('data_semana', dataSemana);
-        if (selectedFile) {
+        if (selectedFile) { // Só adiciona o arquivo se um novo foi selecionado
             formData.append('file', selectedFile);
         }
         
-        // --- FIM DA REFATORAÇÃO ---
-
         try {
-            if (selectedFile) {
+            if (selectedFile) { // Se um arquivo foi selecionado, mostra o progresso.
                 const simulateProgress = setInterval(() => {
                     setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
                 }, 200);
@@ -149,11 +151,11 @@ export default function AdminPalavraSemanaPage() {
                 if (result.success) {
                     addToast(result.message, 'success');
                     setSelectedFile(null);
+                    // Limpa o input file manualmente após o upload
                     if (document.getElementById('file')) {
                         (document.getElementById('file') as HTMLInputElement).value = '';
                     }
-                    // Recarrega a Palavra da Semana após o sucesso
-                    await fetchCurrentPalavra();
+                    await fetchCurrentPalavra(); // Recarrega para mostrar a nova palavra
                 } else {
                     addToast(result.message, 'error');
                     setUploadProgress(0); // Reseta progresso no erro
@@ -163,7 +165,7 @@ export default function AdminPalavraSemanaPage() {
                 const result = await uploadPalavraDaSemana(formData);
                 if (result.success) {
                     addToast(result.message, 'success');
-                    await fetchCurrentPalavra();
+                    await fetchCurrentPalavra(); // Recarrega para mostrar a palavra atualizada
                 } else {
                     addToast(result.message, 'error');
                 }
@@ -174,7 +176,7 @@ export default function AdminPalavraSemanaPage() {
             addToast(`Erro inesperado: ${error.message}`, 'error');
         } finally {
             setSubmitting(false);
-            // O progresso é resetado dentro do try/catch para melhor feedback
+            // O progresso é resetado após um pequeno delay para feedback visual final
             setTimeout(() => setUploadProgress(0), 1000); 
         }
     };
@@ -194,6 +196,9 @@ export default function AdminPalavraSemanaPage() {
                 setDescricao('');
                 setDataSemana(getDefaultDateForWeek);
                 setSelectedFile(null);
+                 if (document.getElementById('file')) {
+                    (document.getElementById('file') as HTMLInputElement).value = '';
+                }
             } else {
                 addToast(result.message, 'error');
             }
@@ -295,12 +300,12 @@ export default function AdminPalavraSemanaPage() {
                         </div>
                         <div className="space-y-2">
                             <label htmlFor="file" className="block text-sm font-medium text-gray-700">
-                                Upload de Arquivo (PDF) {currentPalavra ? '(Opcional para atualização)' : <span className="text-red-500">*</span>}
+                                Upload de Arquivo (PDF, PPT, PPTX) {currentPalavra ? '(Opcional para atualização)' : <span className="text-red-500">*</span>}
                             </label>
                             <input
                                 type="file"
                                 id="file"
-                                accept=".pdf"
+                                accept=".pdf,.ppt,.pptx" // Aceita PDF e PPT/PPTX
                                 onChange={handleFileChange}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                                 disabled={submitting}
@@ -320,7 +325,7 @@ export default function AdminPalavraSemanaPage() {
                         <button
                             type="submit"
                             className="bg-gradient-to-r from-emerald-600 to-green-500 text-white py-3 px-6 rounded-xl hover:from-emerald-700 hover:to-green-600 transition-all duration-200 disabled:from-emerald-400 disabled:to-green-400 disabled:cursor-not-allowed w-full font-medium shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
-                            disabled={submitting || (!selectedFile && !currentPalavra)}
+                            disabled={submitting || (!selectedFile && !currentPalavra)} // Desabilita se não tiver arquivo para upload e não houver palavra atual para atualizar o texto
                         >
                             {submitting ? (
                                 <>

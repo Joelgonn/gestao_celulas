@@ -1,9 +1,8 @@
-// src/lib/auth_actions.ts
 'use server'; // Indica que este é um arquivo de Server Actions
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server'; // Clientes Supabase para SSR e Admin
 import { revalidatePath } from 'next/cache'; // Para invalidar cache quando dados mudam
-import { subDays } from 'date-fns'; // Para manipulação de datas, se necessário em futuras ações
+// import { subDays } from 'date-fns'; // Para manipulação de datas, se necessário em futuras ações
 
 // Interface para o retorno das Server Actions de autenticação
 interface ActivationResult {
@@ -16,7 +15,7 @@ interface ActivationResult {
 // ============================================================================
 
 export async function activateAccountWithKey(activationKey: string): Promise<ActivationResult> {
-    // Usa o cliente Supabase com contexto do usuário logado para operações que dependem de RLS
+    // Usa o cliente Supabase com contexto do usuário logado para operações que dependem de RLS (atualizar o próprio perfil)
     const supabaseUserClient = createServerClient(); 
     // Usa o cliente Supabase com Service Role Key para bypassar RLS (buscar/marcar chaves de ativação)
     const supabaseAdmin = createAdminClient(); 
@@ -35,7 +34,7 @@ export async function activateAccountWithKey(activationKey: string): Promise<Act
     }
 
     try {
-        // 2. Verifica a chave de ativação usando o cliente Admin (para bypassar RLS)
+        // 2. Verifica a chave de ativação usando o cliente Admin (para bypassar RLS e buscar a chave, mesmo que "usada")
         const { data: keyData, error: keyError } = await supabaseAdmin // Usando cliente Admin
             .from('chaves_ativacao')
             .select('chave, celula_id, usada') // Seleciona as colunas relevantes
@@ -68,10 +67,14 @@ export async function activateAccountWithKey(activationKey: string): Promise<Act
             return { success: false, message: `Falha ao vincular sua conta à célula: ${updateProfileError.message}` };
         }
 
-        // 4. Marca a chave de ativação como usada usando o cliente Admin
+        // 4. Marca a chave de ativação como usada usando o cliente Admin e registra o usuário e data
         const { error: markKeyUsedError } = await supabaseAdmin
             .from('chaves_ativacao')
-            .update({ usada: true }) // Define 'usada' como true
+            .update({ 
+                usada: true,
+                data_uso: new Date().toISOString(), // Registra a data de uso
+                usada_por_id: user.id // Registra quem usou a chave
+            }) 
             .eq('chave', keyData.chave); // Usa a chave para identificar o registro
 
         if (markKeyUsedError) {
@@ -85,6 +88,8 @@ export async function activateAccountWithKey(activationKey: string): Promise<Act
         revalidatePath('/', 'layout'); // Revalida o layout principal e as rotas pai
         revalidatePath('/dashboard'); // Revalida o dashboard, onde a nova role/celula_id pode ser usada
         revalidatePath('/activate-account'); // Revalida a própria página de ativação
+        revalidatePath('/relatorios'); // Revalida a página de relatórios (especificamente o de chaves de ativação)
+        revalidatePath('/admin/celulas'); // Revalida a lista de células admin para refletir status da chave
 
         // Retorna sucesso e uma mensagem amigável
         return { success: true, message: "Conta ativada com sucesso!" };

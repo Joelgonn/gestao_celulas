@@ -1,5 +1,9 @@
 // src/lib/types.ts
 
+// ============================================================================
+//                                INTERFACES GERAIS
+// ============================================================================
+
 export interface LastMeetingPresence {
   id: string;
   data_reuniao: string;
@@ -27,6 +31,7 @@ export interface VisitanteDashboard {
     celula_nome?: string | null;
 }
 
+// ReuniaoComNomes é usada em vários locais, incluindo dashboard e relatórios
 export interface ReuniaoComNomes {
     id: string;
     data_reuniao: string;
@@ -38,8 +43,8 @@ export interface ReuniaoComNomes {
     celula_id: string;
     celula_nome?: string | null;
     caminho_pdf: string | null;
-    num_presentes_membros: number; // ADICIONADO AQUI! (Já havíamos feito)
-    num_presentes_visitantes: number; // ADICIONADO AQUI! (Já havíamos feito)
+    num_presentes_membros: number;
+    num_presentes_visitantes: number;
 }
 
 export interface FaltososAlert {
@@ -126,10 +131,15 @@ export interface ActivityLogItem {
     celula_nome?: string | null;
 }
 
-// Interface para ChaveAtivacao (também deve ser movida para cá se for compartilhada)
+// --- Interfaces para CHAVES DE ATIVAÇÃO (Refatoração) ---
+// Usada em `src/app/api/admin/chaves-ativacao/actions.ts`
 export interface ChaveAtivacao {
     chave: string;
     celula_id: string;
     usada: boolean;
     created_at: string;
+    // Adicionado para relatório de chaves de ativação
+    data_uso?: string | null; 
+    usada_por_email?: string | null;
+    usada_por_id?: string | null;
 }

@@ -5,8 +5,15 @@ import { format, isSameMonth, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // ============================================================================
-//                                DEFINIÇÕES DE TIPOS
+//                                DEFINIÇÕES DE TIPOS (Importadas ou Locais)
 // ============================================================================
+
+// Tipos base importados de `src/lib/types.ts` ou definidos aqui se não forem compartilhados amplamente.
+// Para manter a modularidade e evitar dependências circulares com `src/lib/types.ts`
+// vamos definir os tipos específicos de relatório aqui, ou importar se for o caso.
+// Nota: Algumas interfaces como Membro, Visitante, ReuniaoComNomes podem ser importadas
+// se já estiverem em `src/lib/types.ts` e forem idênticas.
+// Para este arquivo, vou incluir as interfaces completas que são usadas aqui.
 
 export interface Membro {
   id: string;
@@ -27,8 +34,8 @@ export interface Visitante {
   telefone: string | null;
   data_primeira_visita: string;
   endereco: string | null;
-  data_ultimo_contato: string | null; // NOVO CAMPO
-  observacoes: string | null; // NOVO CAMPO
+  data_ultimo_contato: string | null;
+  observacoes: string | null;
   celula_nome?: string | null; 
 }
 
@@ -44,14 +51,6 @@ export interface Reuniao {
   created_at: string;
 }
 
-export interface ReuniaoComNomes extends Omit<Reuniao, 'ministrador_principal' | 'ministrador_secundario' | 'responsavel_kids'> {
-    ministrador_principal_nome: string | null;
-    ministrador_secundario_nome: string | null;
-    responsavel_kids_nome: string | null;
-    num_criancas: number;
-    celula_nome?: string | null; 
-}
-
 export interface MembroOption {
     id: string;
     nome: string;
@@ -64,6 +63,13 @@ export type ReuniaoOption = {
     ministrador_principal_nome: string | null;
 };
 
+export type CelulaOption = {
+    id: string;
+    nome: string;
+};
+
+
+// --- Interfaces de Dados de Relatório ---
 
 export interface ReportDataPresencaReuniao {
     reuniao_detalhes: {
@@ -195,11 +201,15 @@ export interface ReportDataChavesAtivacao {
 // ============================================================================
 //                          FUNÇÕES AUXILIARES DE SUPABASE (Server Actions)
 // ============================================================================
+
+// Esta função verifica a autorização do usuário e retorna o cliente Supabase apropriado.
+// Para administradores, usa `createAdminClient` para ignorar RLS, para líderes, usa `createServerClient` (com RLS).
+// Retorna também a role e o celulaId do usuário logado.
 async function checkUserAuthorizationReports(): Promise<{
-    supabase: any;
+    supabase: any; // Pode ser createServerClient ou createAdminClient
     role: 'admin' | 'líder' | null;
     celulaId: string | null;
-    adminSupabase?: any;
+    adminSupabase?: any; // Opcional, para admin ter acesso direto ao adminSupabase se precisar de operações cruas
 }> {
     const supabaseClient = createServerClient();
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
@@ -231,7 +241,7 @@ async function checkUserAuthorizationReports(): Promise<{
     }
 }
 
-
+// Busca nomes e telefones de membros
 async function getMemberNamesMapWithPhone(memberIds: Set<string>, celulaId: string | null, supabaseInstance: any): Promise<Map<string, { nome: string; telefone: string | null }>> {
     let namesMap = new Map<string, { nome: string; telefone: string | null }>();
 
@@ -256,6 +266,7 @@ async function getMemberNamesMapWithPhone(memberIds: Set<string>, celulaId: stri
     return namesMap;
 }
 
+// Busca nomes e telefones de visitantes
 async function getVisitorNamesMap(visitorIds: Set<string>, celulaId: string | null, supabaseInstance: any): Promise<Map<string, { nome: string; telefone: string | null }>> {
     let namesMap = new Map<string, { nome: string; telefone: string | null }>();
 
@@ -280,10 +291,13 @@ async function getVisitorNamesMap(visitorIds: Set<string>, celulaId: string | nu
     return namesMap;
 }
 
+// Busca nomes de células
 async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any, adminSupabase?: any): Promise<Map<string, string>> {
     let namesMap = new Map<string, string>();
     if (celulaIds.size === 0) return namesMap;
 
+    // Se adminSupabase estiver disponível, use-o para buscar nomes de células sem RLS
+    // Isso é útil em relatórios globais para admins
     const clientToUse = adminSupabase || supabaseInstance; 
 
     const { data, error } = await clientToUse
@@ -302,6 +316,7 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any,
 //                          FUNÇÕES DE DADOS PARA RELATÓRIOS (SERVER ACTIONS)
 // ============================================================================
 
+// Lista membros para os selects de filtro
 export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<MembroOption[]> {
     const { supabase, role, celulaId } = await checkUserAuthorizationReports();
 
@@ -319,7 +334,11 @@ export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<
         }
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
+        // Se admin e um filtro de célula é fornecido, usa-o
         query = query.eq('celula_id', celulaIdParaFiltrar);
+    } else if (role === 'admin' && !celulaIdParaFiltrar) {
+        // Se admin e nenhum filtro de célula, pega todos os membros
+        // Nenhuma condição adicional de celula_id
     }
     
     const { data, error } = await query.order('nome', { ascending: true });
@@ -331,6 +350,7 @@ export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<
     return data || [];
 }
 
+// Lista reuniões para os selects de filtro
 export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise<ReuniaoOption[]> {
     const { supabase, role, celulaId } = await checkUserAuthorizationReports();
 
@@ -354,7 +374,10 @@ export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
+    } else if (role === 'admin' && !celulaIdParaFiltrar) {
+        // Se admin e nenhum filtro, pega todas as reuniões
     }
+
 
     const { data, error } = await query.order('data_reuniao', { ascending: false });
 
@@ -371,7 +394,26 @@ export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise
     })) || [];
 }
 
+// Lista células para o filtro de admin (NOVO)
+export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
+    const { supabase, role } = await checkUserAuthorizationReports();
+    if (role !== 'admin') {
+        throw new Error("Acesso negado. Apenas administradores podem listar todas as células.");
+    }
+    
+    const { data, error } = await supabase
+        .from('celulas')
+        .select('id, nome')
+        .order('nome');
+  
+    if (error) {
+      throw new Error(`Falha ao carregar células para admin: ${error.message}`);
+    }
+    return data || [];
+  }
 
+
+// --- Relatório de Presença por Reunião ---
 export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataPresencaReuniao | null> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
@@ -381,6 +423,7 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
     }
 
     let targetCelulaIdForQuery: string | null = null;
+    const clientToUse = role === 'admin' ? adminSupabase : supabase; // Usa adminSupabase para admin para evitar RLS na verificação inicial
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -389,21 +432,25 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
         }
         targetCelulaIdForQuery = celulaId;
     } else { // Admin
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase
+        // Admin pode querer filtrar, mas a reunião já tem uma célula associada.
+        // Precisamos verificar se a reunião existe e qual sua célula, e se o filtro do admin se aplica.
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse
             .from('reunioes')
             .select('celula_id')
             .eq('id', reuniaoId)
             .single();
+
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) {
             console.warn("fetchReportDataPresencaReuniao: Reunião não encontrada ou inacessível para o admin. Erro:", reuniaoCheckError?.message);
             return null;
         }
         
+        // Se o admin forneceu um filtro de célula e ele não corresponde à célula da reunião, retorna nulo
         if (celulaIdParaFiltrar && celulaIdParaFiltrar !== reuniaoDataCheck.celula_id) {
              console.warn("fetchReportDataPresencaReuniao: Admin tentou filtrar por célula diferente da reunião selecionada.");
              return null;
         }
-        targetCelulaIdForQuery = reuniaoDataCheck.celula_id;
+        targetCelulaIdForQuery = reuniaoDataCheck.celula_id; // Define a célula da reunião como alvo
     }
 
     if (!targetCelulaIdForQuery) {
@@ -413,7 +460,7 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
 
     try {
         const [reuniaoDetailsResult, criancasResult] = await Promise.all([
-            supabase
+            clientToUse // Usa o cliente apropriado para buscar detalhes da reunião
                 .from('reunioes')
                 .select(`
                     id, data_reuniao, tema, caminho_pdf, created_at, celula_id,
@@ -422,9 +469,9 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
                     responsavel_kids:membros!responsavel_kids(nome, telefone)
                 `)
                 .eq('id', reuniaoId)
-                .eq('celula_id', targetCelulaIdForQuery)
+                .eq('celula_id', targetCelulaIdForQuery) // Garante que a reunião pertence à célula alvo
                 .single(),
-            supabase
+            clientToUse // Usa o cliente apropriado para buscar contagem de crianças
                 .from('criancas_reuniao')
                 .select('numero_criancas')
                 .eq('reuniao_id', reuniaoId)
@@ -449,10 +496,10 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
             visitantesPresentesRaw,
             celulasNamesMap
         ] = await Promise.all([
-            supabase.from('presencas_membros').select('membro_id, membros(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            supabase.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
-            supabase.from('presencas_visitantes').select('visitante_id, visitantes(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            getCelulasNamesMap(new Set([reuniaoData.celula_id]), supabase, adminSupabase)
+            clientToUse.from('presencas_membros').select('membro_id, membros(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
+            clientToUse.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
+            clientToUse.from('presencas_visitantes').select('visitante_id, visitantes(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
+            getCelulasNamesMap(new Set([reuniaoData.celula_id]), clientToUse, adminSupabase) // Passa adminSupabase aqui também
         ]);
 
         if (presentesMembrosRaw.error) throw presentesMembrosRaw.error;
@@ -494,7 +541,7 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
     }
 }
 
-
+// --- Relatório de Presença por Membro ---
 export async function fetchReportDataPresencaMembro(membroId: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataPresencaMembro | null> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
@@ -504,6 +551,7 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
     }
 
     let targetCelulaIdForQuery: string | null = null;
+    const clientToUse = role === 'admin' ? adminSupabase : supabase; // Usa adminSupabase para admin
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -512,7 +560,7 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
         }
         targetCelulaIdForQuery = celulaId;
     } else { // Admin
-        const { data: membroDataCheck, error: membroCheckError } = await supabase
+        const { data: membroDataCheck, error: membroCheckError } = await clientToUse
             .from('membros')
             .select('celula_id')
             .eq('id', membroId)
@@ -534,7 +582,7 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
     }
 
     try {
-        const { data: membroData, error: membroError } = await supabase
+        const { data: membroData, error: membroError } = await clientToUse
             .from('membros')
             .select('id, nome, telefone, data_ingresso, data_nascimento, endereco, celula_id')
             .eq('id', membroId)
@@ -547,13 +595,13 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
         }
         if (!membroData) return null;
 
-        const celulasNamesMap = await getCelulasNamesMap(new Set([membroData.celula_id]), supabase, adminSupabase);
+        const celulasNamesMap = await getCelulasNamesMap(new Set([membroData.celula_id]), clientToUse, adminSupabase);
         const celulaNome = celulasNamesMap.get(membroData.celula_id) || null;
         
-        const membroDataWithCelularName = { ...membroData, celula_nome: celulaNome } as any;
+        const membroDataWithCelularName = { ...membroData, celula_nome: celulaNome } as Membro & { celula_nome?: string | null };
 
 
-        const { data: allReunioesData, error: allReunioesError } = await supabase
+        const { data: allReunioesData, error: allReunioesError } = await clientToUse
             .from('reunioes')
             .select('id, data_reuniao, tema')
             .eq('celula_id', targetCelulaIdForQuery)
@@ -565,7 +613,7 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
         }
         const allReunioes = allReunioesData || [];
 
-        const { data: memberPresencesData, error: memberPresencesError } = await supabase
+        const { data: memberPresencesData, error: memberPresencesError } = await clientToUse
             .from('presencas_membros')
             .select('reuniao_id, presente')
             .eq('membro_id', membroId);
@@ -590,6 +638,7 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
     }
 }
 
+// --- Relatório de Membros Faltosos por Período ---
 export async function fetchReportDataFaltososPeriodo(startDate: string, endDate: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataFaltososPeriodo> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
@@ -599,6 +648,7 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
     }
 
     let targetCelulaIdForQuery: string | null = null;
+    const clientToUse = role === 'admin' ? adminSupabase : supabase; // Usa adminSupabase para admin
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -607,11 +657,11 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
         }
         targetCelulaIdForQuery = celulaId;
     } else { // Admin
-        targetCelulaIdForQuery = celulaIdParaFiltrar; 
+        targetCelulaIdForQuery = celulaIdParaFiltrar; // Admin pode escolher filtrar por célula ou não
     }
 
     try {
-        let reunioesQuery = supabase.from('reunioes').select('id, celula_id');
+        let reunioesQuery = clientToUse.from('reunioes').select('id, celula_id');
         if (targetCelulaIdForQuery) { 
             reunioesQuery = reunioesQuery.eq('celula_id', targetCelulaIdForQuery);
         }
@@ -624,6 +674,8 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
             console.error("fetchReportDataFaltososPeriodo: Erro ao buscar reuniões no período:", reunioesError);
             throw new Error(`Falha ao carregar reuniões do período: ${reunioesError.message}`);
         }
+        
+        // Agrupa as reuniões por celula_id para saber quais reuniões cada célula teve no período
         const reunioesPorCelula = (reunioesNoPeriodo || []).reduce((acc, r) => {
             if (!acc.has(r.celula_id)) acc.set(r.celula_id, []);
             acc.get(r.celula_id)!.push(r.id);
@@ -634,7 +686,7 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
             return { faltosos: [], start_date: startDate, end_date: endDate };
         }
 
-        let membersQuery = supabase.from('membros').select('id, nome, telefone, celula_id');
+        let membersQuery = clientToUse.from('membros').select('id, nome, telefone, celula_id');
         if (targetCelulaIdForQuery) { 
             membersQuery = membersQuery.eq('celula_id', targetCelulaIdForQuery);
         }
@@ -647,16 +699,16 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
         }
 
         const faltososList: MembroFaltoso[] = [];
-        const celulaIds = new Set((allMembers || []).map(m => m.celula_id));
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase, adminSupabase);
+        const celulaIds = new Set((allMembers || []).map(m => m.celula_id)); // Coleta todos os IDs de célula dos membros
+        const celulasNamesMap = await getCelulasNamesMap(celulaIds, clientToUse, adminSupabase); // Busca os nomes das células
 
         for (const membro of allMembers || []) {
             const reunioesDaCelulaDoMembro = reunioesPorCelula.get(membro.celula_id) || [];
             const totalReunioesNoPeriodoParaMembro = reunioesDaCelulaDoMembro.length;
 
-            if (totalReunioesNoPeriodoParaMembro === 0) continue;
+            if (totalReunioesNoPeriodoParaMembro === 0) continue; // Se a célula não teve reuniões no período, o membro não é 'faltoso' nele.
 
-            const { count: totalPresencasMembro, error: presencasCountError } = await supabase
+            const { count: totalPresencasMembro, error: presencasCountError } = await clientToUse
                 .from('presencas_membros')
                 .select('id', { count: 'exact' })
                 .eq('membro_id', membro.id)
@@ -665,9 +717,11 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
 
             if (presencasCountError) {
                 console.error(`fetchReportDataFaltososPeriodo: Erro ao contar presenças para o membro ${membro.nome}:`, presencasCountError);
-                continue;
+                continue; // Pula este membro em caso de erro
             }
             
+            // Um membro é considerado faltoso se o número de presenças é menor que o total de reuniões no período.
+            // Para relatório, listamos todos que não foram 100% presentes
             if ((totalPresencasMembro ?? 0) < totalReunioesNoPeriodoParaMembro) {
                 faltososList.push({
                     id: membro.id,
@@ -680,7 +734,7 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
             }
         }
 
-        faltososList.sort((a, b) => a.nome.localeCompare(b.nome));
+        faltososList.sort((a, b) => a.nome.localeCompare(b.nome)); // Ordena por nome
         return { faltosos: faltososList, start_date: startDate, end_date: endDate };
     } catch (error: any) {
         console.error('Erro ao gerar relatório de faltosos:', error);
@@ -688,6 +742,7 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
     }
 }
 
+// --- Relatório de Visitantes por Período ---
 export async function fetchReportDataVisitantesPeriodo(startDate: string, endDate: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataVisitantesPeriodo> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
@@ -700,12 +755,14 @@ export async function fetchReportDataVisitantesPeriodo(startDate: string, endDat
             .from('visitantes')
             .select('id, nome, telefone, data_primeira_visita, celula_id');
     
+    const clientToUse = role === 'admin' ? adminSupabase : supabase; // Usa adminSupabase para admin
+
     if (role === 'líder') {
         if (!celulaId) return { visitantes: [], start_date: startDate, end_date: endDate };
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
-    }
+    } // Se admin sem filtro, pega todos os visitantes.
 
     try {
         const { data, error } = await query
@@ -722,7 +779,7 @@ export async function fetchReportDataVisitantesPeriodo(startDate: string, endDat
         if (visitantes.length === 0) return { visitantes: [], start_date: startDate, end_date: endDate };
 
         const celulaIds = new Set(visitantes.map(v => v.celula_id));
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase, adminSupabase);
+        const celulasNamesMap = await getCelulasNamesMap(celulaIds, clientToUse, adminSupabase); // Passa adminSupabase aqui também
 
         const visitantesWithCelularName = visitantes.map(v => ({
             ...v,
@@ -737,6 +794,7 @@ export async function fetchReportDataVisitantesPeriodo(startDate: string, endDat
     }
 }
 
+// --- Relatório de Aniversariantes por Mês ---
 export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFiltrar?: string | null): Promise<ReportDataAniversariantes | null> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
@@ -749,6 +807,8 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
     }
 
     let targetCelulaIdForQuery: string | null = null;
+    const clientToUse = role === 'admin' ? adminSupabase : supabase; // Usa adminSupabase para admin
+
     if (role === 'líder') {
         if (!celulaId) {
             console.warn("fetchReportDataAniversariantes: Líder sem ID de célula. Retornando null.");
@@ -756,7 +816,7 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
         }
         targetCelulaIdForQuery = celulaId;
     } else { // Admin
-        targetCelulaIdForQuery = celulaIdParaFiltrar;
+        targetCelulaIdForQuery = celulaIdParaFiltrar; // Admin pode escolher filtrar por célula ou não
     }
 
     if (!targetCelulaIdForQuery && role !== 'admin') { 
@@ -770,11 +830,12 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
         let membrosRaw: any[] | null = [];
         let visitantesRaw: any[] | null = [];
 
-        const rpcClient = adminSupabase || supabase; 
-
-        // --- BUSCA DE MEMBROS ---
+        // --- BUSCA DE MEMBROS (usando RPC para filtrar por mês de aniversário eficientemente com RLS) ---
         let membroIds: string[] = [];
-        const { data: membroIdsRaw, error: rpcMembrosError } = await rpcClient.rpc('get_members_birthday_ids_in_month', { p_month: mes, p_celula_id: targetCelulaIdForQuery });
+        const { data: membroIdsRaw, error: rpcMembrosError } = await clientToUse.rpc('get_members_birthday_ids_in_month', { 
+            p_month: mes, 
+            p_celula_id: targetCelulaIdForQuery // RPC aplica o filtro de célula
+        });
         if (rpcMembrosError) {
             console.error("RPC Error get_members_birthday_ids_in_month:", rpcMembrosError);
             throw rpcMembrosError;
@@ -782,11 +843,10 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
         membroIds = membroIdsRaw || [];
         
         if (membroIds.length > 0) {
-            const { data, error } = await supabase
+            const { data, error } = await clientToUse
                 .from('membros')
                 .select('id, nome, telefone, data_nascimento, celula_id')
-                .in('id', membroIds)
-                .order('nome', { ascending: true });
+                .in('id', membroIds); // Filtra pelos IDs retornados pela RPC
             if (error) {
                 console.error("Erro ao buscar detalhes dos membros aniversariantes:", error);
                 throw error;
@@ -795,9 +855,12 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
         }
 
 
-        // --- BUSCA DE VISITANTES ---
+        // --- BUSCA DE VISITANTES (usando RPC) ---
         let visitanteIds: string[] = [];
-        const { data: visitanteIdsRaw, error: rpcVisitantesError } = await rpcClient.rpc('get_visitors_birthday_ids_in_month', { p_month: mes, p_celula_id: targetCelulaIdForQuery });
+        const { data: visitanteIdsRaw, error: rpcVisitantesError } = await clientToUse.rpc('get_visitors_birthday_ids_in_month', { 
+            p_month: mes, 
+            p_celula_id: targetCelulaIdForQuery // RPC aplica o filtro de célula
+        });
         if (rpcVisitantesError) {
             console.error("RPC Error get_visitors_birthday_ids_in_month:", rpcVisitantesError);
             throw rpcVisitantesError;
@@ -805,11 +868,10 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
         visitanteIds = visitanteIdsRaw || [];
 
         if (visitanteIds.length > 0) {
-            const { data, error } = await supabase
+            const { data, error } = await clientToUse
                 .from('visitantes')
                 .select('id, nome, telefone, data_primeira_visita, data_nascimento, celula_id')
-                .in('id', visitanteIds)
-                .order('nome', { ascending: true });
+                .in('id', visitanteIds); // Filtra pelos IDs retornados pela RPC
             if (error) {
                 console.error("Erro ao buscar detalhes dos visitantes aniversariantes:", error);
                 throw error;
@@ -817,11 +879,12 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
             visitantesRaw = data;
         }
 
+        // Coleta todos os IDs de células envolvidas para buscar os nomes
         const allCelulaIds = new Set<string>();
         membrosRaw?.forEach(m => m.celula_id && allCelulaIds.add(m.celula_id));
         visitantesRaw?.forEach(v => v.celula_id && allCelulaIds.add(v.celula_id));
         
-        const celulasNamesMap = await getCelulasNamesMap(allCelulaIds, supabase, adminSupabase);
+        const celulasNamesMap = await getCelulasNamesMap(allCelulaIds, clientToUse, adminSupabase);
 
         const membrosAniversariantes: MembroAniversariante[] = (membrosRaw || []).map(m => ({
             id: m.id,
@@ -835,11 +898,12 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
             id: v.id,
             nome: v.nome,
             data_primeira_visita: v.data_primeira_visita,
-            data_nascimento: v.data_nascimento!,
+            data_nascimento: v.data_nascimento!, // Assume que data_nascimento existe para aniversariantes
             telefone: v.telefone,
             celula_nome: celulasNamesMap.get(v.celula_id) || null,
         }));
 
+        // Ordena por dia do mês
         membrosAniversariantes.sort((a, b) => {
             const dateA = parseISO(a.data_nascimento);
             const dateB = parseISO(b.data_nascimento);
@@ -866,9 +930,11 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
     }
 }
 
+// --- Relatório de Alocação de Líderes (NOVO) ---
 export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocacaoLideres | null> {
-    const { supabase, role, adminSupabase } = await checkUserAuthorizationReports();
+    const { role, adminSupabase } = await checkUserAuthorizationReports();
 
+    // Apenas administradores podem acessar este relatório global
     if (role !== 'admin' || !adminSupabase) {
         console.warn("fetchReportDataAlocacaoLideres: Apenas administradores podem acessar este relatório. Retornando null.");
         return null;
@@ -876,13 +942,13 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
 
     try {
         const [
-            allProfilesResult, 
-            allCelulasResult, 
-            authUsersResult
+            allProfilesResult, // Perfis customizados
+            allCelulasResult,  // Todas as células
+            authUsersResult    // Usuários de autenticação (para last_sign_in_at)
         ] = await Promise.all([
-            adminSupabase.from('profiles').select('id, email, role, celula_id, created_at'),
+            adminSupabase.from('profiles').select('id, email, role, celula_id, created_at, nome_completo'),
             adminSupabase.from('celulas').select('id, nome, lider_principal'),
-            adminSupabase.auth.admin.listUsers() // Para last_sign_in_at
+            adminSupabase.auth.admin.listUsers() // Para obter `last_sign_in_at`
         ]);
 
         if (allProfilesResult.error) throw allProfilesResult.error;
@@ -890,14 +956,15 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
 
         if (allCelulasResult.error) throw allCelulasResult.error;
         const celulas = allCelulasResult.data || [];
-        const celulasMap = new Map(celulas.map(c => [c.id, c]));
         const celulasNamesMap = new Map(celulas.map(c => [c.id, c.nome]));
 
+        // Mapeia last_sign_in_at dos usuários de autenticação
         const authUsersMap = new Map((authUsersResult.data?.users || []).map(u => [u.id, u.last_sign_in_at]));
 
         const lideresAlocados: LiderAlocacaoItem[] = [];
         const lideresNaoAlocados: LiderAlocacaoItem[] = [];
         
+        // Mantém um registro dos IDs das células que têm um líder atribuído em um perfil
         const celulasComLiderAtribuidoEmPerfil = new Set<string>();
 
         const totalPerfisLider = profiles.filter(p => p.role === 'líder' || p.role === 'admin').length;
@@ -907,7 +974,7 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
             if (profile.role === 'líder' || profile.role === 'admin') {
                 const liderItem: LiderAlocacaoItem = {
                     id: profile.id,
-                    email: profile.email || 'N/A',
+                    email: profile.email || profile.nome_completo || 'N/A', // Usa nome_completo se email não disponível
                     role: profile.role,
                     celula_id: profile.celula_id,
                     celula_nome: profile.celula_id ? celulasNamesMap.get(profile.celula_id) || null : null,
@@ -924,6 +991,7 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
             }
         }
 
+        // Encontra células que não têm nenhum perfil de líder associado
         const celulasSemLiderAtribuido: CelulaSemLiderItem[] = celulas
             .filter(celula => !celulasComLiderAtribuidoEmPerfil.has(celula.id))
             .map(celula => ({
@@ -932,7 +1000,8 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
                 lider_principal_cadastrado_na_celula: celula.lider_principal || null,
             }));
         
-        lideresAlocados.sort((a,b) => (a.celula_nome || '').localeCompare(b.celula_nome || ''));
+        // Ordena as listas para apresentação
+        lideresAlocados.sort((a,b) => (a.celula_nome || '').localeCompare(b.celula_nome || 'N/A') || a.email.localeCompare(b.email));
         lideresNaoAlocados.sort((a,b) => a.email.localeCompare(b.email));
         celulasSemLiderAtribuido.sort((a,b) => a.nome.localeCompare(b.nome));
 
@@ -950,7 +1019,7 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
     }
 }
 
-// --- NOVO: Server Action para buscar dados do relatório de Chaves de Ativação ---
+// --- Relatório de Chaves de Ativação (NOVO) ---
 export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesAtivacao | null> {
     const { role, adminSupabase } = await checkUserAuthorizationReports();
 
@@ -960,15 +1029,17 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
     }
 
     try {
-        // Fetch all activation keys
+        // Busca todas as chaves de ativação
         const { data: chavesData, error: chavesError } = await adminSupabase
             .from('chaves_ativacao')
             .select(`
                 chave,
                 celula_id,
                 usada,
+                created_at,
                 data_uso,
-                usada_por_id
+                usada_por_id,
+                profiles(email) // Faz um join para buscar o email do usuário que usou a chave
             `);
 
         if (chavesError) throw chavesError;
@@ -976,21 +1047,9 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
 
         const total_chaves = allChaves.length;
 
+        // Coleta IDs de células para buscar os nomes
         const celulaIds = new Set(allChaves.map(c => c.celula_id));
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, adminSupabase);
-
-        const usadaPorIds = new Set(allChaves.filter(c => c.usada_por_id).map(c => c.usada_por_id));
-        let profilesEmailsMap = new Map<string, string>();
-
-        if (usadaPorIds.size > 0) {
-            const { data: profilesData, error: profilesError } = await adminSupabase
-                .from('profiles')
-                .select('id, email')
-                .in('id', Array.from(usadaPorIds));
-
-            if (profilesError) console.warn("fetchReportDataChavesAtivacao: Erro ao buscar emails dos usuários que usaram chaves:", profilesError.message);
-            profilesData?.forEach(p => profilesEmailsMap.set(p.id, p.email || 'N/A'));
-        }
 
         const chavesAtivas: ChaveAtivacaoItem[] = [];
         const chavesUsadas: ChaveAtivacaoItem[] = [];
@@ -1001,10 +1060,9 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
                 celula_id: chave.celula_id,
                 celula_nome: celulasNamesMap.get(chave.celula_id) || 'N/A',
                 usada: chave.usada,
-                // Garantir que data_uso seja uma string ou null
                 data_uso: chave.data_uso ? new Date(chave.data_uso).toISOString().split('T')[0] : null,
                 usada_por_id: chave.usada_por_id,
-                usada_por_email: chave.usada_por_id ? profilesEmailsMap.get(chave.usada_por_id) || null : null,
+                usada_por_email: chave.profiles?.email || null, // Email vindo do join
             };
 
             if (chave.usada) {
@@ -1014,9 +1072,9 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
             }
         }
         
-        // Ordenar para melhor visualização
+        // Ordena as listas para melhor visualização
         chavesAtivas.sort((a,b) => a.celula_nome.localeCompare(b.celula_nome || 'N/A') || a.chave.localeCompare(b.chave));
-        chavesUsadas.sort((a,b) => (b.data_uso || '').localeCompare(a.data_uso || ''));
+        chavesUsadas.sort((a,b) => (b.data_uso || '').localeCompare(a.data_uso || '')); // Mais recentes primeiro
 
         return {
             chaves_ativas: chavesAtivas,
@@ -1029,19 +1087,20 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
         throw new Error(`Falha ao carregar relatório de chaves de ativação: ${error.message}`);
     }
 }
-// --- FIM NOVO ---
 
 
 // ============================================================================
 //                          FUNÇÕES DE EXPORTAÇÃO CSV (SERVER ACTIONS)
 // ============================================================================
 
+// Importa funções de formatação (assumindo que já existem ou serão criadas)
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 
+// Função auxiliar para escapar valores para CSV
 function escapeCsv(value: string | number | null | undefined): string {
     if (value === null || value === undefined) return '';
-    const strValue = String(value).replace(/"/g, '""'); // Escape double quotes
-    return `"${strValue}"`; // Enclose in double quotes
+    const strValue = String(value).replace(/"/g, '""'); // Escapa aspas duplas
+    return `"${strValue}"`; // Envolve em aspas duplas
 }
 
 export async function exportReportDataPresencaReuniaoCSV(reuniaoId: string, celulaIdParaFiltrar?: string | null): Promise<string> {

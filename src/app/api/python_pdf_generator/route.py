@@ -1,8 +1,11 @@
-# python-service/app.py
-from flask import Flask, request, send_file
-from io import BytesIO
+# src/app/api/python_pdf_generator/route.py
+
+# Importações necessárias para o ambiente Vercel Python e ReportLab
 import json
 import os
+from io import BytesIO
+from werkzeug.wrappers import Request, Response # Vercel runtime fornece Request e Response
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
@@ -10,16 +13,13 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-# Importe suas funções de formatação
-from formatters import format_phone_number_for_pdf, format_date_for_pdf, format_nullable_data
+# Importe suas funções de formatação do mesmo diretório.
+# O ponto '.' indica o diretório atual.
+from .formatters import format_phone_number_for_pdf, format_date_for_pdf, format_nullable_data
 
-app = Flask(__name__)
-
-# --- INÍCIO DA REFATORAÇÃO 1.1 ---
-# Configuração da fonte
-# O caminho para as fontes deve ser absoluto ou relativo ao diretório do script,
-# e funcionar em ambiente Vercel.
-# Em Vercel, os arquivos são empacotados, então usar `os.path.dirname(__file__)` é a forma mais robusta.
+# --- Configuração da Fonte (Refatoração 1.1) ---
+# O caminho para as fontes deve ser relativo ao diretório do script,
+# funcionando em ambiente Vercel (onde os arquivos são empacotados).
 FONT_FOLDER = os.path.join(os.path.dirname(__file__), 'fonts')
 DEFAULT_FONT_NORMAL = 'DejaVuSans'
 DEFAULT_FONT_BOLD = 'DejaVuSans-Bold'
@@ -29,19 +29,24 @@ try:
     from reportlab.pdfbase.ttfonts import TTFont
     
     # Registra a fonte DejaVu Sans (normal e bold)
+    # Garante que os arquivos .ttf estão na pasta 'fonts' dentro do mesmo diretório
     pdfmetrics.registerFont(TTFont(DEFAULT_FONT_NORMAL, os.path.join(FONT_FOLDER, 'DejaVuSans.ttf')))
     pdfmetrics.registerFont(TTFont(DEFAULT_FONT_BOLD, os.path.join(FONT_FOLDER, 'DejaVuSans-Bold.ttf')))
     
     # Mapeamento para que ReportLab use suas fontes para estilos "normal" e "bold"
     from reportlab.lib.fonts import addMapping
-    addMapping(DEFAULT_FONT_NORMAL, 0, 0, DEFAULT_FONT_NORMAL) # Normal (peso 0, itálico 0)
-    addMapping(DEFAULT_FONT_NORMAL, 1, 0, DEFAULT_FONT_BOLD) # Bold (peso 1, itálico 0)
+    addMapping('Helvetica', 0, 0, DEFAULT_FONT_NORMAL) # Mapeia Helvetica padrão para DejaVu Sans normal
+    addMapping('Helvetica', 1, 0, DEFAULT_FONT_BOLD)   # Mapeia Helvetica Bold para DejaVu Sans bold
+    # Também mapear os nomes diretos para segurança
+    addMapping(DEFAULT_FONT_NORMAL, 0, 0, DEFAULT_FONT_NORMAL)
+    addMapping(DEFAULT_FONT_NORMAL, 1, 0, DEFAULT_FONT_BOLD)
     
 except Exception as e:
     print(f"AVISO: Não foi possível registrar as fontes personalizadas. Usando Helvetica. Erro: {e}")
     DEFAULT_FONT_NORMAL = 'Helvetica'
     DEFAULT_FONT_BOLD = 'Helvetica-Bold'
-# --- FIM DA REFATORAÇÃO 1.1 ---
+# --- Fim da Configuração da Fonte ---
+
 
 class PDFGenerator:
     def __init__(self, buffer_obj):
@@ -49,12 +54,19 @@ class PDFGenerator:
         self.doc = SimpleDocTemplate(buffer_obj, pagesize=A4,
                                      rightMargin=2 * cm, leftMargin=2 * cm,
                                      topMargin=2 * cm, bottomMargin=2 * cm)
-        self.styles = getSampleStyleSheet()
         self.story = []
+        self.styles = getSampleStyleSheet()
 
-        # Configuração dos Estilos Personalizados
-        # --- INÍCIO DA REFATORAÇÃO 1.2: Aplicar as fontes padrão configuradas ---
-        self.styles['Title'].fontName = DEFAULT_FONT_BOLD # Título em negrito
+        # Configuração dos Estilos Personalizados (Refatoração 1.2)
+        # Aplica as fontes padrão configuradas e outros ajustes
+        
+        # Garante que os estilos básicos herdam a nova fonte padrão
+        self.styles['Normal'].fontName = DEFAULT_FONT_NORMAL
+        self.styles['Italic'].fontName = DEFAULT_FONT_NORMAL
+        self.styles['Bold'].fontName = DEFAULT_FONT_BOLD
+        self.styles['Code'].fontName = DEFAULT_FONT_NORMAL
+
+        self.styles['Title'].fontName = DEFAULT_FONT_BOLD
         self.styles['Title'].fontSize = 18
         self.styles['Title'].leading = 22
         self.styles['Title'].alignment = TA_CENTER
@@ -63,7 +75,7 @@ class PDFGenerator:
 
         self.styles.add(ParagraphStyle(name='Celula_SectionHeading',
                                        parent=self.styles['Normal'],
-                                       fontName=DEFAULT_FONT_BOLD, # Seções em negrito
+                                       fontName=DEFAULT_FONT_BOLD,
                                        fontSize=14,
                                        leading=18,
                                        spaceAfter=10,
@@ -71,7 +83,7 @@ class PDFGenerator:
         
         self.styles.add(ParagraphStyle(name='Celula_SubSectionHeading',
                                        parent=self.styles['Normal'],
-                                       fontName=DEFAULT_FONT_BOLD, # Subseções em negrito
+                                       fontName=DEFAULT_FONT_BOLD,
                                        fontSize=12,
                                        leading=15,
                                        spaceAfter=7,
@@ -79,7 +91,7 @@ class PDFGenerator:
 
         self.styles.add(ParagraphStyle(name='Celula_NormalParagraph',
                                        parent=self.styles['Normal'],
-                                       fontName=DEFAULT_FONT_NORMAL, # Parágrafos com fonte normal
+                                       fontName=DEFAULT_FONT_NORMAL,
                                        fontSize=10,
                                        leading=12,
                                        alignment=TA_LEFT,
@@ -87,27 +99,34 @@ class PDFGenerator:
 
         self.styles.add(ParagraphStyle(name='Celula_SmallItalicText',
                                        parent=self.styles['Normal'],
-                                       fontName=DEFAULT_FONT_NORMAL, # Texto pequeno em itálico com fonte normal
+                                       fontName=DEFAULT_FONT_NORMAL,
                                        fontSize=9,
                                        leading=11,
                                        textColor=colors.HexColor('#666666')))
 
         # Estilos para tabela
-        self.table_header_style = self.styles['Normal'].clone('table_header_style', fontName=DEFAULT_FONT_BOLD, fontSize=10, alignment=TA_CENTER)
-        self.table_body_style = self.styles['Normal'].clone('table_body_style', fontName=DEFAULT_FONT_NORMAL, fontSize=9, alignment=TA_LEFT)
-        # --- FIM DA REFATORAÇÃO 1.2 ---
+        self.table_header_style = self.styles['Normal'].clone('table_header_style', 
+                                                              fontName=DEFAULT_FONT_BOLD, 
+                                                              fontSize=10, 
+                                                              alignment=TA_CENTER,
+                                                              textColor=colors.whitesmoke)
+        self.table_body_style = self.styles['Normal'].clone('table_body_style', 
+                                                            fontName=DEFAULT_FONT_NORMAL, 
+                                                            fontSize=9, 
+                                                            alignment=TA_LEFT,
+                                                            textColor=colors.black)
 
 
     def add_title(self, text):
-        self.story.append(Paragraph(f"<b>{text}</b>", self.styles['Title']))
+        self.story.append(Paragraph(text, self.styles['Title']))
         self.story.append(Spacer(1, 0.5 * cm))
 
     def add_section_heading(self, text):
-        self.story.append(Paragraph(f"<b>{text}</b>", self.styles['Celula_SectionHeading']))
+        self.story.append(Paragraph(text, self.styles['Celula_SectionHeading']))
         self.story.append(Spacer(1, 0.2 * cm))
 
     def add_subsection_heading(self, text):
-        self.story.append(Paragraph(f"<b>{text}</b>", self.styles['Celula_SubSectionHeading']))
+        self.story.append(Paragraph(text, self.styles['Celula_SubSectionHeading']))
         self.story.append(Spacer(1, 0.1 * cm))
 
     def add_paragraph(self, text):
@@ -139,22 +158,23 @@ class PDFGenerator:
             if total_given_width != page_width and total_given_width > 0:
                 col_widths = [cw * (page_width / total_given_width) for cw in col_widths]
             if len(col_widths) < num_cols:
-                 col_widths.extend([page_width / num_cols] * (num_cols - len(col_widths)))
+                 # Adiciona larguras para colunas faltantes, distribuindo o restante
+                 remaining_width = page_width - sum(col_widths)
+                 if remaining_width < 0: remaining_width = 0 # Evita larguras negativas
+                 num_missing_cols = num_cols - len(col_widths)
+                 col_widths.extend([remaining_width / num_missing_cols] * num_missing_cols)
             elif len(col_widths) > num_cols:
                  col_widths = col_widths[:num_cols]
 
 
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a627a')), # Azul escuro para o cabeçalho
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'), # Alinha todo o texto da tabela ao centro por padrão
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('LEFTPADDING', (0, 0), (-1, -1), 5),
             ('RIGHTPADDING', (0, 0), (-1, -1), 5),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
 
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
             ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#999999')),
@@ -167,8 +187,9 @@ class PDFGenerator:
             else:
                 table_style.add('BACKGROUND', (0, i), (-1, i), colors.whitesmoke)
         
-        # Ajusta alinhamento do corpo para a esquerda (após o 'CENTER' geral)
-        table_style.add('ALIGN', (0, 1), (-1, -1), 'LEFT') 
+        # Ajusta alinhamento do corpo para a esquerda, se não foi definido pelo style do Paragraph
+        # Esta linha pode ser removida se o 'table_body_style' já for suficiente
+        table_style.add('ALIGN', (0, 1), (-1, -1), TA_LEFT) # Alinha o corpo à esquerda
 
         t = Table(table_data, colWidths=col_widths)
         t.setStyle(table_style)
@@ -183,31 +204,47 @@ class PDFGenerator:
             print(f"Erro ao gerar PDF: {e}")
             return False
 
-# Endpoint para gerar PDF
-@app.route('/generate-report-pdf', methods=['POST'])
-def generate_report_pdf_endpoint():
-    data = request.json
-    if not data:
-        return {"error": "No JSON data provided"}, 400
-
-    report_type = data.get('type')
-    report_title = data.get('title')
-    report_content = data.get('content')
-    filename = data.get('filename', 'relatorio.pdf')
-
-    # CORREÇÃO AQUI: O tipo de relatório 'faltosos_periodo' no frontend
-    # corresponde a 'faltosos' no backend Python (seu código original do app.py já fazia isso)
-    if report_type == "faltosos_periodo":
-        report_type = "faltosos"
-
-
-    if not report_type or not report_title or not report_content:
-        return {"error": "Missing report_type, title or content"}, 400
-
-    buffer = BytesIO()
-    pdf_gen = PDFGenerator(buffer)
-
+# --- Vercel Serverless Function POST Handler ---
+# Esta função é o ponto de entrada real para a Serverless Function Python no Vercel.
+# Ela recebe um objeto `request` do Werkzeug e deve retornar um objeto `Response` do Werkzeug.
+def POST(request: Request):
+    """
+    Vercel Serverless Function handler para requisições POST.
+    Recebe um objeto `Request` do Werkzeug e retorna um `Response` do Werkzeug.
+    """
     try:
+        # Tenta parsear o corpo da requisição como JSON
+        try:
+            json_data = request.get_json()
+        except Exception as e:
+            print(f"Erro ao parsear JSON da requisição: {e}")
+            return Response(json.dumps({"error": "Corpo da requisição inválido. Esperado JSON."}), 
+                            mimetype='application/json', 
+                            status=400)
+
+        if not json_data:
+            return Response(json.dumps({"error": "Nenhum dado JSON fornecido"}), 
+                            mimetype='application/json', 
+                            status=400)
+
+        report_type = json_data.get('type')
+        report_title = json_data.get('title')
+        report_content = json_data.get('content')
+        filename = json_data.get('filename', 'relatorio.pdf')
+
+        # CORREÇÃO AQUI: Garante que o tipo de relatório seja tratado consistentemente
+        if report_type == "faltosos_periodo":
+            report_type = "faltosos"
+
+        if not report_type or not report_title or not report_content:
+            return Response(json.dumps({"error": "Faltando report_type, title ou content"}), 
+                            mimetype='application/json', 
+                            status=400)
+
+        buffer = BytesIO()
+        pdf_gen = PDFGenerator(buffer)
+
+        # --- Lógica de Geração de PDF (baseada no seu código original) ---
         pdf_gen.add_title(report_title)
 
         if report_type == "presenca_reuniao":
@@ -271,7 +308,7 @@ def generate_report_pdf_endpoint():
             else:
                 pdf_gen.add_small_italic_text("Nenhum histórico de presença encontrado para este membro.")
 
-        elif report_type == "faltosos": # Corrigido para 'faltosos' conforme o frontend
+        elif report_type == "faltosos":
             faltosos = report_content["faltosos"]
             start_date = report_content["start_date"]
             end_date = report_content["end_date"]
@@ -370,7 +407,6 @@ def generate_report_pdf_endpoint():
             else:
                 pdf_gen.add_small_italic_text("Nenhuma célula sem líder atribuído encontrada.")
         
-        # --- INÍCIO NOVO: Tratamento para relatório de Chaves de Ativação ---
         elif report_type == "chaves_ativacao":
             chaves_ativas = report_content["chaves_ativas"]
             chaves_usadas = report_content["chaves_usadas"]
@@ -396,7 +432,6 @@ def generate_report_pdf_endpoint():
                 pdf_gen.add_table(data_usadas_pdf)
             else:
                 pdf_gen.add_small_italic_text("Nenhuma chave de ativação usada encontrada.")
-        # --- FIM NOVO ---
         
         else:
             pdf_gen.add_paragraph("Tipo de relatório não reconhecido.")
@@ -404,18 +439,14 @@ def generate_report_pdf_endpoint():
         pdf_gen.build_pdf()
         buffer.seek(0)
 
-        return send_file(
-            buffer,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
-        )
-    except Exception as e:
-        print(f"Erro no serviço Python: {e}")
-        return {"error": f"Erro interno do servidor Python: {str(e)}"}, 500
+        # Retorna o Response do Werkzeug com o PDF gerado
+        return Response(buffer.getvalue(), 
+                        mimetype='application/pdf', 
+                        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+                        status=200)
 
-if __name__ == '__main__':
-    # Obtém a porta do ambiente ou usa uma padrão
-    port = int(os.environ.get('PORT', 5000))
-    # Para desenvolvimento, use debug=True. Em produção, use um WSGI server como Gunicorn.
-    app.run(host='0.0.0.0', port=port, debug=True)
+    except Exception as e:
+        print(f"Erro no serviço Python (POST handler): {e}")
+        return Response(json.dumps({"error": f"Erro interno do servidor Python: {str(e)}"}), 
+                        mimetype='application/json', 
+                        status=500)

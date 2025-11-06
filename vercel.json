@@ -1,21 +1,17 @@
 {
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    },
-    {
-      "src": "python-service/app.py",
-      "use": "@vercel/python",
-      "config": {
-        "runtime": "python3.9"
-      }
+  "functions": {
+    "src/app/api/python_pdf_generator/route.py": {
+      "runtime": "python3.9", // Ou "python3.10", "python3.11", etc., conforme a versão Python que você usa e que seja suportada pelo ReportLab. Recomendo começar com 3.9 se não tiver certeza.
+      "memory": 1024,         // Memória em MB. 1024MB é um bom ponto de partida para ReportLab. Ajuste se houver OutOfMemory nos logs.
+      "maxDuration": 30       // Duração máxima em segundos. Ajuste se a geração de PDFs for muito demorada.
     }
-  ],
-  "routes": [
-    {
-      "src": "/api/python_pdf_generator",
-      "dest": "python-service/app.py"
-    }
+  },
+  "crons": [
+    // Se você não tiver tarefas agendadas (crons), pode deixar este array vazio.
+    // Exemplo:
+    // {
+    //   "path": "/api/minha-cron-function",
+    //   "schedule": "0 0 * * *"
+    // }
   ]
 }

@@ -1,11 +1,11 @@
-// src/app/api/admin/users/actions.ts
 'use server';
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { User } from '@supabase/supabase-js';
 
-import { CelulaOption } from '@/lib/data';
+// No longer needs explicit CelulaOption import if it's derived internally or used from data.ts
+// import { CelulaOption } from '@/lib/data';
 
 // ============================================================================
 //                                INTERFACES ESPECÍFICAS DE ADMIN/USERS
@@ -16,7 +16,7 @@ export interface UserProfile {
     email: string | null;
     role: 'admin' | 'líder' | null;
     celula_id: string | null;
-    celula_nome?: string | null;
+    celula_nome?: string | null; // Adicionado nome da célula
     created_at: string;
     last_sign_in_at: string | null;
 }
@@ -73,6 +73,7 @@ export async function listAllProfiles(): Promise<UserProfile[]> {
     }
 
     try {
+        // Busca os perfis customizados
         const { data: profiles, error: profilesError } = await supabaseAdmin
             .from('profiles')
             .select('id, email, role, celula_id, created_at')
@@ -83,14 +84,17 @@ export async function listAllProfiles(): Promise<UserProfile[]> {
             throw new Error(`Falha ao carregar perfis: ${profilesError.message}`);
         }
 
+        // Busca todos os usuários do sistema de autenticação para obter last_sign_in_at
         const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
 
         if (authUsersError) {
             console.error("listAllProfiles: Erro ao buscar usuários de auth.users:", authUsersError);
+            // Continua, mas com last_sign_in_at faltando ou null
         }
         
         const authUsersMap = new Map((authUsers?.users || []).map((u: User) => [u.id, u.last_sign_in_at]));
 
+        // Coleta todos os celula_id únicos dos perfis para buscar os nomes das células
         const celulaIds = new Set((profiles || []).map((p: { celula_id: string | null }) => p.celula_id).filter(Boolean) as string[]);
         
         const celulasNamesMap = new Map<string, string>();
@@ -107,6 +111,7 @@ export async function listAllProfiles(): Promise<UserProfile[]> {
         }
 
 
+        // Mapeia os dados para o formato UserProfile
         const userProfiles: UserProfile[] = (profiles || []).map((p: any) => ({
             id: p.id,
             email: p.email,
@@ -114,7 +119,7 @@ export async function listAllProfiles(): Promise<UserProfile[]> {
             celula_id: p.celula_id,
             celula_nome: p.celula_id ? celulasNamesMap.get(p.celula_id) : null,
             created_at: p.created_at,
-            last_sign_in_at: authUsersMap.get(p.id) || null,
+            last_sign_in_at: authUsersMap.get(p.id) || null, // Adiciona o last_sign_in_at
         }));
         
         revalidatePath('/admin/users');
@@ -133,9 +138,10 @@ export async function updateUserProfile(targetUserId: string, data: UpdateUserPr
         throw new Error("Não autorizado: Apenas administradores podem atualizar perfis.");
     }
 
+    // Previne que um admin tente alterar o próprio perfil por esta interface (segurança)
     const { data: { user } } = await supabaseAdmin.auth.getUser();
     if (user && user.id === targetUserId) {
-        throw new Error("Não é possível alterar seu próprio perfil de usuário por esta interface.");
+        throw new Error("Não é possível alterar seu próprio perfil de usuário por esta interface. Use a página 'Meu Perfil'.");
     }
 
     try {
@@ -151,8 +157,8 @@ export async function updateUserProfile(targetUserId: string, data: UpdateUserPr
             console.error("updateUserProfile: Erro ao atualizar perfil:", error);
             throw new Error(`Falha ao atualizar perfil: ${error.message}`);
         }
-        revalidatePath('/admin/users');
-        revalidatePath('/dashboard');
+        revalidatePath('/admin/users'); // Revalida a lista de usuários admin
+        revalidatePath('/dashboard'); // Revalida o dashboard, caso o perfil afetado seja o do usuário logado
     } catch (e: any) {
         console.error("Erro na Server Action updateUserProfile:", e.message);
         throw e;
@@ -172,7 +178,8 @@ export async function sendMagicLinkToUser(email: string): Promise<{ success: boo
 
     try {
         const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email.trim(), {
-            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+            // Redireciona para o dashboard após o login, onde a ativação da conta será verificada
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`, 
         });
 
         if (error) {
@@ -183,7 +190,7 @@ export async function sendMagicLinkToUser(email: string): Promise<{ success: boo
             throw new Error(`Falha ao enviar link mágico: ${error.message}`);
         }
 
-        revalidatePath('/admin/users');
+        revalidatePath('/admin/users'); // Revalida a lista de usuários admin
         
         return { 
             success: true, 
@@ -203,12 +210,14 @@ export async function deleteUserAndProfile(targetUserId: string): Promise<void> 
         throw new Error("Não autorizado: Apenas administradores podem excluir usuários.");
     }
 
+    // Previne que um admin tente deletar o próprio perfil (segurança)
     const { data: { user } } = await supabaseAdmin.auth.getUser();
     if (user && user.id === targetUserId) {
         throw new Error("Não é possível excluir seu próprio perfil de usuário por esta interface.");
     }
 
     try {
+        // Primeiro, exclui o perfil customizado da tabela 'profiles'
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .delete()
@@ -219,6 +228,7 @@ export async function deleteUserAndProfile(targetUserId: string): Promise<void> 
             throw new Error(`Falha ao excluir perfil customizado: ${profileError.message}`);
         }
 
+        // Em seguida, exclui o usuário do sistema de autenticação (auth.users)
         const { error: authUserError } = await supabaseAdmin.auth.admin.deleteUser(targetUserId);
 
         if (authUserError) {
@@ -226,7 +236,7 @@ export async function deleteUserAndProfile(targetUserId: string): Promise<void> 
             throw new Error(`Falha ao excluir usuário: ${authUserError.message}`);
         }
 
-        revalidatePath('/admin/users');
+        revalidatePath('/admin/users'); // Revalida a lista de usuários admin
     } catch (e: any) {
         console.error("Erro na Server Action deleteUserAndProfile:", e.message);
         throw e;
