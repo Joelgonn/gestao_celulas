@@ -124,7 +124,6 @@ export interface Profile {
     celula_nome?: string;
 }
 
-
 // ============================================================================
 //                          FUNÇÕES AUXILIARES
 // ============================================================================
@@ -529,4 +528,33 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null = null): 
     const headers = "nome,telefone,endereco,data_nascimento,data_ingresso,celula_nome";
     const rows = membros.map(m => `${m.nome},${m.telefone || ''},${m.endereco || ''},${m.data_nascimento || ''},${m.data_ingresso || ''},${m.celula_nome || ''}`);
     return [headers, ...rows].join('\n');
+}
+
+export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
+    const { supabase, role } = await checkUserAuthorization();
+    if (role !== 'admin') {
+        throw new Error("Acesso negado. Apenas administradores podem listar todas as células.");
+    }
+    
+    const { data, error } = await supabase
+        .from('celulas')
+        .select('id, nome')
+        .order('nome');
+
+    if (error) {
+        throw new Error(`Falha ao carregar células para admin: ${error.message}`);
+    }
+    return data || [];
+}
+
+export async function adicionarVisitante(visitanteData: any): Promise<void> {
+    const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
+    if (!isAuthorized || !celulaId) {
+        throw new Error("Não autorizado ou célula não definida.");
+    }
+    const { error } = await supabase.from('visitantes').insert({ ...visitanteData, celula_id: celulaId });
+    if (error) {
+        throw error;
+    }
+    revalidatePath('/visitantes');
 }
