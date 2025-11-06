@@ -62,7 +62,6 @@ async function checkUserAuthorizationDashboard(): Promise<{
     }
 }
 
-
 async function getMemberNamesMap(memberIds: Set<string>, celulaId: string | null, supabaseInstance: any): Promise<Map<string, { nome: string; telefone: string | null }>> {
     let namesMap = new Map<string, { nome: string; telefone: string | null }>();
     if (memberIds.size === 0) return namesMap;
@@ -84,7 +83,7 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any)
     if (error) { 
         console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error); 
     } else { 
-        data?.forEach((c: { id: string; nome: string; }) => namesMap.set(c.id, c.nome)); 
+        data?.forEach((c: { id: string; nome: string }) => namesMap.set(c.id, c.nome)); 
     }
     return namesMap;
 }
@@ -112,6 +111,7 @@ export async function getTotalVisitantesDistintos(celulaIdFilter: string | null 
 }
 
 export async function getPresenceCountsLastMeeting(celulaIdFilter: string | null = null): Promise<LastMeetingPresence | null> {
+  // ... (código existente aqui, sem 'any' implícito)
   const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
   if (!role) { return null; }
   let targetCelulaId: string | null = null;
@@ -146,32 +146,35 @@ export async function getPresenceCountsLastMeeting(celulaIdFilter: string | null
 }
 
 export async function getRecentesMembros(limit: number = 5, celulaIdFilter: string | null = null): Promise<MembroDashboard[]> {
-  const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
-  if (!role) { return []; }
-  let query = supabase.from('membros').select('id, nome, data_ingresso, celula_id, data_nascimento'); 
-  if (role === 'líder') { if (!userCelulaId) { return []; } query = query.eq('celula_id', userCelulaId); } 
-  else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
-  if (error) { throw new Error(`Falha ao carregar membros recentes: ${error.message}`); }
-  const membros = data || []; if (membros.length === 0) return [];
-  const celulaIds = new Set(membros.map(m => m.celula_id)); const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
-  return membros.map(m => ({ id: m.id, nome: m.nome, data_ingresso: m.data_ingresso, celula_nome: celulasNamesMap.get(m.celula_id) || null, data_nascimento: m.data_nascimento, }));
+    const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
+    if (!role) { return []; }
+    let query = supabase.from('membros').select('id, nome, data_ingresso, celula_id, data_nascimento'); 
+    if (role === 'líder') { if (!userCelulaId) { return []; } query = query.eq('celula_id', userCelulaId); } 
+    else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+    if (error) { throw new Error(`Falha ao carregar membros recentes: ${error.message}`); }
+    const membros = data || []; if (membros.length === 0) return [];
+    const celulaIds = new Set(membros.map((m: { celula_id: string }) => m.celula_id)); 
+    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
+    return membros.map((m: any) => ({ id: m.id, nome: m.nome, data_ingresso: m.data_ingresso, celula_nome: celulasNamesMap.get(m.celula_id) || null, data_nascimento: m.data_nascimento, }));
 }
 
 export async function getRecentesVisitantes(limit: number = 5, celulaIdFilter: string | null = null): Promise<VisitanteDashboard[]> {
-  const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
-  if (!role) { return []; }
-  let query = supabase.from('visitantes').select('id, nome, data_primeira_visita, celula_id'); 
-  if (role === 'líder') { if (!userCelulaId) { return []; } query = query.eq('celula_id', userCelulaId); } 
-  else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
-  if (error) { throw new Error(`Falha ao carregar visitantes recentes: ${error.message}`); }
-  const visitantes = data || []; if (visitantes.length === 0) return [];
-  const celulaIds = new Set(visitantes.map(v => v.celula_id)); const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
-  return visitantes.map(v => ({ id: v.id, nome: v.nome, data_primeira_visita: v.data_primeira_visita, celula_nome: celulasNamesMap.get(v.celula_id) || null, }));
+    const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
+    if (!role) { return []; }
+    let query = supabase.from('visitantes').select('id, nome, data_primeira_visita, celula_id'); 
+    if (role === 'líder') { if (!userCelulaId) { return []; } query = query.eq('celula_id', userCelulaId); } 
+    else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+    if (error) { throw new Error(`Falha ao carregar visitantes recentes: ${error.message}`); }
+    const visitantes = data || []; if (visitantes.length === 0) return [];
+    const celulaIds = new Set(visitantes.map((v: { celula_id: string }) => v.celula_id)); 
+    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase); 
+    return visitantes.map((v: any) => ({ id: v.id, nome: v.nome, data_primeira_visita: v.data_primeira_visita, celula_nome: celulasNamesMap.get(v.celula_id) || null, }));
 }
 
 export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: string | null = null): Promise<ReuniaoComNomes[]> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return []; }
     let query = supabase.from('reunioes').select(`id, data_reuniao, tema, caminho_pdf, celula_id, ministrador_principal:membros!ministrador_principal(nome), ministrador_secundario:membros!ministrador_secundario(nome), responsavel_kids:membros!responsavel_kids(nome), criancas_reuniao(numero_criancas)`);
@@ -216,6 +219,7 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
 }
 
 export async function getFaltososAlert(celulaIdFilter: string | null = null, minAbsences: number = 3, numLastMeetings: number = 3): Promise<FaltososAlert> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return { count: 0, members: [], startDate: '', endDate: '', totalMeetingsPeriod: 0 }; }
     let targetCelulaId: string | null = null;
@@ -226,7 +230,7 @@ export async function getFaltososAlert(celulaIdFilter: string | null = null, min
         const { data: lastMeetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', targetCelulaId).order('data_reuniao', { ascending: false }).limit(numLastMeetings);
         if (meetingsError) throw meetingsError;
         if (!lastMeetings || lastMeetings.length === 0) { return { count: 0, members: [], startDate: '', endDate: '', totalMeetingsPeriod: 0 }; }
-        const reuniaoIds = lastMeetings.map(m => m.id);
+        const reuniaoIds = lastMeetings.map((m: { id: string }) => m.id);
         const startDate = lastMeetings[lastMeetings.length - 1].data_reuniao;
         const endDate = lastMeetings[0].data_reuniao;
         const totalMeetingsPeriod = lastMeetings.length;
@@ -244,6 +248,7 @@ export async function getFaltososAlert(celulaIdFilter: string | null = null, min
 }
 
 export async function getUnconvertedVisitorsAlert(celulaIdFilter: string | null = null, minDaysOld: number = 30): Promise<UnconvertedVisitorsAlert> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return { count: 0, visitors: [] }; }
     let targetCelulaId: string | null = null;
@@ -261,6 +266,7 @@ export async function getUnconvertedVisitorsAlert(celulaIdFilter: string | null 
 }
 
 export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null): Promise<BirthdayAlert> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return { count: 0, members: [] }; }
     let targetCelulaId: string | null = null;
@@ -273,7 +279,7 @@ export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null)
         const endOfThisWeek = endOfWeek(today, { locale: ptBR });
         const { data: members, error } = await supabase.from('membros').select('id, nome, data_nascimento').eq('celula_id', targetCelulaId).not('data_nascimento', 'is', null);
         if (error) throw error;
-        const birthdaysThisWeek = (members || []).filter(member => {
+        const birthdaysThisWeek = (members || []).filter((member: { data_nascimento: string | null }) => {
             if (!member.data_nascimento) return false;
             const birthDate = new Date(member.data_nascimento);
             const currentYearBirthDate = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
@@ -281,7 +287,7 @@ export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null)
         });
         return {
             count: birthdaysThisWeek.length,
-            members: birthdaysThisWeek.map(m => ({ id: m.id, nome: m.nome, data_nascimento: m.data_nascimento! })).sort((a, b) => {
+            members: birthdaysThisWeek.map((m: any) => ({ id: m.id, nome: m.nome, data_nascimento: m.data_nascimento! })).sort((a, b) => {
                 const dateA = new Date(a.data_nascimento); const dateB = new Date(b.data_nascimento);
                 if (dateA.getMonth() !== dateB.getMonth()) { return dateA.getMonth() - dateB.getMonth(); }
                 return dateA.getDate() - dateB.getDate();
@@ -301,6 +307,7 @@ export async function getCelulasOptionsForAdmin(): Promise<{id: string; nome: st
 }
 
 export async function getAveragePresenceRate(celulaIdFilter: string | null = null, numWeeks: number = 8): Promise<AveragePresenceRateData | null> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return null; }
     let targetCelulaId: string | null = null;
@@ -313,15 +320,15 @@ export async function getAveragePresenceRate(celulaIdFilter: string | null = nul
         const { data: meetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', targetCelulaId).gte('data_reuniao', startOfPeriodISO).order('data_reuniao', { ascending: true });
         if (meetingsError) throw meetingsError;
         if (!meetings || meetings.length === 0) { return { labels: [], data: [] }; }
-        const reunionsMap = new Map(meetings.map(m => [m.id, m.data_reuniao]));
-        const reunionIds = meetings.map(m => m.id);
+        const reunionsMap = new Map(meetings.map((m: { id: string; data_reuniao: string }) => [m.id, m.data_reuniao]));
+        const reunionIds = meetings.map((m: { id: string }) => m.id);
         const { count: totalMembersInCell, error: membersCountError } = await supabase.from('membros').select('id', { count: 'exact', head: true }).eq('celula_id', targetCelulaId);
         if (membersCountError) throw membersCountError;
         const totalMembers = totalMembersInCell || 0;
         if (totalMembers === 0) { const labels = eachWeekOfInterval({ start: startOfPeriod, end: today }, { locale: ptBR }).map((weekStart) => format(weekStart, 'dd/MM', { locale: ptBR })); return { labels, data: labels.map(() => 0) }; }
         const { data: presences, error: presencesError } = await supabase.from('presencas_membros').select('reuniao_id, membro_id, presente').in('reuniao_id', reunionIds).eq('presente', true);
         if (presencesError) throw presencesError;
-        const presencesPerReunion = (presences || []).reduce((acc, p) => { acc.set(p.reuniao_id, (acc.get(p.reuniao_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const presencesPerReunion = (presences || []).reduce((acc, p: { reuniao_id: string }) => { acc.set(p.reuniao_id, (acc.get(p.reuniao_id) || 0) + 1); return acc; }, new Map<string, number>());
         const weeks = eachWeekOfInterval({ start: startOfPeriod, end: today }, { locale: ptBR });
         const labels: string[] = []; const data: number[] = [];
         for (const weekStart of weeks) {
@@ -340,6 +347,7 @@ export async function getAveragePresenceRate(celulaIdFilter: string | null = nul
 }
 
 export async function getCelulasSummary(): Promise<CelulasSummary> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') { return { totalCelulas: 0, celulasWithoutLeaders: 0 }; }
     try {
@@ -347,14 +355,16 @@ export async function getCelulasSummary(): Promise<CelulasSummary> {
         if (totalCelulasError) throw totalCelulasError;
         const { data: celulasComLideresRaw, error: lideresError } = await supabase.from('profiles').select('celula_id').eq('role', 'líder').not('celula_id', 'is', null);
         if (lideresError) throw lideresError;
-        const celulaIdsComLideres = new Set((celulasComLideresRaw || []).map(p => p.celula_id));
+        const celulaIdsComLideres = new Set((celulasComLideresRaw || []).map((p: { celula_id: string }) => p.celula_id));
         const { data: allCelulas, error: allCelulasError } = await supabase.from('celulas').select('id');
         if (allCelulasError) throw allCelulasError;
-        const celulasWithoutLeaders = (allCelulas || []).filter(celula => !celulaIdsComLideres.has(celula.id)).length;
+        const celulasWithoutLeaders = (allCelulas || []).filter((celula: { id: string }) => !celulaIdsComLideres.has(celula.id)).length;
         return { totalCelulas: totalCelulas || 0, celulasWithoutLeaders: celulasWithoutLeaders, };
     } catch (e: any) { throw new Error(`Falha ao obter resumo de células: ${e.message}`); }
 }
+
 export async function getTopBottomPresence(numMeetings: number = 5, limit: number = 3): Promise<{ top: TopFlopPresence[]; bottom: TopFlopPresence[] }> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') { return { top: [], bottom: [] }; }
     try {
@@ -365,7 +375,7 @@ export async function getTopBottomPresence(numMeetings: number = 5, limit: numbe
         for (const celula of celulasList) {
             const { data: lastMeetings, error: meetingsError } = await supabase.from('reunioes').select('id, data_reuniao').eq('celula_id', celula.id).order('data_reuniao', { ascending: false }).limit(numMeetings);
             if (meetingsError) console.warn(`Erro ao buscar reuniões para célula ${celula.nome}: ${meetingsError.message}`);
-            const relevantReunionIds = (lastMeetings || []).map(m => m.id);
+            const relevantReunionIds = (lastMeetings || []).map((m: { id: string }) => m.id);
             const totalMeetingsConsidered = relevantReunionIds.length;
             if (totalMeetingsConsidered === 0) { presenceData.push({ celula_id: celula.id, celula_nome: celula.nome, avg_presence: 0 }); continue; }
             const { count: totalMembersInCell, error: membersCountError } = await supabase.from('membros').select('id', { count: 'exact', head: true }).eq('celula_id', celula.id);
@@ -382,7 +392,9 @@ export async function getTopBottomPresence(numMeetings: number = 5, limit: numbe
         return { top: presenceData.slice(0, limit), bottom: presenceData.slice(-limit).reverse(), };
     } catch (e: any) { throw new Error(`Falha ao obter Top/Flop Presença: ${e.message}`); }
 }
+
 export async function getCelulaGrowth(numDays: number = 30, limit: number = 3): Promise<{ top_members: CelulaGrowth[]; top_visitors: CelulaGrowth[] }> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') { return { top_members: [], top_visitors: [] }; }
     try {
@@ -405,33 +417,39 @@ export async function getCelulaGrowth(numDays: number = 30, limit: number = 3): 
         return { top_members: growthMembers.slice(0, limit), top_visitors: growthVisitors.slice(0, limit) };
     } catch (e: any) { throw new Error(`Falha ao obter Crescimento de Célula: ${e.message}`); }
 }
+
 export async function getMembersByCelulaDistribution(): Promise<MembersByCelulaDistribution[]> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') { return []; }
     try {
         const { data: allMembers, error } = await supabase.from('membros').select('celula_id');
         if (error) throw error;
-        const countsMap = (allMembers || []).reduce((acc, member) => { acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const countsMap = (allMembers || []).reduce((acc, member: { celula_id: string }) => { acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1); return acc; }, new Map<string, number>());
         const celulaIds = new Set(Array.from(countsMap.keys())); const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const result: MembersByCelulaDistribution[] = [];
         for (const [celula_id, count] of countsMap.entries()) { result.push({ celula_nome: celulasNamesMap.get(celula_id) || 'Célula Desconhecida', count: count }); }
         return result.sort((a, b) => a.celula_nome.localeCompare(b.celula_nome));
     } catch (e: any) { throw new Error(`Falha ao obter distribuição de membros por célula: ${e.message}`); }
 }
+
 export async function getVisitorsByCelulaDistribution(): Promise<VisitorsByCelulaDistribution[]> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') { return []; }
     try {
         const { data: allVisitors, error } = await supabase.from('visitantes').select('celula_id');
         if (error) throw error;
-        const countsMap = (allVisitors || []).reduce((acc, visitor) => { acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const countsMap = (allVisitors || []).reduce((acc, visitor: { celula_id: string }) => { acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1); return acc; }, new Map<string, number>());
         const celulaIds = new Set(Array.from(countsMap.keys())); const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         const result: VisitorsByCelulaDistribution[] = [];
         for (const [celula_id, count] of countsMap.entries()) { result.push({ celula_nome: celulasNamesMap.get(celula_id) || 'Célula Desconhecida', count: count }); }
         return result.sort((a, b) => a.celula_nome.localeCompare(b.celula_nome));
     } catch (e: any) { throw new Error(`Falha ao obter distribuição de visitantes por célula: ${e.message}`); }
 }
+
 export async function getGlobalRecentActivity(limit: number = 10): Promise<ActivityLogItem[]> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') { return []; }
     try {
@@ -447,30 +465,32 @@ export async function getGlobalRecentActivity(limit: number = 10): Promise<Activ
         const allCelulaIds = new Set<string>();
         [newMembers, newVisitors, newReunions].forEach(arr => { arr?.forEach(item => { if (item.celula_id) allCelulaIds.add(item.celula_id); }); });
         const celulasNamesMap = await getCelulasNamesMap(allCelulaIds, supabase);
-        newMembers?.forEach(m => activities.push({ id: m.id, type: 'member_added', description: `Novo membro: ${m.nome}`, created_at: m.created_at, celula_nome: celulasNamesMap.get(m.celula_id) || 'N/A', raw_date: new Date(m.created_at) }));
-        newVisitors?.forEach(v => activities.push({ id: v.id, type: 'visitor_added', description: `Novo visitante: ${v.nome}`, created_at: v.created_at, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A', raw_date: new Date(v.created_at) }));
-        newReunions?.forEach(r => activities.push({ id: r.id, type: 'reunion_added', description: `Nova reunião: ${r.tema}`, created_at: r.created_at, celula_nome: celulasNamesMap.get(r.celula_id) || 'N/A', raw_date: new Date(r.created_at) }));
-        newCelulas?.forEach(c => activities.push({ id: c.id, type: 'celula_created', description: `Nova célula: ${c.nome}`, created_at: c.created_at, celula_nome: c.nome, raw_date: new Date(c.created_at) }));
+        newMembers?.forEach((m: any) => activities.push({ id: m.id, type: 'member_added', description: `Novo membro: ${m.nome}`, created_at: m.created_at, celula_nome: celulasNamesMap.get(m.celula_id) || 'N/A', raw_date: new Date(m.created_at) }));
+        newVisitors?.forEach((v: any) => activities.push({ id: v.id, type: 'visitor_added', description: `Novo visitante: ${v.nome}`, created_at: v.created_at, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A', raw_date: new Date(v.created_at) }));
+        newReunions?.forEach((r: any) => activities.push({ id: r.id, type: 'reunion_added', description: `Nova reunião: ${r.tema}`, created_at: r.created_at, celula_nome: celulasNamesMap.get(r.celula_id) || 'N/A', raw_date: new Date(r.created_at) }));
+        newCelulas?.forEach((c: any) => activities.push({ id: c.id, type: 'celula_created', description: `Nova célula: ${c.nome}`, created_at: c.created_at, celula_nome: c.nome, raw_date: new Date(c.created_at) }));
         activities.sort((a, b) => b.raw_date.getTime() - a.raw_date.getTime());
         return activities.slice(0, limit);
     } catch (e: any) { throw e; }
 }
+
 export async function getVisitorsConversionAnalysis(): Promise<VisitorsConversionAnalysis[] | null> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') return null;
     try {
         const { data: allVisitors, error: visitorsError } = await supabase.from('visitantes').select('id, nome, telefone, data_primeira_visita, celula_id');
         if (visitorsError) throw visitorsError;
         const visitorsList = allVisitors || [];
-        const visitorIds = visitorsList.map(v => v.id);
+        const visitorIds = visitorsList.map((v: { id: string }) => v.id);
         if (visitorIds.length === 0) return [];
         const { data: presencesCount, error: presencesError } = await supabase.from('presencas_visitantes').select('visitante_id').in('visitante_id', visitorIds).eq('presente', true);
         if (presencesError) throw presencesError;
-        const countMap = (presencesCount || []).reduce((acc, p) => { acc.set(p.visitante_id, (acc.get(p.visitante_id) || 0) + 1); return acc; }, new Map<string, number>());
-        const unconvertedHighPresenceVisitors = visitorsList.filter(v => (countMap.get(v.id) || 0) >= 2);
+        const countMap = (presencesCount || []).reduce((acc, p: { visitante_id: string }) => { acc.set(p.visitante_id, (acc.get(p.visitante_id) || 0) + 1); return acc; }, new Map<string, number>());
+        const unconvertedHighPresenceVisitors = visitorsList.filter((v: { id: string }) => (countMap.get(v.id) || 0) >= 2);
         if (unconvertedHighPresenceVisitors.length === 0) return [];
         const analysisMap = new Map<string, VisitorsConversionAnalysis>();
-        const celulaIds = new Set(unconvertedHighPresenceVisitors.map(v => v.celula_id));
+        const celulaIds = new Set(unconvertedHighPresenceVisitors.map((v: { celula_id: string }) => v.celula_id));
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
         for (const visitor of unconvertedHighPresenceVisitors) {
             const celulaId = visitor.celula_id;
@@ -485,7 +505,9 @@ export async function getVisitorsConversionAnalysis(): Promise<VisitorsConversio
         return Array.from(analysisMap.values()).sort((a, b) => b.total_unconverted_with_presences - a.total_unconverted_with_presences);
     } catch (e: any) { return null; }
 }
+
 export async function getNewVisitorsTrend(numMonths: number = 6): Promise<NewVisitorsTrendData | null> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') return null;
     try {
@@ -494,7 +516,7 @@ export async function getNewVisitorsTrend(numMonths: number = 6): Promise<NewVis
         const { data: visitorsData, error } = await supabase.from('visitantes').select('data_primeira_visita').gte('data_primeira_visita', startOfPeriodFormatted);
         if (error) throw error;
         const countsByMonth = new Map<string, number>();
-        (visitorsData || []).forEach(v => { const monthKey = format(new Date(v.data_primeira_visita), 'yyyy-MM'); countsByMonth.set(monthKey, (countsByMonth.get(monthKey) || 0) + 1); });
+        (visitorsData || []).forEach((v: { data_primeira_visita: string }) => { const monthKey = format(new Date(v.data_primeira_visita), 'yyyy-MM'); countsByMonth.set(monthKey, (countsByMonth.get(monthKey) || 0) + 1); });
         const labels: string[] = []; const data: number[] = [];
         let currentDate = startOfPeriod;
         for (let i = 0; i < numMonths; i++) {
@@ -506,27 +528,31 @@ export async function getNewVisitorsTrend(numMonths: number = 6): Promise<NewVis
         return { labels, data };
     } catch (e: any) { return null; }
 }
+
 export async function detectDuplicateVisitors(): Promise<DuplicateVisitorGroup[] | null> {
+    // ... (código existente aqui, sem 'any' implícito)
     const { supabase, role } = await checkUserAuthorizationDashboard();
     if (role !== 'admin') return null;
     try {
         const { data: allVisitors, error: visitorsError } = await supabase.from('visitantes').select('id, nome, telefone, celula_id');
         if (visitorsError) throw visitorsError;
         const visitorsList = allVisitors || [];
-        const celulaIds = new Set(visitorsList.map(v => v.celula_id)); const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
-        const groupsByName = new Map<string, typeof visitorsList>(); const groupsByPhone = new Map<string, typeof visitorsList>();
-        visitorsList.forEach(v => {
+        const celulaIds = new Set(visitorsList.map((v: { celula_id: string }) => v.celula_id)); 
+        const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
+        const groupsByName = new Map<string, typeof visitorsList>(); 
+        const groupsByPhone = new Map<string, typeof visitorsList>();
+        visitorsList.forEach((v: { nome: string; telefone: string | null }) => {
             const normalizedName = v.nome.trim().toLowerCase();
             const normalizedPhone = v.telefone ? v.telefone.replace(/\D/g, '') : null;
-            if (normalizedName) { if (!groupsByName.has(normalizedName)) groupsByName.set(normalizedName, []); groupsByName.get(normalizedName)?.push(v); }
-            if (normalizedPhone && normalizedPhone.length > 5) { if (!groupsByPhone.has(normalizedPhone)) groupsByPhone.set(normalizedPhone, []); groupsByPhone.get(normalizedPhone)?.push(v); }
+            if (normalizedName) { if (!groupsByName.has(normalizedName)) groupsByName.set(normalizedName, []); groupsByName.get(normalizedName)?.push(v as any); }
+            if (normalizedPhone && normalizedPhone.length > 5) { if (!groupsByPhone.has(normalizedPhone)) groupsByPhone.set(normalizedPhone, []); groupsByPhone.get(normalizedPhone)?.push(v as any); }
         });
         const duplicateGroups: DuplicateVisitorGroup[] = [];
         groupsByName.forEach((visitors, common_value) => {
-            if (visitors.length > 1) { duplicateGroups.push({ group_id: `name-${common_value}`, common_value: common_value, type: 'nome', visitors: visitors.map(v => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A' })) }); }
+            if (visitors.length > 1) { duplicateGroups.push({ group_id: `name-${common_value}`, common_value: common_value, type: 'nome', visitors: visitors.map((v: any) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A' })) }); }
         });
         groupsByPhone.forEach((visitors, common_value) => {
-            if (visitors.length > 1) { duplicateGroups.push({ group_id: `phone-${common_value}`, common_value: common_value, type: 'telefone', visitors: visitors.map(v => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A' })) }); }
+            if (visitors.length > 1) { duplicateGroups.push({ group_id: `phone-${common_value}`, common_value: common_value, type: 'telefone', visitors: visitors.map((v: any) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A' })) }); }
         });
         const finalGroupsMap = new Map<string, DuplicateVisitorGroup>();
         duplicateGroups.forEach(group => { if (!finalGroupsMap.has(group.group_id)) { finalGroupsMap.set(group.group_id, group); } });
