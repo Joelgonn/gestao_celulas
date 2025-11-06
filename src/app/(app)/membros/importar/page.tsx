@@ -81,7 +81,7 @@ export default function ImportarMembrosPage() {
           addToast({
             type: 'success',
             title: 'Importação concluída!',
-            message: `${result.importedCount} membros importados com sucesso`,
+            message: `${result.success} membros importados com sucesso`,
             duration: 4000
           });
 
