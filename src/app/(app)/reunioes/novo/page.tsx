@@ -6,13 +6,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     adicionarReuniao,
-    listarMembros, 
+    listarMembros,
     verificarDuplicidadeReuniao,
     uploadMaterialReuniao,
-    Membro, 
-    ReuniaoFormData 
+    Membro,
+    ReuniaoFormData
 } from '@/lib/data';
-import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters'; 
+import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 
 // Sistema de Toasts
 interface Toast {
@@ -34,8 +34,8 @@ export default function NovaReuniaoPage() {
     });
     const [membros, setMembros] = useState<Membro[]>([]);
     const [toasts, setToasts] = useState<Toast[]>([]);
-    const [loading, setLoading] = useState(true); 
-    const [submitting, setSubmitting] = useState(false); 
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -47,7 +47,7 @@ export default function NovaReuniaoPage() {
         const id = Math.random().toString(36).substring(2, 9);
         const newToast = { ...toast, id };
         setToasts(prev => [...prev, newToast]);
-        
+
         setTimeout(() => {
             removeToast(id);
         }, toast.duration || 5000);
@@ -63,7 +63,7 @@ export default function NovaReuniaoPage() {
             try {
                 const data = await listarMembros();
                 setMembros(data);
-                
+
                 addToast({
                     type: 'success',
                     title: 'Membros carregados',
@@ -146,15 +146,15 @@ export default function NovaReuniaoPage() {
         }
 
         try {
-            // Adiciona a reunião e obtém o ID
-            const novaReuniaoId = await adicionarReuniao({
+            // Adiciona a reunião e obtém o objeto Reuniao completo
+            const novaReuniao = await adicionarReuniao({
                 data_reuniao: formData.data_reuniao,
                 tema: formData.tema,
                 ministrador_principal: formData.ministrador_principal,
                 ministrador_secundario: formData.ministrador_secundario,
                 responsavel_kids: formData.responsavel_kids,
             });
-            
+
             // Se houver um arquivo selecionado, fazer o upload agora
             if (selectedFile) {
                 setUploading(true);
@@ -171,7 +171,8 @@ export default function NovaReuniaoPage() {
                     }
                 }, 200);
 
-                const publicUrl = await uploadMaterialReuniao(novaReuniaoId, selectedFile);
+                // CORREÇÃO: Passar novaReuniao.id (string) para uploadMaterialReuniao
+                const publicUrl = await uploadMaterialReuniao(novaReuniao.id, selectedFile);
                 clearInterval(interval);
                 setUploadProgress(100);
 
@@ -238,7 +239,7 @@ export default function NovaReuniaoPage() {
                 return (
                     <div className="flex-shrink-0">
                         <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2-98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                     </div>
                 );
@@ -255,7 +256,7 @@ export default function NovaReuniaoPage() {
 
     const getToastStyles = (type: Toast['type']) => {
         const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-        
+
         switch (type) {
             case 'success':
                 return `${baseStyles} border-l-4 border-green-500`;
@@ -322,7 +323,7 @@ export default function NovaReuniaoPage() {
                                 </h1>
                                 <p className="text-emerald-100 mt-2">Registre uma nova reunião da célula</p>
                             </div>
-                            <Link 
+                            <Link
                                 href="/reunioes"
                                 className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30"
                             >
@@ -353,13 +354,13 @@ export default function NovaReuniaoPage() {
                                             </svg>
                                             Data da Reunião *
                                         </label>
-                                        <input 
-                                            type="date" 
-                                            id="data_reuniao" 
-                                            name="data_reuniao" 
-                                            value={formData.data_reuniao} 
-                                            onChange={handleChange} 
-                                            required 
+                                        <input
+                                            type="date"
+                                            id="data_reuniao"
+                                            name="data_reuniao"
+                                            value={formData.data_reuniao}
+                                            onChange={handleChange}
+                                            required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
                                         />
                                     </div>
@@ -372,13 +373,13 @@ export default function NovaReuniaoPage() {
                                             </svg>
                                             Tema / Palavra *
                                         </label>
-                                        <input 
-                                            type="text" 
-                                            id="tema" 
-                                            name="tema" 
-                                            value={formData.tema} 
-                                            onChange={handleChange} 
-                                            required 
+                                        <input
+                                            type="text"
+                                            id="tema"
+                                            name="tema"
+                                            value={formData.tema}
+                                            onChange={handleChange}
+                                            required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
                                             placeholder="Digite o tema ou palavra da reunião"
                                         />
@@ -395,12 +396,12 @@ export default function NovaReuniaoPage() {
                                             </svg>
                                             Ministrador Principal *
                                         </label>
-                                        <select 
-                                            id="ministrador_principal" 
-                                            name="ministrador_principal" 
-                                            value={formData.ministrador_principal || ''} 
-                                            onChange={handleChange} 
-                                            required 
+                                        <select
+                                            id="ministrador_principal"
+                                            name="ministrador_principal"
+                                            value={formData.ministrador_principal || ''}
+                                            onChange={handleChange}
+                                            required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 bg-white"
                                         >
                                             <option value="">-- Selecione um Membro --</option>
@@ -418,11 +419,11 @@ export default function NovaReuniaoPage() {
                                             </svg>
                                             Ministrador Secundário
                                         </label>
-                                        <select 
-                                            id="ministrador_secundario" 
-                                            name="ministrador_secundario" 
-                                            value={formData.ministrador_secundario || ''} 
-                                            onChange={handleChange} 
+                                        <select
+                                            id="ministrador_secundario"
+                                            name="ministrador_secundario"
+                                            value={formData.ministrador_secundario || ''}
+                                            onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 bg-white"
                                         >
                                             <option value="">-- Selecione um Membro --</option>
@@ -440,11 +441,11 @@ export default function NovaReuniaoPage() {
                                             </svg>
                                             Responsável Kids
                                         </label>
-                                        <select 
-                                            id="responsavel_kids" 
-                                            name="responsavel_kids" 
-                                            value={formData.responsavel_kids || ''} 
-                                            onChange={handleChange} 
+                                        <select
+                                            id="responsavel_kids"
+                                            name="responsavel_kids"
+                                            value={formData.responsavel_kids || ''}
+                                            onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 bg-white"
                                         >
                                             <option value="">-- Selecione um Membro --</option>
@@ -464,10 +465,10 @@ export default function NovaReuniaoPage() {
                                         Material da Reunião (Opcional)
                                     </h3>
                                     <p className="text-sm text-blue-700 mb-4">
-                                        Você pode enviar o material da reunião (PDF/PPT) agora ou posteriormente. 
+                                        Você pode enviar o material da reunião (PDF/PPT) agora ou posteriormente.
                                         O arquivo será vinculado automaticamente à reunião após o registro.
                                     </p>
-                                    
+
                                     <div className="space-y-4">
                                         <div>
                                             <label htmlFor="material_file" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -499,7 +500,7 @@ export default function NovaReuniaoPage() {
                                         {uploading && (
                                             <div className="space-y-2">
                                                 <div className="w-full bg-gray-200 rounded-full h-2">
-                                                    <div 
+                                                    <div
                                                         className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                                         style={{ width: `${uploadProgress}%` }}
                                                     ></div>
@@ -513,8 +514,8 @@ export default function NovaReuniaoPage() {
                                 </div>
 
                                 {/* Botão Submit */}
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={submitting || uploading}
                                     className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-emerald-700 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2"
                                 >
