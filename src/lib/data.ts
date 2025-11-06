@@ -547,14 +547,20 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
     return data || [];
 }
 
-export async function adicionarVisitante(visitanteData: any): Promise<void> {
-    const { supabase, celulaId, isAuthorized } = await checkUserAuthorization();
-    if (!isAuthorized || !celulaId) {
-        throw new Error("Não autorizado ou célula não definida.");
-    }
-    const { error } = await supabase.from('visitantes').insert({ ...visitanteData, celula_id: celulaId });
+export async function getPalavraDaSemana(): Promise<PalavraDaSemana | null> {
+    const { supabase, isAuthorized } = await checkUserAuthorization();
+    if (!isAuthorized) return null;
+    
+    const { data, error } = await supabase
+        .from('palavra_semana')
+        .select('*')
+        .order('data_semana', { ascending: false })
+        .limit(1)
+        .single();
+
     if (error) {
-        throw error;
+        console.error("Erro ao buscar palavra da semana:", error);
+        return null;
     }
-    revalidatePath('/visitantes');
+    return data;
 }
