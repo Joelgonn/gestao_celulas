@@ -93,7 +93,7 @@ export default function ImportarMembrosPage() {
           addToast({
             type: 'warning',
             title: 'Importação parcial',
-            message: `${result.importedCount} sucessos, ${result.errors.length} erros`
+            message: `${result.success} sucessos, ${result.errors.length} erros`
           });
           setErrors(result.errors);
         }
