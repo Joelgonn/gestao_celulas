@@ -86,7 +86,7 @@ export default function NovoVisitantePage() {
     // --- INÍCIO DA CORREÇÃO ---
     const hasErrors = (): boolean => {
         return !formData.nome.trim() || 
-               (formData.telefone && (formData.telefone.length < 10 || formData.telefone.length > 11));
+               !!(formData.telefone && (formData.telefone.length < 10 || formData.telefone.length > 11));
     };
     // --- FIM DA CORREÇÃO ---
 
