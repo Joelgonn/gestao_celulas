@@ -51,7 +51,6 @@ export default function NovoVisitantePage() {
             setFormData({ ...formData, [name]: value });
         }
         
-        // Marca o campo como tocado
         if (!touched[name]) {
             setTouched({ ...touched, [name]: true });
         }
@@ -83,23 +82,23 @@ export default function NovoVisitantePage() {
                 return null;
         }
     };
-
-    const hasErrors = () => {
+    
+    // --- INÍCIO DA CORREÇÃO ---
+    const hasErrors = (): boolean => {
         return !formData.nome.trim() || 
                (formData.telefone && (formData.telefone.length < 10 || formData.telefone.length > 11));
     };
+    // --- FIM DA CORREÇÃO ---
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Marca todos os campos como tocados para mostrar erros
         const allTouched = Object.keys(formData).reduce((acc, key) => {
             acc[key] = true;
             return acc;
         }, {} as Record<string, boolean>);
         setTouched(allTouched);
 
-        // Validação
         if (hasErrors()) {
             addToast('Por favor, corrija os erros no formulário', 'error');
             return;
@@ -119,7 +118,6 @@ export default function NovoVisitantePage() {
             
             addToast('Visitante adicionado com sucesso!', 'success');
             
-            // Redireciona após um pequeno atraso para o toast ser visível
             setTimeout(() => {
                 router.push('/visitantes');
             }, 1500);
@@ -219,7 +217,6 @@ export default function NovoVisitantePage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl mx-auto">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
                     <div className="flex items-center space-x-4">
                         <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
@@ -231,11 +228,8 @@ export default function NovoVisitantePage() {
                         </div>
                     </div>
                 </div>
-
-                {/* Form Card */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                     <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                        {/* Campos do Formulário */}
                         <div className="grid grid-cols-1 gap-6">
                             <InputField
                                 label="Nome Completo"
@@ -287,7 +281,6 @@ export default function NovoVisitantePage() {
                             />
                         </div>
 
-                        {/* Ações do Formulário */}
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-200">
                             <div className="text-sm text-gray-500">
                                 Campos marcados com <span className="text-red-500">*</span> são obrigatórios
@@ -324,7 +317,6 @@ export default function NovoVisitantePage() {
                     </form>
                 </div>
 
-                {/* Informações Adicionais */}
                 <div className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4">
                     <div className="flex items-start space-x-3">
                         <div className="bg-blue-100 p-2 rounded-lg">
