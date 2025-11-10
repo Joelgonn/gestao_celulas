@@ -14,14 +14,12 @@ import {
 } from '@/lib/data';
 import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 
-// Sistema de Toasts
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
+// --- REFATORAÇÃO: TOASTS ---
+// Removendo a implementação local de Toast e usando o hook global.
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+// --- FIM REFATORAÇÃO TOASTS ---
+
 
 export default function NovaReuniaoPage() {
     const [formData, setFormData] = useState<ReuniaoFormData>({
@@ -33,7 +31,11 @@ export default function NovaReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
-    const [toasts, setToasts] = useState<Toast[]>([]);
+    // --- REFATORAÇÃO: TOASTS ---
+    // Substituir o estado local de toasts pelo hook global
+    const { toasts, addToast, removeToast } = useToast();
+    // --- FIM REFATORAÇÃO TOASTS ---
+
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -42,21 +44,9 @@ export default function NovaReuniaoPage() {
 
     const router = useRouter();
 
-    // Função para adicionar toast
-    const addToast = (toast: Omit<Toast, 'id'>) => {
-        const id = Math.random().toString(36).substring(2, 9);
-        const newToast = { ...toast, id };
-        setToasts(prev => [...prev, newToast]);
-
-        setTimeout(() => {
-            removeToast(id);
-        }, toast.duration || 5000);
-    };
-
-    // Função para remover toast
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    };
+    // --- REFATORAÇÃO: TOASTS ---
+    // As funções addToast e removeToast locais foram removidas, agora usamos as do hook.
+    // --- FIM REFATORAÇÃO TOASTS ---
 
     useEffect(() => {
         const fetchMembrosForSelect = async () => {
@@ -64,25 +54,16 @@ export default function NovaReuniaoPage() {
                 const data = await listarMembros();
                 setMembros(data);
 
-                addToast({
-                    type: 'success',
-                    title: 'Membros carregados',
-                    message: 'Lista de membros carregada com sucesso',
-                    duration: 3000
-                });
+                addToast('Lista de membros carregada com sucesso', 'success', 3000); // Usando o addToast do hook
             } catch (e: any) {
                 console.error("Erro ao carregar membros para selects:", e);
-                addToast({
-                    type: 'error',
-                    title: 'Erro ao carregar',
-                    message: e.message || 'Erro desconhecido ao carregar lista de membros'
-                });
+                addToast(e.message || 'Erro desconhecido ao carregar lista de membros', 'error'); // Usando o addToast do hook
             } finally {
                 setLoading(false);
             }
         };
         fetchMembrosForSelect();
-    }, []);
+    }, [addToast]); // Adicionar addToast às dependências do useEffect
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -95,29 +76,17 @@ export default function NovaReuniaoPage() {
 
         // Validações
         if (!formData.tema.trim()) {
-            addToast({
-                type: 'error',
-                title: 'Campo obrigatório',
-                message: 'O campo "Tema / Palavra" é obrigatório'
-            });
+            addToast('O campo "Tema / Palavra" é obrigatório', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
         if (!formData.ministrador_principal) {
-            addToast({
-                type: 'error',
-                title: 'Campo obrigatório',
-                message: 'O campo "Ministrador Principal" é obrigatório'
-            });
+            addToast('O campo "Ministrador Principal" é obrigatório', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
         if (!formData.data_reuniao) {
-            addToast({
-                type: 'error',
-                title: 'Campo obrigatório',
-                message: 'O campo "Data da Reunião" é obrigatório'
-            });
+            addToast('O campo "Data da Reunião" é obrigativo', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
@@ -126,28 +95,20 @@ export default function NovaReuniaoPage() {
         try {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema);
             if (isDuplicate) {
-                addToast({
-                    type: 'error',
-                    title: 'Reunião duplicada',
-                    message: `Já existe uma reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}`
-                });
+                addToast(`Já existe uma reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}`, 'error'); // Usando o addToast do hook
                 setSubmitting(false);
                 return;
             }
         } catch (e: any) {
             console.error("Erro ao verificar duplicidade:", e);
-            addToast({
-                type: 'error',
-                title: 'Erro de validação',
-                message: e.message || 'Erro ao verificar duplicidade da reunião'
-            });
+            addToast(e.message || 'Erro ao verificar duplicidade da reunião', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
 
         try {
-            // Adiciona a reunião e obtém o objeto Reuniao completo
-            const novaReuniao = await adicionarReuniao({
+            // Adiciona a reunião e obtém o ID da reunião recém-criada (que é uma string)
+            const novaReuniaoId = await adicionarReuniao({
                 data_reuniao: formData.data_reuniao,
                 tema: formData.tema,
                 ministrador_principal: formData.ministrador_principal,
@@ -171,24 +132,15 @@ export default function NovaReuniaoPage() {
                     }
                 }, 200);
 
-                // CORREÇÃO: Passar novaReuniao.id (string) para uploadMaterialReuniao
-                const publicUrl = await uploadMaterialReuniao(novaReuniao.id, selectedFile);
+                // --- CORREÇÃO APLICADA AQUI ---
+                // novaReuniaoId já é a string do ID.
+                const publicUrl = await uploadMaterialReuniao(novaReuniaoId, selectedFile);
                 clearInterval(interval);
                 setUploadProgress(100);
 
-                addToast({
-                    type: 'success',
-                    title: 'Reunião criada!',
-                    message: 'Reunião registrada e material enviado com sucesso',
-                    duration: 4000
-                });
+                addToast('Reunião registrada e material enviado com sucesso', 'success', 4000); // Usando o addToast do hook
             } else {
-                addToast({
-                    type: 'success',
-                    title: 'Reunião criada!',
-                    message: 'Reunião registrada com sucesso',
-                    duration: 4000
-                });
+                addToast('Reunião registrada com sucesso', 'success', 4000); // Usando o addToast do hook
             }
 
             // Redirecionar após mostrar o toast
@@ -198,11 +150,7 @@ export default function NovaReuniaoPage() {
 
         } catch (e: any) {
             console.error("Erro ao registrar reunião ou fazer upload:", e);
-            addToast({
-                type: 'error',
-                title: 'Erro ao registrar',
-                message: e.message || 'Erro desconhecido ao registrar reunião'
-            });
+            addToast(e.message || 'Erro desconhecido ao registrar reunião', 'error'); // Usando o addToast do hook
             setUploadProgress(0);
         } finally {
             setSubmitting(false);
@@ -216,95 +164,22 @@ export default function NovaReuniaoPage() {
         }
     };
 
-    // Ícones para os toasts
-    const getToastIcon = (type: Toast['type']) => {
-        switch (type) {
-            case 'success':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'error':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'warning':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2-98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'info':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-        }
-    };
-
-    const getToastStyles = (type: Toast['type']) => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-green-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-        }
-    };
+    // --- REFATORAÇÃO: TOASTS ---
+    // getToastIcon e getToastStyles foram removidos, agora usamos o componente Toast.
+    // --- FIM REFATORAÇÃO TOASTS ---
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 space-y-3">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
-                    <div
+                    <Toast
                         key={toast.id}
-                        className={getToastStyles(toast.type)}
-                    >
-                        <div className="p-4">
-                            <div className="flex items-start">
-                                {getToastIcon(toast.type)}
-                                <div className="ml-3 w-0 flex-1 pt-0.5">
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {toast.title}
-                                    </p>
-                                    {toast.message && (
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            {toast.message}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="ml-4 flex-shrink-0 flex">
-                                    <button
-                                        onClick={() => removeToast(toast.id)}
-                                        className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        <span className="sr-only">Fechar</span>
-                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration} // Passar a duração se quiser que o Toast component cuide do timer
+                    />
                 ))}
             </div>
 

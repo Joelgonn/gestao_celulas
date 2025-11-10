@@ -131,13 +131,13 @@ export interface ActivityLogItem {
     celula_nome?: string | null;
 }
 
-// --- Interfaces para CHAVES DE ATIVAÇÃO (Refatoração) ---
-// Usada em `src/app/api/admin/chaves-ativacao/actions.ts`
+// --- Interfaces para CHAVES DE ATIVAÇÃO ---
+// Usada em `src/app/(app)/admin/celulas/page.tsx` e `src/app/api/admin/chaves-ativacao/actions.ts`
 export interface ChaveAtivacao {
     chave: string;
     celula_id: string;
     usada: boolean;
-    created_at: string;
+    created_at: string; // <-- **CORREÇÃO APLICADA AQUI**
     // Adicionado para relatório de chaves de ativação
     data_uso?: string | null; 
     usada_por_email?: string | null;

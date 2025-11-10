@@ -6,33 +6,33 @@ import { supabase } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Line, Pie, Bar } from 'react-chartjs-2';
-import { 
-    Chart as ChartJS, 
-    CategoryScale, 
-    LinearScale, 
-    PointElement, 
-    LineElement, 
-    Title, 
-    Tooltip, 
-    Legend, 
-    Filler, 
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
     ArcElement,
     BarElement
 } from 'chart.js';
-import { 
-    FaUserPlus, 
-    FaUsers, 
-    FaCalendarCheck, 
-    FaGlobe, 
-    FaHome, 
-    FaChartLine, 
-    FaExclamationTriangle, 
-    FaBirthdayCake, 
-    FaUserFriends, 
-    FaChartPie, 
-    FaArrowUp, 
-    FaArrowDown, 
-    FaEye, 
+import {
+    FaUserPlus,
+    FaUsers,
+    FaCalendarCheck,
+    FaGlobe,
+    FaHome,
+    FaChartLine,
+    FaExclamationTriangle,
+    FaBirthdayCake,
+    FaUserFriends,
+    FaChartPie,
+    FaArrowUp,
+    FaArrowDown,
+    FaEye,
     FaEdit,
     FaFilter,
     FaSync,
@@ -52,46 +52,46 @@ import { useToastStore } from '@/lib/toast';
 import {
     getTotalMembros,
     getTotalVisitantesDistintos,
-    getPresenceCountsLastMeeting, 
-    getRecentesMembros, 
-    getRecentesVisitantes, 
-    getUltimasReunioes, 
-    getFaltososAlert, 
-    getUnconvertedVisitorsAlert, 
-    getBirthdaysThisWeek, 
+    getPresenceCountsLastMeeting,
+    getRecentesMembros,
+    getRecentesVisitantes,
+    getUltimasReunioes,
+    getFaltososAlert,
+    getUnconvertedVisitorsAlert,
+    getBirthdaysThisWeek,
     getCelulasOptionsForAdmin,
-    getAveragePresenceRate, 
-    getCelulasSummary, 
-    getTopBottomPresence, 
-    getCelulaGrowth, 
-    getMembersByCelulaDistribution, 
+    getAveragePresenceRate,
+    getCelulasSummary,
+    getTopBottomPresence,
+    getCelulaGrowth,
+    getMembersByCelulaDistribution,
     getVisitorsByCelulaDistribution,
-    getGlobalRecentActivity, 
+    getGlobalRecentActivity,
     getVisitorsConversionAnalysis,
     getNewVisitorsTrend,
     detectDuplicateVisitors,
 } from '@/lib/dashboard_data';
 
 // --- IMPORTAÇÕES DE INTERFACES DO NOVO ARQUIVO types.ts ---
-import { 
-    LastMeetingPresence, 
-    MembroDashboard,     
-    VisitanteDashboard,  
-    ReuniaoComNomes,     
-    FaltososAlert, 
-    UnconvertedVisitorsAlert, 
-    BirthdayAlert, 
-    AveragePresenceRateData, 
+import {
+    LastMeetingPresence,
+    MembroDashboard,
+    VisitanteDashboard,
+    ReuniaoComNomes,
+    FaltososAlert,
+    UnconvertedVisitorsAlert,
+    BirthdayAlert,
+    AveragePresenceRateData,
     CelulasSummary,
-    TopFlopPresence, 
-    CelulaGrowth, 
-    MembersByCelulaDistribution, 
+    TopFlopPresence,
+    CelulaGrowth,
+    MembersByCelulaDistribution,
     VisitorsByCelulaDistribution,
     ActivityLogItem,
     VisitorsConversionAnalysis,
     NewVisitorsTrendData,
     DuplicateVisitorGroup,
-} from '@/lib/types'; 
+} from '@/lib/types';
 
 import { getPalavraDaSemana, PalavraDaSemana, CelulaOption } from '@/lib/data';
 
@@ -118,7 +118,7 @@ const Toast = ({ id, message, type, duration = 5000, onClose }: ToastProps) => {
 
     const getToastStyles = () => {
         const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 transform transition-all duration-300 ease-in-out";
-        
+
         switch (type) {
             case 'success':
                 return `${baseStyles} border-l-4 border-emerald-500`;
@@ -218,7 +218,7 @@ export default function DashboardPage() {
     const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    
+
     // Estados para dados admin
     const [faltososAlert, setFaltososAlert] = useState<FaltososAlert | null>(null);
     const [unconvertedVisitorsAlert, setUnconvertedVisitorsAlert] = useState<UnconvertedVisitorsAlert | null>(null);
@@ -234,7 +234,7 @@ export default function DashboardPage() {
     const [newVisitorsTrendData, setNewVisitorsTrendData] = useState<NewVisitorsTrendData | null>(null);
     const [duplicateVisitorGroups, setDuplicateVisitorGroups] = useState<DuplicateVisitorGroup[] | null>(null);
     const [celulasFilterOptions, setCelulasFilterOptions] = useState<CelulaOption[]>([]);
-    const [selectedFilterCelulaId, setSelectedFilterCelulaId] = useState<string>('');
+    const [selectedFilterCelulaId, setSelectedFilterCelulaId] = useState<string>(''); // Vazio string para "Todas as Células"
 
     const [palavraDaSemana, setPalavraDaSemana] = useState<PalavraDaSemana | null>(null);
 
@@ -244,9 +244,9 @@ export default function DashboardPage() {
     const fetchDashboardData = useCallback(async (showRefreshToast = false) => {
         setLoadingStats(true);
         if (showRefreshToast) setRefreshing(true);
-        
+
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError || !user) {
             router.replace('/login');
             setLoadingStats(false);
@@ -273,20 +273,30 @@ export default function DashboardPage() {
         setUserRole(currentUserRole);
 
         let celulaIdToFetch: string | null = null;
+        // Determine o valor do filtro a ser usado.
+        // Prioridade: selectedFilterCelulaId (do estado/seleção do usuário), depois currentUserCelulaId (do perfil), senão null.
+        const currentFilterValue = selectedFilterCelulaId; // Captura o valor atual do estado de filtro
+        celulaIdToFetch = currentFilterValue || (currentUserRole === 'líder' ? currentUserCelulaId : null); // Líder sempre usa sua célula, Admin usa filtro ou null.
 
+        // Se for um admin, carregue as opções de filtro
         if (currentUserRole === 'admin') {
             try {
-                const celulasData = await getCelulasOptionsForAdmin(); 
+                const celulasData = await getCelulasOptionsForAdmin();
                 setCelulasFilterOptions(celulasData);
-                celulaIdToFetch = selectedFilterCelulaId || null;
             } catch (error: any) {
                 addToast('Erro ao carregar lista de células', 'error');
             }
-        } else if (currentUserRole === 'líder') {
-            celulaIdToFetch = currentUserCelulaId || null;
-            setSelectedFilterCelulaId(currentUserCelulaId || '');
         }
-        
+
+        // Se o selectedFilterCelulaId não foi setado manualmente e o usuário é líder,
+        // force o selectedFilterCelulaId a ser o da sua célula.
+        // Isso garante que o dropdown mostra a célula correta do líder no primeiro load.
+        if (currentUserRole === 'líder' && !selectedFilterCelulaId && currentUserCelulaId) {
+             setSelectedFilterCelulaId(currentUserCelulaId);
+        }
+        // Se o admin loga e tem celula_id no perfil, isso não acontecerá. Se for admin sem celula_id,
+        // selectedFilterCelulaId será '' por padrão, o que é para 'Todas as Células'.
+
         try {
             const commonDataPromises = [
                 getTotalMembros(celulaIdToFetch),
@@ -295,33 +305,25 @@ export default function DashboardPage() {
                 getRecentesMembros(5, celulaIdToFetch),
                 getRecentesVisitantes(5, celulaIdToFetch),
                 getUltimasReunioes(5, celulaIdToFetch),
-                getPalavraDaSemana(),
+                getPalavraDaSemana(), // Palavra da semana é global ou da célula do user logado
             ];
-            
+
             let specificRoleDataPromises: Promise<any>[] = [];
 
-            if (currentUserRole === 'admin') {
-                if (!celulaIdToFetch) {
-                    specificRoleDataPromises = [
-                        getCelulasSummary(),
-                        getTopBottomPresence(),
-                        getCelulaGrowth(),
-                        getMembersByCelulaDistribution(),
-                        getVisitorsByCelulaDistribution(),
-                        getGlobalRecentActivity(10),
-                        getVisitorsConversionAnalysis(),
-                        getNewVisitorsTrend(),
-                        detectDuplicateVisitors(),
-                    ];
-                } else {
-                    specificRoleDataPromises = [
-                        getFaltososAlert(celulaIdToFetch),
-                        getUnconvertedVisitorsAlert(celulaIdToFetch),
-                        getBirthdaysThisWeek(celulaIdToFetch),
-                        getAveragePresenceRate(celulaIdToFetch),
-                    ];
-                }
-            } else if (currentUserRole === 'líder') {
+            // AQUI ESTÁ A LÓGICA DE DECISÃO DOS DADOS ESPECÍFICOS PARA OS ESTADOS
+            if (currentUserRole === 'admin' && !celulaIdToFetch) { // Admin - Visão Global (Todas as Células)
+                specificRoleDataPromises = [
+                    getCelulasSummary(),
+                    getTopBottomPresence(),
+                    getCelulaGrowth(),
+                    getMembersByCelulaDistribution(),
+                    getVisitorsByCelulaDistribution(),
+                    getGlobalRecentActivity(10),
+                    getVisitorsConversionAnalysis(),
+                    getNewVisitorsTrend(),
+                    detectDuplicateVisitors(),
+                ];
+            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) { // Líder OU Admin com filtro de célula
                 specificRoleDataPromises = [
                     getFaltososAlert(celulaIdToFetch),
                     getUnconvertedVisitorsAlert(celulaIdToFetch),
@@ -352,7 +354,8 @@ export default function DashboardPage() {
             setUltimasReunioes(lastMeetingsList as ReuniaoComNomes[]);
             setPalavraDaSemana(fetchedPalavraDaSemana as PalavraDaSemana | null);
 
-            if (currentUserRole === 'admin' && !celulaIdToFetch) {
+            // AQUI É O BLOCO QUE SETA OS ESTADOS COM BASE NA LÓGICA DE VISÃO (GLOBAL OU ESPECÍFICA)
+            if (currentUserRole === 'admin' && !celulaIdToFetch) { // Admin - Visão Global
                 setCelulasSummary(specificRoleData[0]);
                 setTopBottomPresence(specificRoleData[1]);
                 setCelulaGrowth(specificRoleData[2]);
@@ -362,17 +365,19 @@ export default function DashboardPage() {
                 setVisitorsConversionAnalysis(specificRoleData[6]);
                 setNewVisitorsTrendData(specificRoleData[7]);
                 setDuplicateVisitorGroups(specificRoleData[8]);
-                
+
+                // Garante que alertas de célula específica estão nulos na visão global
                 setFaltososAlert(null);
                 setUnconvertedVisitorsAlert(null);
                 setBirthdayAlert(null);
                 setAveragePresenceRateData(null);
-            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) {
+            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) { // Líder OU Admin com filtro de célula
                 setFaltososAlert(specificRoleData[0]);
                 setUnconvertedVisitorsAlert(specificRoleData[1]);
                 setBirthdayAlert(specificRoleData[2]);
                 setAveragePresenceRateData(specificRoleData[3]);
-                
+
+                // Garante que dados globais estão nulos/vazios na visão de célula específica
                 setCelulasSummary(null);
                 setTopBottomPresence(null);
                 setCelulaGrowth(null);
@@ -384,6 +389,7 @@ export default function DashboardPage() {
                 setDuplicateVisitorGroups(null);
             }
 
+
             if (showRefreshToast) {
                 addToast('Dashboard atualizado com sucesso!', 'success');
             }
@@ -394,15 +400,24 @@ export default function DashboardPage() {
             setLoadingStats(false);
             setRefreshing(false);
         }
-    }, [router, selectedFilterCelulaId, addToast]);
+    }, [router, selectedFilterCelulaId, addToast]); // Dependência selectedFilterCelulaId é crucial aqui
 
+    // Este useEffect agora reage à primeira montagem e quando o filtro muda.
+    // userRole e celulasFilterOptions não precisam ser dependências diretas,
+    // pois fetchDashboardData já os usa de forma reativa ou são setados lá dentro.
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
+
     const handleRefresh = () => { fetchDashboardData(true); };
-    const handleFilterChange = (value: string) => { setSelectedFilterCelulaId(value); addToast(`Filtro aplicado: ${celulasFilterOptions.find(c => c.id === value)?.nome || 'Todas as células'}`, 'info'); };
-    
+    // Ao mudar o filtro, atualizamos o selectedFilterCelulaId e disparamos a busca
+    const handleFilterChange = (value: string) => {
+        setSelectedFilterCelulaId(value);
+        // addToast será disparado pelo useCallback quando fetchDashboardData for chamada
+    };
+
+    // --- Configurações de ChartJS ---
     const chartData = { labels: averagePresenceRateData?.labels || [], datasets: [{ label: 'Presença Média (%)', data: averagePresenceRateData?.data || [], fill: true, backgroundColor: 'rgba(79, 70, 229, 0.2)', borderColor: 'rgba(79, 70, 229, 1)', tension: 0.3, pointBackgroundColor: 'rgba(79, 70, 229, 1)', pointBorderColor: '#fff', pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgba(79, 70, 229, 1)', pointRadius: 5, pointHoverRadius: 8, },], };
     const chartOptions = { responsive: true, plugins: { legend: { position: 'top' as const, labels: { font: { size: 14, weight: 700, }, color: '#333', }, }, title: { display: true, text: 'Média de Presença da Célula (Últimas 8 Semanas)', font: { size: 16, weight: 700, }, color: '#333', }, tooltip: { callbacks: { label: function(context: any) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += context.parsed.y + '%'; } return label; } } } }, scales: { x: { title: { display: true, text: 'Semana', font: { size: 12, weight: 700, }, color: '#555', }, grid: { display: false, }, }, y: { title: { display: true, text: 'Percentual (%)', font: { size: 12, weight: 700, }, beginAtZero: true, max: 100, ticks: { callback: function(value: any) { return value + '%'; } } }, }, }, };
     const membersPieData = { labels: membersDistribution.map(d => d.celula_nome), datasets: [{ label: 'Membros', data: membersDistribution.map(d => d.count), backgroundColor: ['#4F46E5', '#34D399', '#FCD34D', '#F87171', '#A78BFA', '#2DD4BF', '#FB923C', '#E879F9', '#60A5FA', '#F472B6'], hoverOffset: 4, },], };
@@ -422,11 +437,11 @@ export default function DashboardPage() {
             </div>
         );
     }
-    
+
     return (
         <>
             <ToastContainer />
-            
+
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
@@ -439,14 +454,14 @@ export default function DashboardPage() {
                                     </div>
                                     <div>
                                         <h1 className="text-3xl font-bold">
-                                            Dashboard 
+                                            Dashboard
                                             {userRole === 'admin' && (<span className="text-emerald-200 text-lg ml-2">(Administrador)</span>)}
                                         </h1>
                                         <p className="text-emerald-100 mt-2">Visão geral do sistema de células</p>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
                                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                                     {userRole === 'admin' && (
@@ -467,7 +482,7 @@ export default function DashboardPage() {
                                             </select>
                                         </div>
                                     )}
-                                    
+
                                     <button
                                         onClick={handleRefresh}
                                         disabled={refreshing}
@@ -477,7 +492,7 @@ export default function DashboardPage() {
                                         <span>{refreshing ? 'Atualizando...' : 'Atualizar'}</span>
                                     </button>
                                 </div>
-                                
+
                                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">
                                     <span className="text-sm font-medium text-white">
                                         {userEmail}
@@ -540,8 +555,8 @@ export default function DashboardPage() {
                                                 {lastMeetingPresence.tema}
                                             </p>
                                             {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && lastMeetingPresence.id && (
-                                                <Link 
-                                                    href={`/reunioes/presenca/${lastMeetingPresence.id}`} 
+                                                <Link
+                                                    href={`/reunioes/presenca/${lastMeetingPresence.id}`}
                                                     className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mt-2 inline-flex items-center space-x-1 transition-colors duration-200"
                                                 >
                                                     <FaEye className="text-sm" />
@@ -557,7 +572,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Admin Global Views */}
+                    {/* Admin Global Views (apenas quando Admin e "Todas as Células" selecionado) */}
                     {userRole === 'admin' && !selectedFilterCelulaId && (
                         <>
                             {celulasSummary && (
@@ -569,8 +584,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             )}
-                            
-                            {/* --- INÍCIO DA CORREÇÃO JSX --- */}
+
                             {topBottomPresence && (
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-emerald-100 rounded-lg"><FaChartLine className="text-emerald-600" /></div><span>Top/Flop de Presença</span></h2>
@@ -600,13 +614,121 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             )}
-                            {/* --- FIM DA CORREÇÃO JSX --- */}
 
-                            {/* Restante das seções de admin... */}
+                            {celulaGrowth && growthBarData.labels.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-blue-100 rounded-lg"><FaChartBar className="text-blue-600" /></div><span>Crescimento nas Células</span></h2>
+                                    <div className="h-72">
+                                        <Bar data={growthBarData} options={growthBarOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {membersDistribution.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-purple-100 rounded-lg"><FaChartPie className="text-purple-600" /></div><span>Distribuição de Membros por Célula</span></h2>
+                                    <div className="h-64 flex items-center justify-center">
+                                        <Pie data={membersPieData} options={pieOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {visitorsDistribution.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-green-100 rounded-lg"><FaChartPie className="text-green-600" /></div><span>Distribuição de Visitantes por Célula</span></h2>
+                                    <div className="h-64 flex items-center justify-center">
+                                        <Pie data={visitorsPieData} options={pieOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {globalRecentActivity.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-gray-100 rounded-lg"><FaHistory className="text-gray-600" /></div><span>Atividade Recente Global</span></h2>
+                                    <ul className="space-y-3">
+                                        {globalRecentActivity.map(activity => (
+                                            <li key={activity.id} className={`flex items-center space-x-3 p-3 rounded-lg border ${getActivityColor(activity.type)}`}>
+                                                <div className="flex-shrink-0">{getActivityIcon(activity.type)}</div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-gray-800">{activity.description}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {formatDateForDisplay(activity.created_at)} {activity.celula_nome && `(${activity.celula_nome})`}
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {newVisitorsTrendData && newVisitorsTrendData.labels.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-teal-100 rounded-lg"><FaChartLine className="text-teal-600" /></div><span>Tendência de Novos Visitantes</span></h2>
+                                    <div className="h-64">
+                                        <Line data={newVisitorsTrendChartData} options={newVisitorsTrendChartOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {visitorsConversionAnalysis && visitorsConversionAnalysis.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-yellow-100 rounded-lg"><FaUserCheck className="text-yellow-600" /></div><span>Análise de Conversão de Visitantes</span></h2>
+                                    <div className="space-y-4">
+                                        {visitorsConversionAnalysis.map(analysis => (
+                                            <div key={analysis.celula_id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                                <h3 className="text-lg font-semibold text-yellow-800 flex items-center space-x-2">
+                                                    <FaHome className="text-yellow-600" />
+                                                    <span>{analysis.celula_nome}</span>
+                                                    <span className="ml-auto text-yellow-700 font-bold">{analysis.total_unconverted_with_presences} visitantes</span>
+                                                </h3>
+                                                <ul className="mt-3 space-y-2">
+                                                    {analysis.visitors.map(visitor => (
+                                                        <li key={visitor.id} className="flex justify-between items-center text-sm p-2 bg-white rounded-md shadow-sm">
+                                                            <span className="font-medium text-gray-800">{visitor.nome}</span>
+                                                            <span className="text-gray-600">{visitor.total_presences} presenças</span>
+                                                            <span className="text-gray-500">{formatPhoneNumberDisplay(visitor.telefone)}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                <Link href={`/relatorios?type=visitantes&celula=${analysis.celula_id}`} className="text-yellow-700 hover:text-yellow-900 font-medium text-sm mt-3 inline-flex items-center space-x-1 transition-colors duration-200">
+                                                    <FaSearch className="text-sm" />
+                                                    <span>Ver detalhes</span>
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {duplicateVisitorGroups && duplicateVisitorGroups.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-red-100 rounded-lg"><FaExclamationTriangle className="text-red-600" /></div><span>Visitantes Duplicados Detectados</span></h2>
+                                    <div className="space-y-4">
+                                        {duplicateVisitorGroups.map(group => (
+                                            <div key={group.group_id} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                <h3 className="text-lg font-semibold text-red-800 flex items-center space-x-2">
+                                                    <FaInfoCircle className="text-red-600" />
+                                                    <span>{group.type === 'nome' ? 'Nome Comum' : 'Telefone Comum'}: <span className="font-bold">{group.common_value}</span></span>
+                                                </h3>
+                                                <ul className="mt-3 space-y-2">
+                                                    {group.visitors.map(visitor => (
+                                                        <li key={visitor.id} className="flex justify-between items-center text-sm p-2 bg-white rounded-md shadow-sm">
+                                                            <span className="font-medium text-gray-800">{visitor.nome}</span>
+                                                            <span className="text-gray-600">{formatPhoneNumberDisplay(visitor.telefone)}</span>
+                                                            <span className="text-gray-500">{visitor.celula_nome}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                <p className="text-red-700 text-sm mt-3">Recomendado revisar e mesclar manualmente.</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
 
-                    {/* Leader Alerts */}
+                    {/* Leader Alerts / Admin with Celula Filter (visível para Líder OU Admin com filtro) */}
                     {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && (
                         <div className="mb-8">
                             <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2">
@@ -633,10 +755,10 @@ export default function DashboardPage() {
                                             <p className="text-xs text-gray-500 mt-1 truncate" title={palavraDaSemana.descricao || undefined}>
                                                 {palavraDaSemana.descricao || 'Nenhuma descrição.'}
                                             </p>
-                                            <a 
-                                                href={palavraDaSemana.url_arquivo} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
+                                            <a
+                                                href={palavraDaSemana.url_arquivo}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                                 className="inline-flex items-center space-x-1 text-indigo-600 hover:text-indigo-800 font-medium text-sm mt-3 transition-colors duration-200"
                                             >
                                                 <FaFileDownload className="text-sm" />
@@ -680,14 +802,14 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* Engagement Chart */}
+                    {/* Engagement Chart (visível para Líder OU Admin com filtro) */}
                     {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && averagePresenceRateData && averagePresenceRateData.labels.length > 0 && (
                         <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-indigo-100 rounded-lg"><FaChartLine className="text-indigo-600" /></div><span>Engajamento da Célula</span></h2><div className="h-64"><Line data={chartData} options={chartOptions} /></div>
                         </div>
                     )}
-                    
-                    {/* Recent Lists */}
+
+                    {/* Recent Lists (Visível para ambos, ajustado pelo filtro) */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
                             <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><div className="p-2 bg-yellow-100 rounded-lg"><FaCalendarCheck className="text-yellow-600" /></div><span>Últimas Reuniões</span></h2>

@@ -15,7 +15,7 @@ import {
   FaExclamationTriangle, 
   FaInfoCircle, 
   FaTimes,
-  FaSearch // ← Adicionei esta importação
+  FaSearch 
 } from 'react-icons/fa';
 
 import {

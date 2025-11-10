@@ -12,8 +12,9 @@ import {
     fetchReportDataAniversariantes,
     fetchReportDataAlocacaoLideres,
     fetchReportDataChavesAtivacao,
-    listMembros,     
+    listMembros,
     listReunioes,
+    listarCelulasParaAdmin, // CORREÇÃO: Importar de reports_data.ts
     MembroOption,
     ReuniaoOption,
     ReportDataPresencaReuniao,
@@ -30,9 +31,9 @@ import {
     exportReportDataAniversariantesCSV,
     exportReportDataAlocacaoLideresCSV,
     exportReportDataChavesAtivacaoCSV,
-} from '@/lib/reports_data'; 
+} from '@/lib/reports_data'; // Este é o arquivo correto para listarCelulasParaAdmin
 
-import { listarCelulasParaAdmin, CelulaOption } from '@/lib/data';
+import { CelulaOption } from '@/lib/data'; // A interface CelulaOption ainda pode vir daqui ou de um types global
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
 import { ReportPresencaReuniaoDisplay } from '@/components/relatorios/ReportPresencaReuniaoDisplay';
@@ -43,62 +44,11 @@ import { ReportAniversariantesDisplay } from '@/components/relatorios/ReportAniv
 import { ReportAlocacaoLideresDisplay } from '@/components/relatorios/ReportAlocacaoLideresDisplay';
 import { ReportChavesAtivacaoDisplay } from '@/components/relatorios/ReportChavesAtivacaoDisplay';
 
-// Componente Toast moderno
-interface ToastProps {
-    message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    onClose: () => void;
-    duration?: number;
-}
-
-const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration = 5000 }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, duration);
-        return () => clearTimeout(timer);
-    }, [onClose, duration]);
-
-    const getIcon = () => {
-        switch (type) {
-            case 'success': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
-            case 'error': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>;
-            case 'warning': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
-            case 'info': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>;
-        }
-    };
-
-    const getStyles = () => {
-        const base = "flex items-center p-4 mb-2 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out animate-slide-in";
-        switch (type) {
-            case 'success': return `${base} bg-green-50 border border-green-200 text-green-800`;
-            case 'error': return `${base} bg-red-50 border border-red-200 text-red-800`;
-            case 'warning': return `${base} bg-yellow-50 border border-yellow-200 text-yellow-800`;
-            case 'info': return `${base} bg-blue-50 border border-blue-200 text-blue-800`;
-        }
-    };
-
-    return (
-        <div className={getStyles()}>
-            <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-500' : type === 'error' ? 'bg-red-100 text-red-500' : type === 'warning' ? 'bg-yellow-100 text-yellow-500' : 'bg-blue-100 text-blue-500'}`}>
-                {getIcon()}
-            </div>
-            <div className="ml-3 text-sm font-medium">{message}</div>
-            <button type="button" className="ml-auto -mx-1.5 -my-1.5 rounded-lg p-1.5 inline-flex h-8 w-8 hover:bg-gray-100 transition-colors duration-200" onClick={onClose}>
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-            </button>
-        </div>
-    );
-};
-
-const useToast = () => {
-    const [toasts, setToasts] = useState<Array<{ id: number; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
-    const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, message, type }]); };
-    const removeToast = (id: number) => { setToasts(prev => prev.filter(toast => toast.id !== id)); };
-    return { toasts, addToast, removeToast };
-};
-
-const LoadingSpinner: React.FC = () => (
-    <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>
-);
+// --- REFATORAÇÃO: TOASTS & LOADING SPINNER ---
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+import LoadingSpinner from '@/components/LoadingSpinner';
+// --- FIM REFATORAÇÃO ---
 
 type ReportContent = ReportDataPresencaReuniao | ReportDataPresencaMembro | ReportDataFaltososPeriodo | ReportDataVisitantesPeriodo | ReportDataAniversariantes | ReportDataAlocacaoLideres | ReportDataChavesAtivacao;
 
@@ -106,7 +56,7 @@ type UnifiedReportData = {
     type: ReportTypeEnum;
     title: string;
     content: ReportContent;
-    filename?: string; 
+    filename?: string;
 };
 
 type ReportTypeEnum = 'presenca_reuniao' | 'presenca_membro' | 'faltosos' | 'visitantes_periodo' | 'aniversariantes_mes' | 'alocacao_lideres' | 'chaves_ativacao';
@@ -115,8 +65,8 @@ export default function RelatoriosPage() {
     const [selectedReportType, setSelectedReportType] = useState<ReportTypeEnum | null>(null);
     const [reunioesOptions, setReunioesOptions] = useState<ReuniaoOption[]>([]);
     const [membrosOptions, setMembrosOptions] = useState<MembroOption[]>([]);
-    const [loadingOptions, setLoadingOptions] = useState(true); 
-    
+    const [loadingOptions, setLoadingOptions] = useState(true);
+
     const [selectedReuniaoId, setSelectedReuniaoId] = useState<string>('');
     const [selectedMembroId, setSelectedMembroId] = useState<string>('');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -127,10 +77,10 @@ export default function RelatoriosPage() {
     const [celulasFilterOptions, setCelulasFilterOptions] = useState<CelulaOption[]>([]);
     const [selectedFilterCelulaId, setSelectedFilterCelulaId] = useState<string>('');
 
-    const [reportDisplayData, setReportDisplayData] = useState<UnifiedReportData | null>(null); 
-    const [loadingReport, setLoadingReport] = useState(false); 
-    const [exportingPdf, setExportingPdf] = useState(false);   
-    const [exportingCsv, setExportingCsv] = useState(false);   
+    const [reportDisplayData, setReportDisplayData] = useState<UnifiedReportData | null>(null);
+    const [loadingReport, setLoadingReport] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportingCsv, setExportingCsv] = useState(false);
 
     const { toasts, addToast, removeToast } = useToast();
 
@@ -143,13 +93,15 @@ export default function RelatoriosPage() {
         setLoadingOptions(true);
         try {
             if (currentRole === 'admin') {
-                const celulasData = await listarCelulasParaAdmin();
+                const celulasData = await listarCelulasParaAdmin(); // Agora importado corretamente
                 setCelulasFilterOptions(celulasData);
             } else {
                 setCelulasFilterOptions([]);
-                if (selectedFilterCelulaId !== '') setSelectedFilterCelulaId('');
+                if (selectedFilterCelulaId !== '') {
+                    setSelectedFilterCelulaId('');
+                }
             }
-            
+
             const membersAndReunionsCelulaId = (selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao') ? null : currentFilterCelulaId;
 
             const [membrosData, reunioesData] = await Promise.all([
@@ -164,11 +116,11 @@ export default function RelatoriosPage() {
 
         } catch (e: any) {
             console.error("Erro ao carregar dados para os selects:", e);
-            addToast(`Erro ao carregar opções para relatórios: ${e.message || 'Erro desconhecido.'}`, 'error');
+            addToast('Erro ao carregar opções para relatórios: ' + (e.message || 'Erro desconhecido.'), 'error');
         } finally {
             setLoadingOptions(false);
         }
-    }, [selectedFilterCelulaId, selectedReportType, addToast]);
+    }, [selectedFilterCelulaId, selectedReportType]);
 
     useEffect(() => {
         async function fetchUserAndInitialData() {
@@ -183,16 +135,16 @@ export default function RelatoriosPage() {
                     }
                 }
                 setUserRole(fetchedRole);
-                loadDataAndOptions(fetchedRole, selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
+                await loadDataAndOptions(fetchedRole, selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
 
             } catch (e: any) {
                 console.error("Erro inicial ao buscar usuário/perfil:", e);
-                addToast(`Erro inicial: ${e.message || 'Erro desconhecido.'}`, 'error');
+                addToast('Erro inicial: ' + (e.message || 'Erro desconhecido.'), 'error');
                 setLoadingOptions(false);
             }
         }
         fetchUserAndInitialData();
-    }, [loadDataAndOptions, selectedFilterCelulaId, addToast]);
+    }, [loadDataAndOptions]); // `loadDataAndOptions` já é useCallback e tem suas próprias deps.
 
     useEffect(() => {
         const currentReportType = selectedReportType;
@@ -206,8 +158,8 @@ export default function RelatoriosPage() {
             addToast("Tipo de relatório resetado devido à mudança de permissão ou filtro de célula incompatível.", 'warning');
         }
         loadDataAndOptions(userRole, selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
-    }, [userRole, selectedFilterCelulaId, selectedReportType, loadDataAndOptions, addToast]);
-    
+    }, [userRole, selectedFilterCelulaId, selectedReportType, loadDataAndOptions]);
+
     const generateReportData = async (type: ReportTypeEnum, params: any) => {
         switch (type) {
             case 'presenca_reuniao': return fetchReportDataPresencaReuniao(params.reuniaoId, params.celulaId);
@@ -229,7 +181,7 @@ export default function RelatoriosPage() {
         }
 
         setLoadingReport(true);
-        setReportDisplayData(null); 
+        setReportDisplayData(null);
 
         try {
             let reportTitle = "";
@@ -250,29 +202,29 @@ export default function RelatoriosPage() {
                 month: parseInt(selectedBirthdayMonth),
                 celulaId: celulaFilterParam
             };
-            
+
             const result = await generateReportData(selectedReportType, params);
 
             if (!result) {
                 addToast("Nenhum dado encontrado para este relatório com os parâmetros selecionados.", 'info');
-                setReportDisplayData(null); 
+                setReportDisplayData(null);
                 return;
             }
-            
+
             // Construção do título do relatório
             switch (selectedReportType) {
-                case 'presenca_reuniao': reportTitle = `Relatório de Presença - Reunião em ${formatDateForDisplay((result as ReportDataPresencaReuniao).reuniao_detalhes.data_reuniao)}`; break;
-                case 'presenca_membro': reportTitle = `Histórico de Presença - ${(result as ReportDataPresencaMembro).membro_data.nome}`; break;
-                case 'faltosos': reportTitle = `Membros Faltosos entre ${formatDateForDisplay(startDate)} e ${formatDateForDisplay(endDate)}`; break;
-                case 'visitantes_periodo': reportTitle = `Visitantes entre ${formatDateForDisplay(startDate)} e ${formatDateForDisplay(endDate)}`; break;
-                case 'aniversariantes_mes': reportTitle = `Aniversariantes de ${months.find(m => m.value === selectedBirthdayMonth)?.label} de ${anoAtual}`; break;
-                case 'alocacao_lideres': reportTitle = `Relatório de Alocação de Líderes (${formatDateForDisplay(new Date().toISOString().split('T')[0])})`; break;
-                case 'chaves_ativacao': reportTitle = `Relatório de Chaves de Ativação (${formatDateForDisplay(new Date().toISOString().split('T')[0])})`; break;
+                case 'presenca_reuniao': reportTitle = "Relatório de Presença - Reunião em " + formatDateForDisplay((result as ReportDataPresencaReuniao).reuniao_detalhes.data_reuniao); break;
+                case 'presenca_membro': reportTitle = "Histórico de Presença - " + (result as ReportDataPresencaMembro).membro_data.nome; break;
+                case 'faltosos': reportTitle = "Membros Faltosos entre " + formatDateForDisplay(startDate) + " e " + formatDateForDisplay(endDate); break;
+                case 'visitantes_periodo': reportTitle = "Visitantes entre " + formatDateForDisplay(startDate) + " e " + formatDateForDisplay(endDate); break;
+                case 'aniversariantes_mes': reportTitle = "Aniversariantes de " + months.find(m => m.value === selectedBirthdayMonth)?.label + " de " + anoAtual; break;
+                case 'alocacao_lideres': reportTitle = "Relatório de Alocação de Líderes (" + formatDateForDisplay(new Date().toISOString().split('T')[0]) + ")"; break;
+                case 'chaves_ativacao': reportTitle = "Relatório de Chaves de Ativação (" + formatDateForDisplay(new Date().toISOString().split('T')[0]) + ")"; break;
             }
-            if(celulaNameForTitle) reportTitle += ` (${celulaNameForTitle})`;
-            
+            if(celulaNameForTitle) reportTitle += " (" + celulaNameForTitle + ")";
+
             const baseFilename = reportTitle.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').toLowerCase();
-            const filenamePdf = `${baseFilename}.pdf`;
+            const filenamePdf = baseFilename + ".pdf";
 
             setReportDisplayData({
                 type: selectedReportType,
@@ -281,10 +233,10 @@ export default function RelatoriosPage() {
                 filename: filenamePdf,
             });
             addToast("Relatório gerado com sucesso!", 'success');
-            
+
         } catch (e: any) {
             console.error("Erro ao gerar relatório:", e);
-            addToast(`Erro ao gerar relatório: ${e.message || 'Erro desconhecido.'}`, 'error');
+            addToast('Erro ao gerar relatório: ' + (e.message || 'Erro desconhecido.'), 'error');
         } finally {
             setLoadingReport(false);
         }
@@ -299,31 +251,31 @@ export default function RelatoriosPage() {
         setExportingPdf(true);
 
         try {
-            const response = await fetch('/api/generate-pdf', { 
+            const response = await fetch('/api/generate-pdf', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(reportDisplayData), 
+                body: JSON.stringify(reportDisplayData),
             });
 
             if (!response.ok) {
                 const errorJson = await response.json();
-                throw new Error(errorJson.error || `Erro ${response.status}: Falha na API de PDF.`);
+                throw new Error(errorJson.error || 'Erro ' + response.status + ': Falha na API de PDF.');
             }
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = reportDisplayData.filename || 'relatorio.pdf'; 
+            a.download = reportDisplayData.filename || 'relatorio.pdf';
             document.body.appendChild(a);
             a.click();
             a.remove();
-            window.URL.revokeObjectURL(url); 
+            window.URL.revokeObjectURL(url);
             addToast("PDF gerado e download iniciado!", 'success');
 
         } catch (err: any) {
             console.error("Erro ao exportar PDF:", err);
-            addToast(`Erro ao exportar PDF: ${err.message || "Erro desconhecido."}`, 'error');
+            addToast('Erro ao exportar PDF: ' + (err.message || "Erro desconhecido."), 'error');
         } finally {
             setExportingPdf(false);
         }
@@ -374,7 +326,7 @@ export default function RelatoriosPage() {
 
         } catch (err: any) {
             console.error("Erro ao exportar CSV:", err);
-            addToast(`Erro ao exportar CSV: ${err.message || "Erro desconhecido."}`, 'error');
+            addToast('Erro ao exportar CSV: ' + (err.message || "Erro desconhecido."), 'error');
         } finally {
             setExportingCsv(false);
         }

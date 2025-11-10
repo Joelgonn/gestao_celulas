@@ -11,24 +11,23 @@ import {
 } from '@/lib/data';
 import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 
-// Sistema de Toasts
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
+// --- REFATORAÇÃO: TOASTS ---
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
+// --- FIM REFATORAÇÃO TOASTS ---
 
-// Interface para os dados do formulário de edição de visitante
+// --- CORREÇÃO: Adicionar data_nascimento à interface VisitanteFormData ---
 interface VisitanteFormData {
     nome: string;
-    telefone: string;
+    telefone: string | null; // Pode ser null
     data_primeira_visita: string;
-    endereco: string;
-    data_ultimo_contato: string;
-    observacoes: string;
+    data_nascimento: string | null; // Adicionado: data de nascimento
+    endereco: string | null; // Pode ser null
+    data_ultimo_contato: string | null; // Pode ser null
+    observacoes: string | null; // Pode ser null
 }
+// --- FIM CORREÇÃO ---
 
 export default function EditVisitantePage() {
     const params = useParams();
@@ -36,46 +35,31 @@ export default function EditVisitantePage() {
     
     const [formData, setFormData] = useState<VisitanteFormData>({
         nome: '',
-        telefone: '',
+        telefone: null,
         data_primeira_visita: '',
-        endereco: '',
-        data_ultimo_contato: '',
-        observacoes: ''
+        data_nascimento: null, // Inicializar
+        endereco: null,
+        data_ultimo_contato: null,
+        observacoes: null
     });
     
-    const [toasts, setToasts] = useState<Toast[]>([]);
+    // --- REFATORAÇÃO: TOASTS ---
+    const { toasts, addToast, removeToast } = useToast();
+    // --- FIM REFATORAÇÃO TOASTS ---
+
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
-
-    // Função para adicionar toast
-    const addToast = (toast: Omit<Toast, 'id'>) => {
-        const id = Math.random().toString(36).substring(2, 9);
-        const newToast = { ...toast, id };
-        setToasts(prev => [...prev, newToast]);
-        
-        setTimeout(() => {
-            removeToast(id);
-        }, toast.duration || 5000);
-    };
-
-    // Função para remover toast
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    };
 
     useEffect(() => {
         const fetchVisitante = async () => {
             setLoading(true);
             try {
-                const data = await getVisitante(visitanteId);
+                // CORREÇÃO: getVisitante agora retorna com data_nascimento
+                const data = await getVisitante(visitanteId); 
 
                 if (!data) {
-                    addToast({
-                        type: 'error',
-                        title: 'Visitante não encontrado',
-                        message: 'O visitante solicitado não existe ou você não tem permissão para acessá-lo'
-                    });
+                    addToast('O visitante solicitado não existe ou você não tem permissão para acessá-lo', 'error');
                     setLoading(false);
                     setTimeout(() => router.replace('/visitantes'), 2000);
                     return;
@@ -83,27 +67,19 @@ export default function EditVisitantePage() {
 
                 setFormData({
                     nome: data.nome || '',
-                    telefone: normalizePhoneNumber(data.telefone),
+                    telefone: normalizePhoneNumber(data.telefone) || null,
                     data_primeira_visita: formatDateForInput(data.data_primeira_visita),
-                    endereco: data.endereco || '',
-                    data_ultimo_contato: formatDateForInput(data.data_ultimo_contato),
-                    observacoes: data.observacoes || ''
+                    data_nascimento: data.data_nascimento ? formatDateForInput(data.data_nascimento) : null, // Preencher data_nascimento
+                    endereco: data.endereco || null,
+                    data_ultimo_contato: data.data_ultimo_contato ? formatDateForInput(data.data_ultimo_contato) : null,
+                    observacoes: data.observacoes || null
                 });
 
-                addToast({
-                    type: 'success',
-                    title: 'Dados carregados',
-                    message: 'Informações do visitante carregadas com sucesso',
-                    duration: 3000
-                });
+                addToast('Informações do visitante carregadas com sucesso', 'success', 3000);
 
             } catch (e: any) {
                 console.error("Erro ao buscar visitante:", e);
-                addToast({
-                    type: 'error',
-                    title: 'Erro ao carregar',
-                    message: e.message || 'Erro desconhecido ao carregar dados do visitante'
-                });
+                addToast(e.message || 'Erro desconhecido ao carregar dados do visitante', 'error');
             } finally {
                 setLoading(false);
             }
@@ -112,14 +88,14 @@ export default function EditVisitantePage() {
         if (visitanteId) {
             fetchVisitante();
         }
-    }, [visitanteId, router]);
+    }, [visitanteId, router, addToast]); // Adicionar addToast às dependências
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (name === 'telefone') {
-            setFormData({ ...formData, [name]: normalizePhoneNumber(value) });
+            setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            setFormData({ ...formData, [name]: value });
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); // Lidar com campos que podem ser nulos
         }
     };
 
@@ -129,22 +105,14 @@ export default function EditVisitantePage() {
 
         // Validações
         if (!formData.nome.trim()) {
-            addToast({
-                type: 'error',
-                title: 'Campo obrigatório',
-                message: 'O campo "Nome Completo" é obrigatório'
-            });
+            addToast('O campo "Nome Completo" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
 
         const normalizedPhone = normalizePhoneNumber(formData.telefone);
         if (normalizedPhone && (normalizedPhone.length < 10 || normalizedPhone.length > 11)) {
-            addToast({
-                type: 'error',
-                title: 'Telefone inválido',
-                message: 'O número deve ter 10 ou 11 dígitos (incluindo DDD)'
-            });
+            addToast('O número de telefone deve ter 10 ou 11 dígitos (incluindo DDD)', 'error');
             setSubmitting(false);
             return;
         }
@@ -154,17 +122,13 @@ export default function EditVisitantePage() {
                 nome: formData.nome,
                 telefone: normalizedPhone || null,
                 data_primeira_visita: formData.data_primeira_visita,
+                data_nascimento: formData.data_nascimento, // Incluir data_nascimento
                 endereco: formData.endereco || null,
                 data_ultimo_contato: formData.data_ultimo_contato || null,
                 observacoes: formData.observacoes || null,
             }, visitanteId);
 
-            addToast({
-                type: 'success',
-                title: 'Sucesso!',
-                message: 'Visitante atualizado com sucesso',
-                duration: 3000
-            });
+            addToast('Visitante atualizado com sucesso', 'success', 3000);
 
             // Redirecionar após mostrar o toast
             setTimeout(() => {
@@ -173,105 +137,24 @@ export default function EditVisitantePage() {
 
         } catch (e: any) {
             console.error("Erro ao atualizar visitante:", e);
-            addToast({
-                type: 'error',
-                title: 'Erro ao atualizar',
-                message: e.message || 'Erro desconhecido ao atualizar visitante'
-            });
+            addToast(e.message || 'Erro desconhecido ao atualizar visitante', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Ícones para os toasts
-    const getToastIcon = (type: Toast['type']) => {
-        switch (type) {
-            case 'success':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'error':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'warning':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'info':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-        }
-    };
-
-    const getToastStyles = (type: Toast['type']) => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-        
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-green-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-        }
-    };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 space-y-3">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
-                    <div
+                    <Toast
                         key={toast.id}
-                        className={getToastStyles(toast.type)}
-                    >
-                        <div className="p-4">
-                            <div className="flex items-start">
-                                {getToastIcon(toast.type)}
-                                <div className="ml-3 w-0 flex-1 pt-0.5">
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {toast.title}
-                                    </p>
-                                    {toast.message && (
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            {toast.message}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="ml-4 flex-shrink-0 flex">
-                                    <button
-                                        onClick={() => removeToast(toast.id)}
-                                        className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        <span className="sr-only">Fechar</span>
-                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
                 ))}
             </div>
 
@@ -305,10 +188,7 @@ export default function EditVisitantePage() {
                     {/* Formulário */}
                     <div className="p-6 sm:p-8">
                         {loading ? (
-                            <div className="text-center py-12">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-                                <p className="mt-4 text-gray-600 font-medium">Carregando dados do visitante...</p>
-                            </div>
+                            <LoadingSpinner text="Carregando dados do visitante..." />
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 {/* Campo Nome */}
@@ -343,11 +223,31 @@ export default function EditVisitantePage() {
                                         type="text" 
                                         id="telefone" 
                                         name="telefone" 
-                                        value={formData.telefone} 
+                                        value={formData.telefone || ''} 
                                         onChange={handleChange} 
                                         placeholder="(XX) XXXXX-XXXX" 
                                         maxLength={11} 
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                                    />
+                                </div>
+
+                                {/* Endereço */}
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <label htmlFor="endereco" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Endereço
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        id="endereco" 
+                                        name="endereco" 
+                                        value={formData.endereco || ''} 
+                                        onChange={handleChange} 
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                                        placeholder="Digite o endereço completo"
                                     />
                                 </div>
 
@@ -372,42 +272,40 @@ export default function EditVisitantePage() {
                                         />
                                     </div>
 
-                                    {/* Data Último Contato */}
+                                    {/* Data de Nascimento */}
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="data_ultimo_contato" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                        <label htmlFor="data_nascimento" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                             <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
-                                            Data Último Contato
+                                            Data de Nascimento
                                         </label>
                                         <input 
                                             type="date" 
-                                            id="data_ultimo_contato" 
-                                            name="data_ultimo_contato" 
-                                            value={formData.data_ultimo_contato} 
+                                            id="data_nascimento" 
+                                            name="data_nascimento" 
+                                            value={formData.data_nascimento || ''} // Handle null
                                             onChange={handleChange} 
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                         />
                                     </div>
                                 </div>
 
-                                {/* Endereço */}
+                                {/* Data Último Contato */}
                                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="endereco" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <label htmlFor="data_ultimo_contato" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                         <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
-                                        Endereço
+                                        Data Último Contato
                                     </label>
                                     <input 
-                                        type="text" 
-                                        id="endereco" 
-                                        name="endereco" 
-                                        value={formData.endereco} 
+                                        type="date" 
+                                        id="data_ultimo_contato" 
+                                        name="data_ultimo_contato" 
+                                        value={formData.data_ultimo_contato || ''} // Handle null
                                         onChange={handleChange} 
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                        placeholder="Digite o endereço completo"
                                     />
                                 </div>
 
@@ -422,7 +320,7 @@ export default function EditVisitantePage() {
                                     <textarea
                                         id="observacoes"
                                         name="observacoes"
-                                        value={formData.observacoes}
+                                        value={formData.observacoes || ''} // Handle null
                                         onChange={handleChange}
                                         rows={4}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 resize-none"

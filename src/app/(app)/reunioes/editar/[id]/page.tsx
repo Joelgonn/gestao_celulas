@@ -7,27 +7,22 @@ import Link from 'next/link';
 import {
     getReuniao,
     atualizarReuniao,
-    listarMembros, 
+    listarMembros,
     verificarDuplicidadeReuniao,
     uploadMaterialReuniao,
-    Membro, 
-    Reuniao, 
-    ReuniaoFormData 
-} from '@/lib/data'; 
-import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters'; 
+    Membro,
+    ReuniaoFormData,
+    ReuniaoParaEdicao,
+} from '@/lib/data';
+import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
 
 export default function EditReuniaoPage() {
     const params = useParams();
     const reuniaoId = params.id as string;
-    
+
     const [formData, setFormData] = useState<ReuniaoFormData>({
         data_reuniao: '',
         tema: '',
@@ -37,73 +32,48 @@ export default function EditReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const [loading, setLoading] = useState(true); 
-    const [submitting, setSubmitting] = useState(false); 
+    const { toasts, addToast, removeToast } = useToast();
+
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
     const router = useRouter();
 
-    const addToast = (toast: Omit<Toast, 'id'>) => {
-        const id = Math.random().toString(36).substring(2, 9);
-        const newToast = { ...toast, id };
-        setToasts(prev => [...prev, newToast]);
-        
-        setTimeout(() => {
-            removeToast(id);
-        }, toast.duration || 5000);
-    };
-
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    };
-
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [membrosData, reuniaoData] = await Promise.all([
+                const [membrosData, reuniaoDataFromLib] = await Promise.all([
                     listarMembros(),
                     getReuniao(reuniaoId),
                 ]);
 
                 setMembros(membrosData);
 
-                if (!reuniaoData) {
-                    addToast({
-                        type: 'error',
-                        title: 'Reunião não encontrada',
-                        message: 'A reunião solicitada não existe ou você não tem permissão para acessá-la'
-                    });
+                if (!reuniaoDataFromLib) {
+                    addToast('A reunião solicitada não existe ou você não tem permissão para acessá-la', 'error');
                     setTimeout(() => router.replace('/reunioes'), 2000);
                     return;
                 }
 
                 setFormData({
-                    data_reuniao: formatDateForInput(reuniaoData.data_reuniao),
-                    tema: reuniaoData.tema || '',
-                    ministrador_principal: reuniaoData.ministrador_principal || null,
-                    ministrador_secundario: reuniaoData.ministrador_secundario || null,
-                    responsavel_kids: reuniaoData.responsavel_kids || null,
-                    caminho_pdf: reuniaoData.caminho_pdf || null,
+                    data_reuniao: formatDateForInput(reuniaoDataFromLib.data_reuniao),
+                    tema: reuniaoDataFromLib.tema || '',
+                    ministrador_principal: reuniaoDataFromLib.ministrador_principal || null,
+                    ministrador_secundario: reuniaoDataFromLib.ministrador_secundario || null,
+                    responsavel_kids: reuniaoDataFromLib.responsavel_kids || null,
+                    caminho_pdf: reuniaoDataFromLib.caminho_pdf || null,
+                    celula_id: reuniaoDataFromLib.celula_id,
                 });
 
-                addToast({
-                    type: 'success',
-                    title: 'Dados carregados',
-                    message: 'Informações da reunião carregadas com sucesso',
-                    duration: 3000
-                });
+                addToast('Informações da reunião carregadas com sucesso', 'success', 3000);
 
             } catch (e: any) {
                 console.error("Erro ao buscar dados para edição da reunião:", e);
-                addToast({
-                    type: 'error',
-                    title: 'Erro ao carregar',
-                    message: e.message || 'Erro desconhecido ao carregar dados da reunião'
-                });
+                addToast(e.message || 'Erro desconhecido ao carregar dados da reunião', 'error');
                 setTimeout(() => router.replace('/reunioes'), 2000);
             } finally {
                 setLoading(false);
@@ -113,7 +83,7 @@ export default function EditReuniaoPage() {
         if (reuniaoId) {
             fetchData();
         }
-    }, [reuniaoId, router]);
+    }, [reuniaoId, router, addToast]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -125,17 +95,17 @@ export default function EditReuniaoPage() {
         setSubmitting(true);
 
         if (!formData.tema.trim()) {
-            addToast({ type: 'error', title: 'Campo obrigatório', message: 'O campo "Tema / Palavra" é obrigatório' });
+            addToast('O campo "Tema / Palavra" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.ministrador_principal) {
-            addToast({ type: 'error', title: 'Campo obrigatório', message: 'O campo "Ministrador Principal" é obrigatório' });
+            addToast('O campo "Ministrador Principal" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.data_reuniao) {
-            addToast({ type: 'error', title: 'Campo obrigatório', message: 'O campo "Data da Reunião" é obrigatório' });
+            addToast('O campo "Data da Reunião" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
@@ -143,21 +113,22 @@ export default function EditReuniaoPage() {
         try {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema, reuniaoId);
             if (isDuplicate) {
-                addToast({ type: 'error', title: 'Reunião duplicada', message: `Já existe outra reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}` });
+                // CORREÇÃO: Usar concatenação de string simples para evitar o erro de parsing
+                addToast('Já existe outra reunião com o tema \'' + formData.tema + '\' na data ' + formatDateForDisplay(formData.data_reuniao), 'warning');
                 setSubmitting(false);
                 return;
             }
         } catch (e: any) {
             console.error("Erro ao verificar duplicidade:", e);
-            addToast({ type: 'error', title: 'Erro de validação', message: e.message || 'Erro ao verificar duplicidade da reunião' });
+            addToast(e.message || 'Erro ao verificar duplicidade da reunião', 'error');
             setSubmitting(false);
             return;
         }
 
         try {
             await atualizarReuniao(reuniaoId, formData);
-            
-            addToast({ type: 'success', title: 'Sucesso!', message: 'Reunião atualizada com sucesso', duration: 3000 });
+
+            addToast('Reunião atualizada com sucesso', 'success', 3000);
 
             setTimeout(() => {
                 router.push('/reunioes');
@@ -165,7 +136,7 @@ export default function EditReuniaoPage() {
 
         } catch (e: any) {
             console.error("Erro ao atualizar reunião:", e);
-            addToast({ type: 'error', title: 'Erro ao atualizar', message: e.message || 'Erro desconhecido ao atualizar reunião' });
+            addToast(e.message || 'Erro desconhecido ao atualizar reunião', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -179,11 +150,11 @@ export default function EditReuniaoPage() {
 
     const handleFileUpload = async () => {
         if (!selectedFile) {
-            addToast({ type: 'error', title: 'Nenhum arquivo', message: 'Por favor, selecione um arquivo para upload' });
+            addToast('Por favor, selecione um arquivo para upload', 'error');
             return;
         }
         if (!reuniaoId) {
-            addToast({ type: 'error', title: 'ID não disponível', message: 'ID da reunião não disponível para upload' });
+            addToast('ID da reunião não disponível para upload', 'error');
             return;
         }
 
@@ -204,97 +175,29 @@ export default function EditReuniaoPage() {
             setFormData(prev => ({ ...prev, caminho_pdf: publicUrl }));
             setSelectedFile(null);
 
-            addToast({ type: 'success', title: 'Upload concluído!', message: 'Material da reunião enviado e vinculado com sucesso', duration: 4000 });
+            addToast('Material da reunião enviado e vinculado com sucesso', 'success', 4000);
 
         } catch (e: any) {
             console.error("Erro ao fazer upload do material:", e);
-            addToast({ type: 'error', title: 'Erro no upload', message: e.message || 'Erro desconhecido ao fazer upload do material' });
+            addToast(e.message || 'Erro desconhecido ao fazer upload do material', 'error');
             setUploadProgress(0);
         } finally {
             setUploading(false);
         }
     };
 
-    // --- INÍCIO DA CORREÇÃO ---
-    const getToastIcon = (type: Toast['type']) => {
-        switch (type) {
-            case 'success':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'error':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'warning':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'info':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
-    const getToastStyles = (type: Toast['type']) => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-        
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-green-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-            default:
-                return baseStyles;
-        }
-    };
-    // --- FIM DA CORREÇÃO ---
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 space-y-3">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
-                    <div key={toast.id} className={getToastStyles(toast.type)}>
-                        <div className="p-4">
-                            <div className="flex items-start">
-                                {getToastIcon(toast.type)}
-                                <div className="ml-3 w-0 flex-1 pt-0.5">
-                                    <p className="text-sm font-medium text-gray-900">{toast.title}</p>
-                                    {toast.message && (<p className="mt-1 text-sm text-gray-500">{toast.message}</p>)}
-                                </div>
-                                <div className="ml-4 flex-shrink-0 flex">
-                                    <button onClick={() => removeToast(toast.id)} className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        <span className="sr-only">Fechar</span>
-                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
                 ))}
             </div>
 
