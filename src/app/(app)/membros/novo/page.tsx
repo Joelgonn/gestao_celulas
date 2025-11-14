@@ -16,7 +16,7 @@ import { normalizePhoneNumber } from '@/utils/formatters';
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
-import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
+import LoadingSpinner from '@/components/LoadingSpinner'; // <-- CORREÇÃO: Usar o LoadingSpinner principal
 // --- FIM REFATORAÇÃO TOASTS ---
 
 // --- CORREÇÃO: Adicionar celula_id e status à interface FormData ---

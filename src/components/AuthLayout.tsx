@@ -14,7 +14,9 @@ const PROTECTED_ROUTES_FOR_APP_CONTENT = [
     '/reunioes', '/reunioes/novo', '/reunioes/editar', '/reunioes/presenca',
     '/relatorios',
     '/profile',
-    '/admin/celulas'
+    '/admin/celulas',
+    '/admin/users', // NOVO: Adicionado para garantir que admin/users é uma rota protegida
+    '/admin/palavra-semana' // NOVO: Adicionado para garantir que admin/palavra-semana é uma rota protegida
 ];
 const AUTH_ROUTES = ['/login', '/'];
 const ACTIVATE_ACCOUNT_ROUTE = '/activate-account';
