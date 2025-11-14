@@ -20,19 +20,19 @@ import {
     FaCopy,
     FaMapMarkerAlt
 } from 'react-icons/fa';
-import { useToastStore } from '@/lib/toast';
-import {
-    fetchCelulasAdmin,
-    createCelulaAdmin,
-    updateCelulaAdmin,
-    deleteCelulaAdmin,
-    Celula
-} from '@/app/api/admin/celulas/actions';
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
 
-// --- IMPORTAÇÃO DE CHAVEATIVACAO DO NOVO ARQUIVO types.ts (ALTERADO AQUI) ---
-import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions';
-import { ChaveAtivacao } from '@/lib/types'; // Importado de types.ts
-// --- FIM DA ALTERAÇÃO ---
+import { 
+    fetchCelulasAdmin, 
+    createCelulaAdmin, 
+    updateCelulaAdmin, 
+    deleteCelulaAdmin, 
+    Celula 
+} from '@/app/api/admin/celulas/actions'; 
+
+import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions'; 
+import { ChaveAtivacao } from '@/lib/types'; 
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 
@@ -45,6 +45,7 @@ export default function AdminCelulasPage() {
     const [newCelulaLider, setNewCelulaLider] = useState('');
     const [newCelulaEndereco, setNewCelulaEndereco] = useState('');
 
+    // APENAS ESTAS DECLARAÇÕES DE useState DEVEM EXISTIR PARA EDIÇÃO
     const [editingCelulaId, setEditingCelulaId] = useState<string | null>(null);
     const [editingCelulaName, setEditingCelulaName] = useState('');
     const [editingCelulaLider, setEditingCelulaLider] = useState('');
@@ -55,7 +56,7 @@ export default function AdminCelulasPage() {
     const [loadingChaves, setLoadingChaves] = useState(false);
 
     const router = useRouter();
-    const { addToast } = useToastStore();
+    const { toasts, addToast, removeToast } = useToast();
 
     const loadCelulas = useCallback(async () => {
         setLoading(true);
@@ -73,7 +74,7 @@ export default function AdminCelulasPage() {
         } finally {
             setLoading(false);
         }
-    }, [router, addToast]);
+    }, [router, addToast]); 
 
     const loadChavesAtivacao = useCallback(async () => {
         setLoadingChaves(true);
@@ -117,7 +118,7 @@ export default function AdminCelulasPage() {
             setNewCelulaLider('');
             setNewCelulaEndereco('');
             await loadCelulas();
-            await loadChavesAtivacao(); // Recarrega chaves após criar nova célula e chave
+            await loadChavesAtivacao(); 
             addToast('Célula e chave de ativação criadas com sucesso!', 'success');
         } catch (err: any) {
             console.error("Erro ao criar célula (Admin):", err);
@@ -176,7 +177,7 @@ export default function AdminCelulasPage() {
         try {
             await deleteCelulaAdmin(celulaId);
             await loadCelulas();
-            await loadChavesAtivacao(); // Recarrega chaves após excluir célula
+            await loadChavesAtivacao(); 
             addToast(`Célula "${celulaName}" excluída com sucesso!`, 'success');
         } catch (err: any) {
             console.error("Erro ao excluir célula (Admin):", err);
@@ -195,7 +196,7 @@ export default function AdminCelulasPage() {
         setError(null);
         try {
             const newKey = await createChaveAtivacaoAdmin(celulaId);
-            await loadChavesAtivacao(); // Recarrega chaves para mostrar a nova
+            await loadChavesAtivacao(); 
             addToast(`Chave gerada para ${celulaName}: ${newKey.chave}`, 'success');
         } catch (err: any) {
             console.error("Erro ao gerar chave de ativação:", err);
@@ -221,6 +222,18 @@ export default function AdminCelulasPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">

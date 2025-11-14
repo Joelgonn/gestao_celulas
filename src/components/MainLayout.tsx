@@ -1,7 +1,7 @@
 // src/components/MainLayout.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'; // Adicionei useCallback aqui
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
@@ -22,22 +22,24 @@ import {
   FaExclamationTriangle,
   FaInfoCircle,
   FaTimes as FaClose,
-  FaBookOpen // NOVO: Ícone para Palavra da Semana
+  FaBookOpen,
+  FaUserCog 
 } from 'react-icons/fa';
 
-// Sistema de Toast integrado
-interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  duration?: number;
+// NOVO: Importar a interface Toast de onde ela está definida
+import type { ToastProps } from '@/components/ui/Toast'; // Importamos 'type' para garantir que é apenas o tipo
+// E o nome da interface para o hook é 'Toast'
+interface Toast extends Omit<ToastProps, 'onClose'> { // Reutiliza a base da ToastProps
+  id: number;
 }
 
-const useToast = () => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 5000) => {
-    const id = Math.random().toString(36).substring(2, 9);
+const useToast = () => {
+  // A interface Toast usada aqui deve ser a definida logo acima
+  const [toasts, setToasts] = useState<Toast[]>([]); 
+
+  const addToast = useCallback((message: string, type: Toast['type'] = 'info', duration: number = 5000) => {
+    const id = Math.random(); // ID numérico para o hook, mais simples
     const newToast: Toast = { id, message, type, duration };
     
     setToasts(prev => [...prev, newToast]);
@@ -49,67 +51,35 @@ const useToast = () => {
     }
   }, []);
 
-  const removeToast = useCallback((id: string) => {
+  const removeToast = useCallback((id: number) => { // 'id' agora é number
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
-  const ToastContainer = () => (
-    <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={`p-4 rounded-xl shadow-lg border-l-4 transform transition-all duration-300 ease-in-out ${
-            toast.type === 'success' 
-              ? 'bg-green-50 border-green-500 text-green-800' 
-              : toast.type === 'error'
-              ? 'bg-red-50 border-red-500 text-red-800'
-              : toast.type === 'warning'
-              ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
-              : 'bg-blue-50 border-blue-500 text-blue-800'
-          }`}
-        >
-          <div className="flex items-start space-x-3">
-            <div className={`flex-shrink-0 mt-0.5 ${
-              toast.type === 'success' 
-                ? 'text-green-500' 
-                : toast.type === 'error'
-                ? 'text-red-500'
-                : toast.type === 'warning'
-                ? 'text-yellow-500'
-                : 'text-blue-500'
-            }`}>
-              {toast.type === 'success' && <FaCheckCircle className="text-lg" />}
-              {toast.type === 'error' && <FaExclamationTriangle className="text-lg" />}
-              {toast.type === 'warning' && <FaExclamationTriangle className="text-lg" />}
-              {toast.type === 'info' && <FaInfoCircle className="text-lg" />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{toast.message}</p>
-            </div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className={`flex-shrink-0 ml-2 hover:bg-opacity-20 hover:bg-black rounded-full p-1 transition-colors ${
-                toast.type === 'success' 
-                  ? 'text-green-500 hover:text-green-700' 
-                  : toast.type === 'error'
-                  ? 'text-red-500 hover:text-red-700'
-                  : toast.type === 'warning'
-                  ? 'text-yellow-500 hover:text-yellow-700'
-                  : 'text-blue-500 hover:text-blue-700'
-              }`}
-            >
-              <FaClose className="text-sm" />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  // O componente ToastContainer aqui é uma função dentro do hook
+  // Ele também precisa importar o componente Toast
+  const ToastContainer = () => {
+    // Importar o componente Toast aqui dentro, para evitar circular dependencies se useToast importasse Toast
+    const ToastComponent = require('@/components/ui/Toast').default; 
+    return (
+      <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
+        {toasts.map((toast) => (
+          <ToastComponent // Usar o componente importado
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+            duration={toast.duration}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return { addToast, removeToast, ToastContainer };
 };
 
-// --- Componente NavItem ---
+
+// --- Componente NavItem (permanece o mesmo) ---
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
@@ -143,7 +113,7 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   );
 };
 
-// --- Componente LogoutButton ---
+// --- Componente LogoutButton (permanece o mesmo) ---
 const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const router = useRouter();
   
@@ -168,7 +138,7 @@ const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   );
 };
 
-// --- Componente MainLayout ---
+// --- Componente MainLayout (o resto permanece o mesmo) ---
 interface MainLayoutProps {
   children: React.ReactNode;
 }
@@ -182,7 +152,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const { addToast, ToastContainer } = useToast();
+  const { addToast, ToastContainer } = useToast(); // ToastContainer é um componente retornado pelo hook
+
 
   useEffect(() => {
     async function fetchUserRole() {
@@ -251,13 +222,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       forLider: true,
     },
     {
+      href: '/admin/users',
+      icon: <FaUserCog className="text-lg" />,
+      label: 'Gerenciar Usuários',
+      forAdmin: true,
+      forLider: false, 
+    },
+    {
       href: '/admin/celulas', 
       icon: <FaChurch className="text-lg" />,
       label: 'Gerenciar Células',
       forAdmin: true,
       forLider: false,
     },
-    // NOVO: Item de navegação para Palavra da Semana (apenas Admin)
     {
         href: '/admin/palavra-semana',
         icon: <FaBookOpen className="text-lg" />,
