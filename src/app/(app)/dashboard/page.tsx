@@ -19,34 +19,25 @@ import {
     ArcElement,
     BarElement
 } from 'chart.js';
-import {
-    FaUserPlus,
-    FaUsers,
-    FaCalendarCheck,
-    FaGlobe,
-    FaHome,
-    FaChartLine,
-    FaExclamationTriangle,
-    FaBirthdayCake,
-    FaUserFriends,
-    FaChartPie,
-    FaArrowUp,
-    FaArrowDown,
-    FaEye,
-    FaEdit,
-    FaFilter,
-    FaSync,
-    FaCheckCircle,
-    FaExclamationCircle,
-    FaInfoCircle,
-    FaChartBar,
-    FaHistory,
-    FaUserCheck,
-    FaSearch,
-    FaBookOpen,
-    FaFileDownload
-} from 'react-icons/fa';
-import { useToastStore } from '@/lib/toast';
+
+// ADICIONE O BLOCO DE REGISTRO DO CHART.JS AQUI, FORA DO COMPONENTE PRINCIPAL
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
+    ArcElement,
+    BarElement
+);
+
+// ADICIONAR ESTAS DUAS LINHAS NOVAS para o sistema de toast:
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+
 
 // --- IMPORTAÇÕES DE FUNÇÕES DE dashboard_data.ts ---
 import {
@@ -98,114 +89,37 @@ import { getPalavraDaSemana, PalavraDaSemana, CelulaOption } from '@/lib/data';
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-// O restante dos componentes de Toast e ChartJS permanecem os mesmos...
-interface ToastProps {
-    id: string;
-    message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    duration?: number;
-    onClose: (id: string) => void;
-}
-
-const Toast = ({ id, message, type, duration = 5000, onClose }: ToastProps) => {
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            onClose(id);
-        }, duration);
-
-        return () => clearTimeout(timer);
-    }, [id, duration, onClose]);
-
-    const getToastStyles = () => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 transform transition-all duration-300 ease-in-out";
-
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-emerald-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-            default:
-                return baseStyles;
-        }
-    };
-
-    const getIcon = () => {
-        const iconClass = "w-5 h-5";
-        switch (type) {
-            case 'success':
-                return <FaCheckCircle className={`${iconClass} text-emerald-500`} />;
-            case 'error':
-                return <FaExclamationCircle className={`${iconClass} text-red-500`} />;
-            case 'warning':
-                return <FaExclamationTriangle className={`${iconClass} text-yellow-500`} />;
-            case 'info':
-                return <FaInfoCircle className={`${iconClass} text-blue-500`} />;
-            default:
-                return null;
-        }
-    };
-
-    return (
-        <div className={getToastStyles()}>
-            <div className="flex-1 w-0 p-4">
-                <div className="flex items-start">
-                    <div className="flex-shrink-0 pt-0.5">
-                        {getIcon()}
-                    </div>
-                    <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                            {message}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div className="flex border-l border-gray-200">
-                <button
-                    onClick={() => onClose(id)}
-                    className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-gray-600 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                    ×
-                </button>
-            </div>
-        </div>
-    );
-};
-
-const ToastContainer = () => {
-    const { toasts, removeToast } = useToastStore();
-
-    return (
-        <div className="fixed top-4 right-4 z-50 space-y-3">
-            {toasts.map((toast) => (
-                <Toast
-                    key={toast.id}
-                    id={toast.id}
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={removeToast}
-                />
-            ))}
-        </div>
-    );
-};
-
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    Filler,
-    ArcElement,
-    BarElement
-);
-// --- FIM DOS COMPONENTES INTERNOS ---
+// CORREÇÃO AQUI: As importações de Fa são necessárias e não devem ser removidas
+// Eu tinha pedido para remover o bloco de toast, e isso erroneamente levou a remoção dessas importações
+// que estavam AGREGADAS no bloco que você tinha.
+// O ideal é que as importações de Fa estejam SEPARADAS.
+import {
+    FaUserPlus,
+    FaUsers,
+    FaCalendarCheck,
+    FaGlobe,
+    FaHome,
+    FaChartLine, // ESTE ÍCONE ESTAVA FALTANDO
+    FaExclamationTriangle,
+    FaBirthdayCake,
+    FaUserFriends,
+    FaChartPie,
+    FaArrowUp,
+    FaArrowDown,
+    FaEye,
+    FaEdit,
+    FaFilter,
+    FaSync,
+    FaCheckCircle,
+    FaExclamationCircle,
+    FaInfoCircle,
+    FaChartBar,
+    FaHistory,
+    FaUserCheck,
+    FaSearch,
+    FaBookOpen,
+    FaFileDownload
+} from 'react-icons/fa'; // GARANTIR QUE ESTE BLOCO ESTÁ PRESENTE E COMPLETO
 
 export default function DashboardPage() {
     const [totalMembros, setTotalMembros] = useState(0);
@@ -234,12 +148,12 @@ export default function DashboardPage() {
     const [newVisitorsTrendData, setNewVisitorsTrendData] = useState<NewVisitorsTrendData | null>(null);
     const [duplicateVisitorGroups, setDuplicateVisitorGroups] = useState<DuplicateVisitorGroup[] | null>(null);
     const [celulasFilterOptions, setCelulasFilterOptions] = useState<CelulaOption[]>([]);
-    const [selectedFilterCelulaId, setSelectedFilterCelulaId] = useState<string>(''); // Vazio string para "Todas as Células"
+    const [selectedFilterCelulaId, setSelectedFilterCelulaId] = useState<string>('');
 
     const [palavraDaSemana, setPalavraDaSemana] = useState<PalavraDaSemana | null>(null);
 
     const router = useRouter();
-    const { addToast } = useToastStore();
+    const { toasts, addToast, removeToast } = useToast();
 
     const fetchDashboardData = useCallback(async (showRefreshToast = false) => {
         setLoadingStats(true);
@@ -273,12 +187,9 @@ export default function DashboardPage() {
         setUserRole(currentUserRole);
 
         let celulaIdToFetch: string | null = null;
-        // Determine o valor do filtro a ser usado.
-        // Prioridade: selectedFilterCelulaId (do estado/seleção do usuário), depois currentUserCelulaId (do perfil), senão null.
-        const currentFilterValue = selectedFilterCelulaId; // Captura o valor atual do estado de filtro
-        celulaIdToFetch = currentFilterValue || (currentUserRole === 'líder' ? currentUserCelulaId : null); // Líder sempre usa sua célula, Admin usa filtro ou null.
+        const currentFilterValue = selectedFilterCelulaId;
+        celulaIdToFetch = currentFilterValue || (currentUserRole === 'líder' ? currentUserCelulaId : null);
 
-        // Se for um admin, carregue as opções de filtro
         if (currentUserRole === 'admin') {
             try {
                 const celulasData = await getCelulasOptionsForAdmin();
@@ -288,14 +199,9 @@ export default function DashboardPage() {
             }
         }
 
-        // Se o selectedFilterCelulaId não foi setado manualmente e o usuário é líder,
-        // force o selectedFilterCelulaId a ser o da sua célula.
-        // Isso garante que o dropdown mostra a célula correta do líder no primeiro load.
         if (currentUserRole === 'líder' && !selectedFilterCelulaId && currentUserCelulaId) {
              setSelectedFilterCelulaId(currentUserCelulaId);
         }
-        // Se o admin loga e tem celula_id no perfil, isso não acontecerá. Se for admin sem celula_id,
-        // selectedFilterCelulaId será '' por padrão, o que é para 'Todas as Células'.
 
         try {
             const commonDataPromises = [
@@ -305,13 +211,12 @@ export default function DashboardPage() {
                 getRecentesMembros(5, celulaIdToFetch),
                 getRecentesVisitantes(5, celulaIdToFetch),
                 getUltimasReunioes(5, celulaIdToFetch),
-                getPalavraDaSemana(), // Palavra da semana é global ou da célula do user logado
+                getPalavraDaSemana(),
             ];
 
             let specificRoleDataPromises: Promise<any>[] = [];
 
-            // AQUI ESTÁ A LÓGICA DE DECISÃO DOS DADOS ESPECÍFICOS PARA OS ESTADOS
-            if (currentUserRole === 'admin' && !celulaIdToFetch) { // Admin - Visão Global (Todas as Células)
+            if (currentUserRole === 'admin' && !celulaIdToFetch) {
                 specificRoleDataPromises = [
                     getCelulasSummary(),
                     getTopBottomPresence(),
@@ -323,7 +228,7 @@ export default function DashboardPage() {
                     getNewVisitorsTrend(),
                     detectDuplicateVisitors(),
                 ];
-            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) { // Líder OU Admin com filtro de célula
+            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) {
                 specificRoleDataPromises = [
                     getFaltososAlert(celulaIdToFetch),
                     getUnconvertedVisitorsAlert(celulaIdToFetch),
@@ -354,8 +259,7 @@ export default function DashboardPage() {
             setUltimasReunioes(lastMeetingsList as ReuniaoComNomes[]);
             setPalavraDaSemana(fetchedPalavraDaSemana as PalavraDaSemana | null);
 
-            // AQUI É O BLOCO QUE SETA OS ESTADOS COM BASE NA LÓGICA DE VISÃO (GLOBAL OU ESPECÍFICA)
-            if (currentUserRole === 'admin' && !celulaIdToFetch) { // Admin - Visão Global
+            if (currentUserRole === 'admin' && !celulaIdToFetch) {
                 setCelulasSummary(specificRoleData[0]);
                 setTopBottomPresence(specificRoleData[1]);
                 setCelulaGrowth(specificRoleData[2]);
@@ -366,18 +270,16 @@ export default function DashboardPage() {
                 setNewVisitorsTrendData(specificRoleData[7]);
                 setDuplicateVisitorGroups(specificRoleData[8]);
 
-                // Garante que alertas de célula específica estão nulos na visão global
                 setFaltososAlert(null);
                 setUnconvertedVisitorsAlert(null);
                 setBirthdayAlert(null);
                 setAveragePresenceRateData(null);
-            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) { // Líder OU Admin com filtro de célula
+            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) {
                 setFaltososAlert(specificRoleData[0]);
                 setUnconvertedVisitorsAlert(specificRoleData[1]);
                 setBirthdayAlert(specificRoleData[2]);
                 setAveragePresenceRateData(specificRoleData[3]);
 
-                // Garante que dados globais estão nulos/vazios na visão de célula específica
                 setCelulasSummary(null);
                 setTopBottomPresence(null);
                 setCelulaGrowth(null);
@@ -400,21 +302,16 @@ export default function DashboardPage() {
             setLoadingStats(false);
             setRefreshing(false);
         }
-    }, [router, selectedFilterCelulaId, addToast]); // Dependência selectedFilterCelulaId é crucial aqui
+    }, [router, selectedFilterCelulaId, addToast]);
 
-    // Este useEffect agora reage à primeira montagem e quando o filtro muda.
-    // userRole e celulasFilterOptions não precisam ser dependências diretas,
-    // pois fetchDashboardData já os usa de forma reativa ou são setados lá dentro.
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
 
     const handleRefresh = () => { fetchDashboardData(true); };
-    // Ao mudar o filtro, atualizamos o selectedFilterCelulaId e disparamos a busca
     const handleFilterChange = (value: string) => {
         setSelectedFilterCelulaId(value);
-        // addToast será disparado pelo useCallback quando fetchDashboardData for chamada
     };
 
     // --- Configurações de ChartJS ---
@@ -440,7 +337,19 @@ export default function DashboardPage() {
 
     return (
         <>
-            <ToastContainer />
+            {/* NOVO: Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+            {/* FIM NOVO: Container de Toasts */}
 
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-7xl mx-auto">
@@ -685,8 +594,9 @@ export default function DashboardPage() {
                                                     {analysis.visitors.map(visitor => (
                                                         <li key={visitor.id} className="flex justify-between items-center text-sm p-2 bg-white rounded-md shadow-sm">
                                                             <span className="font-medium text-gray-800">{visitor.nome}</span>
-                                                            <span className="text-gray-600">{visitor.total_presences} presenças</span>
-                                                            <span className="text-gray-500">{formatPhoneNumberDisplay(visitor.telefone)}</span>
+                                                            <span className="text-gray-600">{formatPhoneNumberDisplay(visitor.telefone)}</span>
+                                                            {/* CORREÇÃO AQUI: REMOVER ESTA LINHA DUPLICADA */}
+                                                            {/* <span className="text-gray-500">{formatPhoneNumberDisplay(visitor.telefone)}</span> */} 
                                                         </li>
                                                     ))}
                                                 </ul>
