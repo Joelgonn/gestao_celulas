@@ -14,7 +14,7 @@ import {
     fetchReportDataChavesAtivacao,
     listMembros,
     listReunioes,
-    listarCelulasParaAdmin, // CORREÇÃO: Importar de reports_data.ts
+    listarCelulasParaAdmin, 
     MembroOption,
     ReuniaoOption,
     ReportDataPresencaReuniao,
@@ -31,10 +31,10 @@ import {
     exportReportDataAniversariantesCSV,
     exportReportDataAlocacaoLideresCSV,
     exportReportDataChavesAtivacaoCSV,
-} from '@/lib/reports_data'; // Este é o arquivo correto para listarCelulasParaAdmin
+} from '@/lib/reports_data'; 
 
-import { CelulaOption } from '@/lib/data'; // A interface CelulaOption ainda pode vir daqui ou de um types global
-import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
+import { CelulaOption } from '@/lib/data'; 
+import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters'; 
 
 import { ReportPresencaReuniaoDisplay } from '@/components/relatorios/ReportPresencaReuniaoDisplay';
 import { ReportPresencaMembroDisplay } from '@/components/relatorios/ReportPresencaMembroDisplay';
@@ -47,6 +47,7 @@ import { ReportChavesAtivacaoDisplay } from '@/components/relatorios/ReportChave
 // --- REFATORAÇÃO: TOASTS & LOADING SPINNER ---
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
+
 import LoadingSpinner from '@/components/LoadingSpinner';
 // --- FIM REFATORAÇÃO ---
 
@@ -82,6 +83,7 @@ export default function RelatoriosPage() {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportingCsv, setExportingCsv] = useState(false);
 
+    // Inicialização do hook de toast global
     const { toasts, addToast, removeToast } = useToast();
 
     const months = Array.from({ length: 12 }, (_, i) => ({
@@ -93,11 +95,11 @@ export default function RelatoriosPage() {
         setLoadingOptions(true);
         try {
             if (currentRole === 'admin') {
-                const celulasData = await listarCelulasParaAdmin(); // Agora importado corretamente
+                const celulasData = await listarCelulasParaAdmin(); 
                 setCelulasFilterOptions(celulasData);
             } else {
                 setCelulasFilterOptions([]);
-                if (selectedFilterCelulaId !== '') {
+                if (selectedFilterCelulaId !== '') { 
                     setSelectedFilterCelulaId('');
                 }
             }
@@ -120,7 +122,10 @@ export default function RelatoriosPage() {
         } finally {
             setLoadingOptions(false);
         }
-    }, [selectedFilterCelulaId, selectedReportType]);
+    // CORREÇÃO AQUI: REMOVER 'addToast' DO ARRAY DE DEPENDÊNCIAS
+    // 'addToast' é uma função estável do hook 'useToast' e não deve ser incluída como dependência.
+    }, [selectedFilterCelulaId, selectedReportType]); 
+
 
     useEffect(() => {
         async function fetchUserAndInitialData() {
@@ -129,9 +134,12 @@ export default function RelatoriosPage() {
                 const { data: { user }, error: userError } = await supabase.auth.getUser();
                 let fetchedRole: 'admin' | 'líder' | null = null;
                 if (user && !userError) {
-                    const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+                    const { data: profile, error: profileError } = await supabase.from('profiles').select('role, celula_id').eq('id', user.id).single();
                     if (!profileError && profile) {
                         fetchedRole = profile.role as 'admin' | 'líder';
+                        if (fetchedRole === 'líder' && profile.celula_id && !selectedFilterCelulaId) {
+                            setSelectedFilterCelulaId(profile.celula_id);
+                        }
                     }
                 }
                 setUserRole(fetchedRole);
@@ -144,7 +152,7 @@ export default function RelatoriosPage() {
             }
         }
         fetchUserAndInitialData();
-    }, [loadDataAndOptions]); // `loadDataAndOptions` já é useCallback e tem suas próprias deps.
+    }, [loadDataAndOptions, selectedFilterCelulaId, addToast]); // CORREÇÃO: addToast está ok aqui se ele for usado dentro de fetchUserAndInitialData diretamente
 
     useEffect(() => {
         const currentReportType = selectedReportType;
@@ -158,7 +166,7 @@ export default function RelatoriosPage() {
             addToast("Tipo de relatório resetado devido à mudança de permissão ou filtro de célula incompatível.", 'warning');
         }
         loadDataAndOptions(userRole, selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
-    }, [userRole, selectedFilterCelulaId, selectedReportType, loadDataAndOptions]);
+    }, [userRole, selectedFilterCelulaId, selectedReportType, loadDataAndOptions, addToast]); // CORREÇÃO: addToast está ok aqui também
 
     const generateReportData = async (type: ReportTypeEnum, params: any) => {
         switch (type) {
@@ -347,9 +355,20 @@ export default function RelatoriosPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
+            {/* NOVO: Container de Toasts global */}
             <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (<Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />))}
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
             </div>
+            {/* FIM NOVO: Container de Toasts */}
+
             <div className="max-w-6xl mx-auto px-4">
                 <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
                     <div className="flex items-center justify-between">

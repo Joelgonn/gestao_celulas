@@ -18,11 +18,15 @@ import {
     FaCheckCircle,
     FaExclamationTriangle,
     FaCopy,
-    FaMapMarkerAlt
+    FaMapMarkerAlt,
+    FaUserCog // Ícone para Gerenciar Usuários
 } from 'react-icons/fa';
+
+// Importações do novo sistema de toasts
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
 
+// Importações das Server Actions para gerenciamento de células
 import { 
     fetchCelulasAdmin, 
     createCelulaAdmin, 
@@ -31,6 +35,7 @@ import {
     Celula 
 } from '@/app/api/admin/celulas/actions'; 
 
+// Importações das Server Actions para gerenciamento de chaves de ativação
 import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions'; 
 import { ChaveAtivacao } from '@/lib/types'; 
 
@@ -45,7 +50,6 @@ export default function AdminCelulasPage() {
     const [newCelulaLider, setNewCelulaLider] = useState('');
     const [newCelulaEndereco, setNewCelulaEndereco] = useState('');
 
-    // APENAS ESTAS DECLARAÇÕES DE useState DEVEM EXISTIR PARA EDIÇÃO
     const [editingCelulaId, setEditingCelulaId] = useState<string | null>(null);
     const [editingCelulaName, setEditingCelulaName] = useState('');
     const [editingCelulaLider, setEditingCelulaLider] = useState('');
@@ -54,9 +58,31 @@ export default function AdminCelulasPage() {
     const [submitting, setSubmitting] = useState(false);
     const [chavesAtivacao, setChavesAtivacao] = useState<ChaveAtivacao[]>([]);
     const [loadingChaves, setLoadingChaves] = useState(false);
+    
+    // Estado para armazenar o userRole, necessário para renderizar o botão "Gerenciar Usuários"
+    const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
 
     const router = useRouter();
     const { toasts, addToast, removeToast } = useToast();
+
+    // Efeito para buscar a role do usuário no carregamento inicial
+    useEffect(() => {
+        async function fetchUserRole() {
+            const { supabase } = await import('@/utils/supabase/client'); // Importação dinâmica do cliente de browser
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (user && !error) {
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+                if (!profileError && profile) {
+                    setUserRole(profile.role as 'admin' | 'líder');
+                }
+            }
+        }
+        fetchUserRole();
+    }, []);
 
     const loadCelulas = useCallback(async () => {
         setLoading(true);
@@ -222,6 +248,7 @@ export default function AdminCelulasPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
+            {/* Container de Toasts global */}
             <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
                     <Toast
@@ -247,13 +274,25 @@ export default function AdminCelulasPage() {
                                 <p className="text-emerald-100 mt-2">Administre as células e chaves de ativação do sistema</p>
                             </div>
                         </div>
-                        <Link 
-                            href="/dashboard"
-                            className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
-                        >
-                            <FaArrowLeft className="text-sm" />
-                            <span>Voltar ao Dashboard</span>
-                        </Link>
+                        {/* BOTÕES DE NAVEGAÇÃO NO HEADER */}
+                        <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                            {userRole === 'admin' && ( // Mostra o botão apenas para administradores
+                                <Link 
+                                    href="/admin/users"
+                                    className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
+                                >
+                                    <FaUserCog className="text-sm" /> 
+                                    <span>Gerenciar Usuários</span>
+                                </Link>
+                            )}
+                            <Link 
+                                href="/dashboard"
+                                className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
+                            >
+                                <FaArrowLeft className="text-sm" />
+                                <span>Voltar ao Dashboard</span>
+                            </Link>
+                        </div>
                     </div>
                 </div>
 
@@ -550,7 +589,10 @@ export default function AdminCelulasPage() {
                                         <div className="mb-3">
                                             <p className="text-xs text-gray-600 mb-1">Chave de Ativação</p>
                                             <div className="flex items-center space-x-2">
-                                                <code className="font-mono text-sm bg-white/80 p-2 rounded border flex-1 truncate">
+                                                <code 
+                                                    className="font-mono text-sm bg-white/80 p-2 rounded border flex-1 truncate 
+                                                                dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" 
+                                                >
                                                     {chave.chave}
                                                 </code>
                                                 <button
