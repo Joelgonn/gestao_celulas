@@ -1,4 +1,3 @@
-// src/lib/data.ts
 'use server';
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
@@ -73,7 +72,7 @@ export interface ReuniaoFormData {
     ministrador_secundario: string | null;
     responsavel_kids: string | null;
     caminho_pdf?: string | null;
-    celula_id?: string;
+    celula_id?: string; // Pode ser undefined ou string
 }
 
 export interface MembroComPresenca extends Membro {
@@ -156,14 +155,16 @@ async function checkUserAuthorization(): Promise<{
     supabase: ReturnType<typeof createServerClient>;
     role: 'admin' | 'líder' | null;
     celulaId: string | null;
+    adminSupabase: ReturnType<typeof createAdminClient> | null; 
 }> {
     const supabaseUser = createServerClient();
-    const supabaseAdmin = createAdminClient();
+    const adminSupabase = createAdminClient(); 
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 
     if (userError || !user) {
         console.warn('checkUserAuthorization: Usuário não autenticado.');
-        return { supabase: supabaseUser, role: null, celulaId: null };
+        console.log('checkUserAuthorization: userError:', userError); 
+        return { supabase: supabaseUser, role: null, celulaId: null, adminSupabase: adminSupabase }; 
     }
 
     const { data: profileData, error: profileError } = await supabaseUser
@@ -174,22 +175,28 @@ async function checkUserAuthorization(): Promise<{
 
     if (profileError || !profileData) {
         console.error('checkUserAuthorization: Erro ao buscar perfil:', profileError?.message || 'Perfil não encontrado.');
-        return { supabase: supabaseUser, role: null, celulaId: null };
+        console.log('checkUserAuthorization: profileError:', profileError); 
+        console.log('checkUserAuthorization: profileData:', profileData); 
+        return { supabase: supabaseUser, role: null, celulaId: null, adminSupabase: adminSupabase };
     }
-
-    const supabaseToUse = profileData.role === 'admin' ? supabaseAdmin : supabaseUser;
+    
+    const role = profileData.role as 'admin' | 'líder';
+    const celulaId = profileData.celula_id;
+    console.log(`checkUserAuthorization: Usuário ${user.email} autenticado. Role: ${role}, Celula ID: ${celulaId}`);
 
     return {
-        supabase: supabaseToUse,
-        role: profileData.role as 'admin' | 'líder',
-        celulaId: profileData.celula_id
+        supabase: supabaseUser,
+        role: role,
+        celulaId: celulaId,
+        adminSupabase: role === 'admin' ? adminSupabase : null 
     };
 }
 
-async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: ReturnType<typeof createServerClient>): Promise<Map<string, string>> {
+async function getCelulasNamesMap(supabaseInstance: ReturnType<typeof createServerClient> | ReturnType<typeof createAdminClient> | null, celulaIds: Set<string>): Promise<Map<string, string>> {
     const namesMap = new Map<string, string>();
-    if (celulaIds.size === 0) return namesMap;
+    if (!supabaseInstance || celulaIds.size === 0) return namesMap;
 
+    console.log(`getCelulasNamesMap: Buscando nomes para ${celulaIds.size} IDs de célula.`);
     const { data, error } = await supabaseInstance
         .from('celulas')
         .select('id, nome')
@@ -198,6 +205,7 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: Retu
     if (error) {
         console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error);
     } else {
+        console.log(`getCelulasNamesMap: Encontrados ${data?.length} nomes de células.`);
         data?.forEach((c: CelulaNomeId) => namesMap.set(c.id, c.nome));
     }
     return namesMap;
@@ -206,7 +214,7 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: Retu
 function sanitizeFileName(fileName: string): string {
     const normalized = fileName.normalize('NFD');
     const withoutAccents = normalized.replace(/[\u0300-\u036f]/g, '');
-    const sanitized = withoutAccents.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const sanitized = withoutAccents.replace(/[^a-zA-Z0-9._-]/g, '_'); 
     return sanitized;
 }
 
@@ -215,29 +223,64 @@ function sanitizeFileName(fileName: string): string {
 //                            FUNÇÃO: listarCelulasParaAdmin
 // ============================================================================
 export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
-    const { supabase, role } = await checkUserAuthorization();
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
 
+    console.log(`listarCelulasParaAdmin: Chamada. Role detectado: ${role}`);
     if (role !== 'admin') {
-        console.warn("listarCelulasParaAdmin: Apenas administradores podem listar todas as células.");
+        console.warn("listarCelulasParaAdmin: Acesso negado. Apenas administradores podem listar todas as células.");
         return [];
     }
 
     try {
-        const { data, error } = await supabase
+        const clientToUse = adminSupabase || supabase; 
+
+        console.log(`listarCelulasParaAdmin: Buscando todas as células como admin. Usando client: ${adminSupabase ? 'admin' : 'RLS'}`);
+        const { data, error } = await clientToUse
             .from('celulas')
             .select('id, nome')
             .order('nome', { ascending: true });
 
         if (error) {
-            console.error("Erro ao listar células para admin:", error);
-            // CORREÇÃO: Usar concatenação de string simples para evitar problemas com template literals
+            console.error("listarCelulasParaAdmin: Erro ao listar células:", error);
             throw new Error("Falha ao carregar células: " + error.message);
         }
+        console.log(`listarCelulasParaAdmin: Retornando ${data?.length} células.`);
         return data || [];
     } catch (e: any) {
-        console.error("Erro na Server Action listarCelulasParaAdmin:", e.message);
+        console.error("Erro na Server Action listarCelulasParaAdmin:", e.message, e);
         throw e;
     }
+}
+
+// ============================================================================
+//                            FUNÇÃO: listarCelulasParaLider
+// ============================================================================
+export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
+    const { supabase, role, celulaId } = await checkUserAuthorization();
+
+    console.log(`listarCelulasParaLider: Chamada. Role detectado: ${role}, Celula ID: ${celulaId}`);
+    if (role === 'líder' && celulaId) {
+        try {
+            console.log(`listarCelulasParaLider: Buscando célula para líder com ID ${celulaId}.`);
+            const { data, error } = await supabase
+                .from('celulas')
+                .select('id, nome')
+                .eq('id', celulaId)
+                .single();
+
+            if (error) {
+                console.error("listarCelulasParaLider: Erro ao listar célula para líder:", error);
+                throw new Error("Falha ao carregar sua célula: " + error.message);
+            }
+            console.log(`listarCelulasParaLider: Retornando ${data ? 1 : 0} célula(s).`);
+            return data ? [{ id: data.id, nome: data.nome }] : [];
+        } catch (e: any) {
+            console.error("Erro na Server Action listarCelulasParaLider:", e.message, e);
+            throw e;
+        }
+    }
+    console.warn("listarCelulasParaLider: Retornando lista vazia (Não é líder ou não tem celulaId).");
+    return [];
 }
 
 
@@ -250,27 +293,34 @@ export async function listarMembros(
     birthdayMonth: number | null = null,
     statusFilter: Membro['status'] | 'all' = 'all',
 ): Promise<Membro[]> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { return []; }
     let query = supabase.from('membros').select('*');
     if (role === 'líder') { if (!celulaId) { return []; } query = query.eq('celula_id', celulaId); }
     else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
+    else if (role === 'admin' && !celulaIdFilter) { /* Admin sem filtro vê todos, então não adiciona eq('celula_id') */ }
+
     if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) { query = query.filter('EXTRACT(MONTH FROM data_nascimento)::int', 'eq', birthdayMonth); }
     if (statusFilter !== 'all') { query = query.eq('status', statusFilter); }
     const { data, error } = await query.order('nome', { ascending: true });
-    if (error) { throw new Error(`Falha ao carregar membros: ${error.message}`); }
+    if (error) { console.error("Erro ao listar membros:", error); throw new Error(`Falha ao carregar membros: ${error.message}`); }
+
     const membros: Membro[] = data || [];
     if (membros.length === 0) return [];
     const celulaIds = new Set<string>(membros.map((m: Membro) => m.celula_id));
-    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
+    const celulasNamesMap = await getCelulasNamesMap(adminSupabase || supabase, celulaIds); 
     return membros.map((m: Membro) => ({ ...m, celula_nome: celulasNamesMap.get(m.celula_id) || null }));
 }
+
 
 export async function adicionarMembro(newMembroData: Omit<Membro, 'id' | 'created_at' | 'celula_nome'>): Promise<string> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) { throw new Error("Não autorizado: Usuário não autenticado ou role inválida."); }
 
-    let targetCelulaIdForInsert: string | null = (role === 'líder') ? celulaId : newMembroData.celula_id;
+    // CORREÇÃO APLICADA AQUI: Garante que newMembroData.celula_id seja string ou null
+    let targetCelulaIdForInsert: string | null = (role === 'líder') 
+        ? celulaId 
+        : (newMembroData.celula_id ?? null); // Converte undefined para null
 
     if (!targetCelulaIdForInsert) {
         throw new Error("ID da célula é necessário para adicionar um membro.");
@@ -369,10 +419,10 @@ export async function importarMembrosCSV(csvString: string): Promise<ImportMembr
             for (let j = 0; j < membersToInsert.length; j++) {
                 const member = membersToInsert[j];
                 const { error: singleInsertError } = await supabase.from('membros').insert(member);
-                if (singleInsertError) { errors.push({ rowIndex: errors.length + 1, data: member, error: "Falha: " + singleInsertError.message }); } // CORREÇÃO
+                if (singleInsertError) { errors.push({ rowIndex: errors.length + 1, data: member, error: "Falha: " + singleInsertError.message }); }
                 else { importedCount++; }
             }
-            if (errors.length === 0) { errors.push({ rowIndex: -1, data: null, error: "Erro em lote: " + batchError.message }); } // CORREÇÃO
+            if (errors.length === 0) { errors.push({ rowIndex: -1, data: null, error: "Erro em lote: " + batchError.message }); }
         } else { importedCount = membersToInsert.length; }
     }
     revalidatePath('/membros');
@@ -380,20 +430,22 @@ export async function importarMembrosCSV(csvString: string): Promise<ImportMembr
 }
 
 export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTerm: string | null, birthdayMonth: number | null, statusFilter: Membro['status'] | 'all'): Promise<string> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { throw new Error("Não autorizado."); }
     let query = supabase.from('membros').select('*');
     if (role === 'líder') { if (!celulaId) { throw new Error("ID da célula é necessário."); } query = query.eq('celula_id', celulaId); }
     else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
+    else if (role === 'admin' && !celulaIdFilter) { /* Admin sem filtro vê todos, então não adiciona eq('celula_id') */ }
+
     if (searchTerm) { query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`); }
     if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) { query = query.filter('EXTRACT(MONTH FROM data_nascimento)::int', 'eq', birthdayMonth); }
     if (statusFilter !== 'all') { query = query.eq('status', statusFilter); }
     const { data: membrosData, error } = await query.order('nome', { ascending: true });
-    if (error) { throw new Error(`Falha ao carregar membros para exportação: ${error.message}`); }
+    if (error) { console.error("Erro ao carregar membros para exportação:", error); throw new Error(`Falha ao carregar membros para exportação: ${error.message}`); }
     const membros: Membro[] = membrosData || [];
     if (!membros || membros.length === 0) return "Nome,Telefone,Data de Ingresso,Data de Nascimento,Endereço,Status,Célula\n";
     const celulaIds = new Set<string>(membros.map((m: Membro) => m.celula_id));
-    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
+    const celulasNamesMap = await getCelulasNamesMap(adminSupabase || supabase, celulaIds); 
     const headers = ["Nome", "Telefone", "Data de Ingresso", "Data de Nascimento", "Endereço", "Status", "Célula"]; let csv = headers.join(',') + '\n';
     membros.forEach((m: Membro) => {
         const row = [
@@ -411,26 +463,32 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTe
 }
 
 export async function listarVisitantes(celulaIdFilter: string | null = null, searchTerm: string | null = null, minDaysSinceLastContact: number | null = null): Promise<Visitante[]> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { return []; }
     let query = supabase.from('visitantes').select('*');
     if (role === 'líder') { if (!celulaId) { return []; } query = query.eq('celula_id', celulaId); }
     else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
+    else if (role === 'admin' && !celulaIdFilter) { /* Admin sem filtro vê todos, então não adiciona eq('celula_id') */ }
+
     if (searchTerm) { query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`); }
     if (minDaysSinceLastContact !== null && minDaysSinceLastContact > 0) { const cutoffDate = subDays(new Date(), minDaysSinceLastContact).toISOString().split('T')[0]; query = query.or(`data_ultimo_contato.is.null,data_ultimo_contato.lt.${cutoffDate}`); }
     const { data, error } = await query.order('nome', { ascending: true });
-    if (error) { throw new Error(`Falha ao carregar visitantes: ${error.message}`); }
+    if (error) { console.error("Erro ao listar visitantes:", error); throw new Error(`Falha ao carregar visitantes: ${error.message}`); }
     const visitantes: Visitante[] = data || [];
     if (visitantes.length === 0) return [];
     const celulaIds = new Set<string>(visitantes.map((v: Visitante) => v.celula_id));
-    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
+    const celulasNamesMap = await getCelulasNamesMap(adminSupabase || supabase, celulaIds); 
     return visitantes.map((v: Visitante) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || null }));
 }
 
 export async function adicionarVisitante(newVisitanteData: Omit<Visitante, 'id' | 'created_at' | 'celula_nome'>): Promise<string> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) throw new Error("Não autorizado");
-    let targetCelulaIdForInsert: string | null = (role === 'líder') ? celulaId : newVisitanteData.celula_id;
+    
+    // CORREÇÃO APLICADA AQUI: Garante que newVisitanteData.celula_id seja string ou null
+    let targetCelulaIdForInsert: string | null = (role === 'líder') 
+        ? celulaId 
+        : (newVisitanteData.celula_id ?? null); // Converte undefined para null
 
     if (!targetCelulaIdForInsert) {
         throw new Error("ID da célula é necessário.");
@@ -487,7 +545,7 @@ export async function converterVisitanteEmMembro(visitanteId: string, newMembroD
 
         if (insertMembroError) throw insertMembroError;
         const { error: deleteVisitanteError } = await supabase.from('visitantes').delete().eq('id', visitanteId).eq('celula_id', targetCelulaIdForConversion);
-        if (deleteVisitanteError) { await supabase.from('membros').delete().eq('id', membroInserido.id); throw new Error("Falha ao excluir visitante: " + deleteVisitanteError.message + "."); } // CORREÇÃO
+        if (deleteVisitanteError) { await supabase.from('membros').delete().eq('id', membroInserido.id); throw new Error("Falha ao excluir visitante: " + deleteVisitanteError.message + "."); }
         revalidatePath('/membros'); revalidatePath('/visitantes'); return { success: true, message: "Convertido com sucesso!" };
     } catch (e: any) { return { success: false, message: e.message }; }
 }
@@ -497,7 +555,7 @@ export async function converterVisitanteEmMembro(visitanteId: string, newMembroD
 // ============================================================================
 
 export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return [];
 
     let query = supabase.from('reunioes').select(`
@@ -509,20 +567,22 @@ export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
     `);
 
     if (role === 'líder') { if (!celulaId) return []; query = query.eq('celula_id', celulaId); }
+    // Para admin, ele deve ver todas as reuniões. Não adicionamos filtro de celula_id aqui, a RLS permite.
+    
     const { data: reunioesData, error } = await query.order('data_reuniao', { ascending: false });
-    if (error) { throw new Error("Falha ao carregar reuniões: " + error.message); } // CORREÇÃO
+    if (error) { console.error("Erro ao listar reuniões:", error); throw new Error("Falha ao carregar reuniões: " + error.message); }
 
     const reunioesComObjetosAninhados: any[] = reunioesData || [];
 
     if (reunioesComObjetosAninhados.length === 0) return [];
 
-    const reuniaoIds = reunioesComObjetosAninhados.map((r: any) => r.id);
-    const { data: criancasData, error: criancasError } = await supabase.from('criancas_reuniao').select('reuniao_id, numero_criancas').in('reuniao_id', reuniaoIds);
+    const reuniaoIds = new Set<string>(reunioesComObjetosAninhados.map((r: any) => r.id));
+    const { data: criancasData, error: criancasError } = await supabase.from('criancas_reuniao').select('reuniao_id, numero_criancas').in('reuniao_id', Array.from(reuniaoIds)); // Use Array.from
     if (criancasError) console.warn("Aviso: Erro ao buscar contagem de crianças:", criancasError.message);
     const criancasMap = new Map((criancasData || []).map((c: CriancasReuniaoData) => [c.reuniao_id, c.numero_criancas]));
 
     const celulaIds = new Set<string>(reunioesComObjetosAninhados.map((r: any) => r.celula_id));
-    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
+    const celulasNamesMap = await getCelulasNamesMap(adminSupabase || supabase, celulaIds); 
 
     const result = reunioesComObjetosAninhados.map((reuniao: any) => ({
         id: reuniao.id,
@@ -544,14 +604,17 @@ export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
 }
 
 export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<ReuniaoDetalhesParaResumo | null> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return null;
 
     let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : null;
+    const clientToUse = adminSupabase || supabase; // Usa adminSupabase se disponível, senão o cliente com RLS
+
     if (role === 'admin' && !targetCelulaIdForQuery) {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
-        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) {
-             console.error("Reunião não encontrada ou inacessível para admin:", reuniaoCheckError);
+        // Admin: se não há um targetCelulaIdForQuery inicial, precisamos descobrir a celula_id da reunião.
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { 
+            console.error("Reunião não encontrada ou inacessível para admin:", reuniaoCheckError);
             return null;
         }
         targetCelulaIdForQuery = reuniaoDataCheck.celula_id;
@@ -563,13 +626,13 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
 
     try {
         const [reuniaoDetailsResult, criancasResult] = await Promise.all([
-            supabase.from('reunioes').select(`
+            clientToUse.from('reunioes').select(`
                 id, data_reuniao, tema, caminho_pdf, celula_id,
                 ministrador_principal_alias:membros!ministrador_principal(id, nome, telefone),
                 ministrador_secundario_alias:membros!ministrador_secundario(id, nome, telefone),
                 responsavel_kids_alias:membros!responsavel_kids(id, nome, telefone)`
             ).eq('id', reuniaoId).eq('celula_id', targetCelulaIdForQuery).single(),
-            supabase.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle()
+            clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle()
         ]);
 
         const { data: reuniaoDataRaw, error: reuniaoError } = reuniaoDetailsResult;
@@ -589,12 +652,10 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
         const numCriancas = Number(criancasData?.numero_criancas) || 0;
 
         const [presMembros, allMems, visPres, celNames] = await Promise.all([
-            // CORREÇÃO: Usar um alias para o join e acessar corretamente
-            supabase.from('presencas_membros').select('membro_id, membro_data:membros(id, nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            supabase.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
-            // CORREÇÃO: Usar um alias para o join e acessar corretamente
-            supabase.from('presencas_visitantes').select('visitante_id, visitante_data:visitantes(id, nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            getCelulasNamesMap(new Set([reuniaoDataMapped.celula_id]), supabase)
+            clientToUse.from('presencas_membros').select('membro_id, membro_data:membros(id, nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
+            clientToUse.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
+            clientToUse.from('presencas_visitantes').select('visitante_id, visitante_data:visitantes(id, nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
+            getCelulasNamesMap(clientToUse, new Set([reuniaoDataMapped.celula_id]))
         ]);
 
         if (presMembros.error || allMems.error || visPres.error) {
@@ -602,21 +663,19 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
             throw new Error('Erro ao buscar dados de presença.');
         }
 
-        // --- CORREÇÃO APLICADA AQUI: Acesso direto ao objeto 'membro_data' ---
         const membrosPresentes = (presMembros.data || []).map(p => ({
             id: p.membro_id,
-            nome: (p as any).membro_data?.nome || 'N/A', // Acessar diretamente o objeto
-            telefone: (p as any).membro_data?.telefone || null // Acessar diretamente o objeto
+            nome: (p as any).membro_data?.nome || 'N/A',
+            telefone: (p as any).membro_data?.telefone || null
         }));
 
         const presentMemberIds = new Set(membrosPresentes.map(m => m.id));
         const membrosAusentes = (allMems.data || []).filter(m => !presentMemberIds.has(m.id)).map(m => ({ id: m.id, nome: m.nome, telefone: m.telefone }));
 
-        // --- CORREÇÃO APLICADA AQUI: Acesso direto ao objeto 'visitante_data' ---
         const visitantesPresentes = (visPres.data || []).map(p => ({
             id: p.visitante_id,
-            nome: (p as any).visitante_data?.nome || 'N/A', // Acessar diretamente o objeto
-            telefone: (p as any).visitante_data?.telefone || null // Acessar diretamente o objeto
+            nome: (p as any).visitante_data?.nome || 'N/A',
+            telefone: (p as any).visitante_data?.telefone || null
         }));
         const celulaNome = celNames.get(reuniaoDataMapped.celula_id) || null;
 
@@ -643,8 +702,15 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
 export async function adicionarReuniao(newReuniaoData: ReuniaoFormData): Promise<string> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) throw new Error("Não autorizado");
-    let targetCelulaIdForInsert: string | null = (role === 'líder') ? celulaId : newReuniaoData.celula_id || celulaId;
-    if (!targetCelulaIdForInsert) throw new Error("ID da célula é necessário.");
+    
+    // CORREÇÃO APLICADA AQUI: Garante que newReuniaoData.celula_id seja string ou null
+    let targetCelulaIdForInsert: string | null = (role === 'líder') 
+        ? celulaId 
+        : (newReuniaoData.celula_id ?? null); // Converte undefined para null
+
+    if (!targetCelulaIdForInsert) {
+        throw new Error("ID da célula é necessário.");
+    }
 
     const dataToInsert = {
         data_reuniao: newReuniaoData.data_reuniao,
@@ -657,7 +723,7 @@ export async function adicionarReuniao(newReuniaoData: ReuniaoFormData): Promise
     };
 
     const { data, error } = await supabase.from('reunioes').insert(dataToInsert).select('id').single();
-    if (error) { throw error; }
+    if (error) { console.error("Erro ao adicionar reunião:", error); throw error; }
     const newReuniaoId = data.id;
     await supabase.from('criancas_reuniao').insert({ reuniao_id: newReuniaoId, numero_criancas: 0 });
     revalidatePath('/reunioes'); revalidatePath('/dashboard');
@@ -666,7 +732,7 @@ export async function adicionarReuniao(newReuniaoData: ReuniaoFormData): Promise
 
 
 export async function getReuniao(reuniaoId: string): Promise<ReuniaoParaEdicao | null> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return null;
 
     let query = supabase.from('reunioes').select(`
@@ -683,12 +749,12 @@ export async function getReuniao(reuniaoId: string): Promise<ReuniaoParaEdicao |
     `).eq('id', reuniaoId);
 
     if (role === 'líder') { if (!celulaId) return null; query = query.eq('celula_id', celulaId); }
+    // Para admin, permite ver a reunião, e a RLS em celulas cuidará da visibilidade do celula_nome
 
     const { data: reuniaoRawData, error } = await query.single();
     if (error) {
         console.error("Erro em getReuniao:", error);
-        if (error.code === 'PGRST116') return null; // Não encontrado
-        // CORREÇÃO: Usar concatenação de string simples para evitar problemas com template literals
+        if (error.code === 'PGRST116') return null; 
         throw new Error("Falha ao carregar reunião: " + error.message);
     }
 
@@ -729,7 +795,7 @@ export async function atualizarReuniao(reuniaoId: string, updatedReuniaoData: Re
     let query = supabase.from('reunioes').update(dataToUpdate).eq('id', reuniaoId);
     if (role === 'líder') { if (!celulaId) throw new Error("Não autorizado"); query = query.eq('celula_id', celulaId); }
     const { error } = await query;
-    if (error) { throw error; }
+    if (error) { console.error("Erro ao atualizar reunião:", error); throw error; }
     revalidatePath('/reunioes'); revalidatePath(`/reunioes/editar/${reuniaoId}`); revalidatePath('/dashboard');
 }
 
@@ -739,7 +805,7 @@ export async function excluirReuniao(reuniaoId: string): Promise<void> {
     let query = supabase.from('reunioes').delete().eq('id', reuniaoId);
     if (role === 'líder') { if (!celulaId) throw new Error("Não autorizado"); query = query.eq('celula_id', celulaId); }
     const { error } = await query;
-    if (error) { throw new Error("Falha ao excluir reunião: " + error.message); } // CORREÇÃO
+    if (error) { console.error("Erro ao excluir reunião:", error); throw new Error(`Falha ao excluir reunião: ${error.message}`); }
     revalidatePath('/reunioes'); revalidatePath('/dashboard');
 }
 
@@ -751,142 +817,156 @@ export async function verificarDuplicidadeReuniao(dataReuniao: string, tema: str
     query = query.eq('data_reuniao', dataReuniao).ilike('tema', tema);
     if (excludeId) query = query.neq('id', excludeId);
     const { count, error } = await query;
-    if (error) { throw error; }
+    if (error) { console.error("Erro ao verificar duplicidade de reunião:", error); throw error; }
     return (count || 0) > 0;
 }
 
 export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<MembroComPresenca[]> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return [];
     let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
-        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { return []; }
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { console.error("Reunião não encontrada ou inacessível para admin:", reuniaoCheckError); return []; }
         targetCelulaIdForQuery = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForQuery) { return []; }
     try {
-        const { data: members, error: membersError } = await supabase.from('membros').select('id, celula_id, nome, telefone, data_ingresso, data_nascimento, endereco, status, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
-        if (membersError) throw membersError;
+        const clientToUse = adminSupabase || supabase;
+        const { data: members, error: membersError } = await clientToUse.from('membros').select('id, celula_id, nome, telefone, data_ingresso, data_nascimento, endereco, status, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
+        if (membersError) { console.error("Erro ao listar membros com presença:", membersError); throw membersError; }
         const memberIds = (members || []).map((m: Membro) => m.id);
-        const { data: presences, error: presencesError } = await supabase.from('presencas_membros').select('membro_id, presente').eq('reuniao_id', reuniaoId).in('membro_id', memberIds);
-        if (presencesError) throw presencesError;
+        const { data: presences, error: presencesError } = await clientToUse.from('presencas_membros').select('membro_id, presente').eq('reuniao_id', reuniaoId).in('membro_id', Array.from(memberIds)); // Use Array.from
+        if (presencesError) { console.error("Erro ao listar presenças de membros:", presencesError); throw presencesError; }
         const presenceMap = new Map((presences || []).map(p => [p.membro_id, p.presente]));
         return (members || []).map(membro => ({ ...membro, presente: presenceMap.get(membro.id) || false }));
-    } catch (e: any) { throw new Error("Falha ao carregar membros para presença: " + e.message); } // CORREÇÃO
+    } catch (e: any) { console.error("Falha ao carregar membros para presença:", e); throw new Error("Falha ao carregar membros para presença: " + e.message); }
 }
 
 export async function registrarPresencaMembro(reuniaoId: string, membroId: string, presente: boolean): Promise<void> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) throw new Error("Não autorizado");
     let targetCelulaIdForValidation: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { throw new Error("Reunião não encontrada ou inacessível."); }
         targetCelulaIdForValidation = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForValidation) { throw new Error("Nenhum ID de célula para validar a presença do membro."); }
-    const { data: memberCheck, error: memberCheckError } = await supabase.from('membros').select('id').eq('id', membroId).eq('celula_id', targetCelulaIdForValidation).single();
+    const clientToUse = adminSupabase || supabase;
+    const { data: memberCheck, error: memberCheckError } = await clientToUse.from('membros').select('id').eq('id', membroId).eq('celula_id', targetCelulaIdForValidation).single();
     if (memberCheckError || !memberCheck) { throw new Error("Membro não pertence à célula da reunião ou não encontrado."); }
     try {
-        const { error } = await supabase.from('presencas_membros').upsert({ reuniao_id: reuniaoId, membro_id: membroId, presente: presente }, { onConflict: 'reuniao_id, membro_id' });
-        if (error) { throw error; }
+        const { error } = await clientToUse.from('presencas_membros').upsert({ reuniao_id: reuniaoId, membro_id: membroId, presente: presente }, { onConflict: 'reuniao_id, membro_id' });
+        if (error) { console.error("Erro ao registrar presença de membro:", error); throw error; }
         revalidatePath(`/reunioes/presenca/${reuniaoId}`); revalidatePath('/dashboard'); revalidatePath('/relatorios');
-    } catch (e: any) { throw e; }
+    } catch (e: any) { console.error("Falha ao registrar presença de membro:", e); throw e; }
 }
 
 export async function listarTodosVisitantesComPresenca(reuniaoId: string): Promise<VisitanteComPresenca[]> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return [];
     let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
-        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { return []; }
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { console.error("Reunião não encontrada ou inacessível para admin:", reuniaoCheckError); return []; }
         targetCelulaIdForQuery = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForQuery) { return []; }
     try {
-        const { data: visitors, error: visitorsError } = await supabase.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
-        if (visitorsError) throw visitorsError;
+        const clientToUse = adminSupabase || supabase;
+        const { data: visitors, error: visitorsError } = await clientToUse.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
+        if (visitorsError) { console.error("Erro ao listar visitantes com presença:", visitorsError); throw visitorsError; }
         const visitorIds = (visitors || []).map((v: Visitante) => v.id);
-        const { data: presences, error: presencesError } = await supabase.from('presencas_visitantes').select('visitante_id, presente').eq('reuniao_id', reuniaoId).in('visitante_id', visitorIds);
-        if (presencesError) throw presencesError;
+        const { data: presences, error: presencesError } = await clientToUse.from('presencas_visitantes').select('visitante_id, presente').eq('reuniao_id', reuniaoId).in('visitante_id', Array.from(visitorIds)); // Use Array.from
+        if (presencesError) { console.error("Erro ao listar presenças de visitantes:", presencesError); throw presencesError; }
         const presenceMap = new Map((presences || []).map(p => [p.visitante_id, p.presente]));
         return (visitors || []).map(visitante => ({ visitante_id: visitante.id, nome: visitante.nome, telefone: visitante.telefone, presente: presenceMap.get(visitante.id) || false }));
-    } catch (e: any) { throw new Error("Falha ao carregar visitantes para presença: " + e.message); } // CORREÇÃO
+    } catch (e: any) { console.error("Falha ao carregar visitantes para presença:", e); throw new Error("Falha ao carregar visitantes para presença: " + e.message); }
 }
 
 export async function registrarPresencaVisitante(reuniaoId: string, visitanteId: string, presente: boolean): Promise<void> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) throw new Error("Não autorizado");
     let targetCelulaIdForValidation: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { throw new Error("Reunião não encontrada ou inacessível."); }
         targetCelulaIdForValidation = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForValidation) { throw new Error("Nenhum ID de célula para validar a presença do visitante."); }
-    const { data: visitorCheck, error: visitorCheckError } = await supabase.from('visitantes').select('id').eq('id', visitanteId).eq('celula_id', targetCelulaIdForValidation).single();
+    const clientToUse = adminSupabase || supabase;
+    const { data: visitorCheck, error: visitorCheckError } = await clientToUse.from('visitantes').select('id').eq('id', visitanteId).eq('celula_id', targetCelulaIdForValidation).single();
     if (visitorCheckError || !visitorCheck) { throw new Error("Visitante não pertence à célula da reunião ou não encontrado."); }
     try {
-        const { error } = await supabase.from('presencas_visitantes').upsert({ reuniao_id: reuniaoId, visitante_id: visitanteId, presente: presente }, { onConflict: 'reuniao_id, visitante_id' });
-        if (error) { throw error; }
+        const { error } = await clientToUse.from('presencas_visitantes').upsert({ reuniao_id: reuniaoId, visitante_id: visitanteId, presente: presente }, { onConflict: 'reuniao_id, visitante_id' });
+        if (error) { console.error("Erro ao registrar presença de visitante:", error); throw error; }
         revalidatePath(`/reunioes/presenca/${reuniaoId}`); revalidatePath('/dashboard'); revalidatePath('/relatorios');
-    } catch (e: any) { throw e; }
+    } catch (e: any) { console.error("Falha ao registrar presença de visitante:", e); throw e; }
 }
 
 export async function getNumCriancasReuniao(reuniaoId: string): Promise<number> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return 0;
     let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
-        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { return 0; }
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { console.error("Reunião não encontrada ou inacessível para admin:", reuniaoCheckError); return 0; }
         targetCelulaIdForQuery = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForQuery) return 0;
     try {
-        const { data, error } = await supabase.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle();
-        if (error) { throw error; } return Number(data?.numero_criancas) || 0;
-    } catch (e: any) { throw e; }
+        const clientToUse = adminSupabase || supabase;
+        const { data, error } = await clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle();
+        if (error) { console.error("Erro ao buscar número de crianças da reunião:", error); throw error; } return Number(data?.numero_criancas) || 0;
+    } catch (e: any) { console.error("Falha ao obter número de crianças:", e); throw e; }
 }
 
 export async function setNumCriancasReuniao(reuniaoId: string, numeroCriancas: number): Promise<void> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) throw new Error("Não autorizado");
     let targetCelulaIdForValidation: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { throw new Error("Reunião não encontrada ou inacessível."); }
         targetCelulaIdForValidation = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForValidation) { throw new Error("Nenhum ID de célula para validar o número de crianças."); }
+    const clientToUse = adminSupabase || supabase;
     try {
-        const { error } = await supabase.from('criancas_reuniao').upsert({ reuniao_id: reuniaoId, numero_criancas: Math.max(0, numeroCriancas) }, { onConflict: 'reuniao_id' });
-        if (error) { throw error; }
+        const { error } = await clientToUse.from('criancas_reuniao').upsert({ reuniao_id: reuniaoId, numero_criancas: Math.max(0, numeroCriancas) }, { onConflict: 'reuniao_id' });
+        if (error) { console.error("Erro ao definir número de crianças da reunião:", error); throw error; }
         revalidatePath(`/reunioes/presenca/${reuniaoId}`); revalidatePath('/dashboard'); revalidatePath('/relatorios');
-    } catch (e: any) { throw e; }
+    } catch (e: any) { console.error("Falha ao definir número de crianças:", e); throw e; }
 }
 
 export async function duplicarReuniao(reuniaoId: string): Promise<string> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) throw new Error("Não autorizado");
     let targetCelulaIdForValidation: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { throw new Error("Reunião não encontrada ou inacessível."); }
         targetCelulaIdForValidation = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForValidation) { throw new Error("Nenhum ID de célula para validar a duplicação da reunião."); }
+    const clientToUse = adminSupabase || supabase;
     try {
-        const { data: originalReuniaoRaw, error: fetchError } = await supabase.from('reunioes').select(`
+        const { data: originalReuniaoRaw, error: fetchError } = await clientToUse.from('reunioes').select(`
             id, celula_id, data_reuniao, tema, caminho_pdf, created_at,
             ministrador_principal,
             ministrador_secundario,
             responsavel_kids
         `).eq('id', reuniaoId).eq('celula_id', targetCelulaIdForValidation).single();
 
-        if (fetchError || !originalReuniaoRaw) { throw new Error("Falha ao buscar reunião para duplicação: " + (fetchError?.message || 'Reunião não encontrada')); } // CORREÇÃO
+        if (fetchError || !originalReuniaoRaw) { console.error("Erro ao buscar reunião para duplicação:", fetchError); throw new Error("Falha ao buscar reunião para duplicação: " + (fetchError?.message || 'Reunião não encontrada')); }
 
         const originalReuniao: ReuniaoDB = originalReuniaoRaw as ReuniaoDB;
 
@@ -908,37 +988,39 @@ export async function duplicarReuniao(reuniaoId: string): Promise<string> {
             caminho_pdf: null
         };
 
-        const { data: newReuniao, error: insertError } = await supabase.from('reunioes').insert(newReuniaoData).select('id').single();
-        if (insertError) { throw new Error("Falha ao criar reunião duplicada: " + insertError.message); } // CORREÇÃO
+        const { data: newReuniao, error: insertError } = await clientToUse.from('reunioes').insert(newReuniaoData).select('id').single();
+        if (insertError) { console.error("Erro ao criar reunião duplicada:", insertError); throw new Error("Falha ao criar reunião duplicada: " + insertError.message); }
         const newReuniaoId = newReuniao.id;
-        const { data: originalCriancas, error: criancasError } = await supabase.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle();
-        if (!criancasError && originalCriancas?.numero_criancas) { await supabase.from('criancas_reuniao').insert({ reuniao_id: newReuniaoId, numero_criancas: originalCriancas.numero_criancas }); }
+        const { data: originalCriancas, error: criancasError } = await clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle();
+        if (!criancasError && originalCriancas?.numero_criancas) { await clientToUse.from('criancas_reuniao').insert({ reuniao_id: newReuniaoId, numero_criancas: originalCriancas.numero_criancas }); }
         revalidatePath('/reunioes'); revalidatePath('/dashboard'); return newReuniaoId;
-    } catch (e: any) { throw e; }
+    } catch (e: any) { console.error("Falha ao duplicar reunião:", e); throw e; }
 }
 
 export async function uploadMaterialReuniao(reuniaoId: string, file: File): Promise<string> {
-    const { supabase, role, celulaId } = await checkUserAuthorization();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) throw new Error("Não autorizado.");
     let targetCelulaIdForValidation: string | null = (role === 'líder') ? celulaId : null;
     if (role === 'admin') {
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await supabase.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        const clientToUse = adminSupabase || supabase;
+        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { throw new Error("Reunião não encontrada ou inacessível."); }
         targetCelulaIdForValidation = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForValidation) { throw new Error("Nenhum ID de célula para validar o upload de material."); }
-    const { data: reunionCheck, error: reunionCheckError } = await supabase.from('reunioes').select('id').eq('id', reuniaoId).eq('celula_id', targetCelulaIdForValidation).single();
+    const clientToUse = adminSupabase || supabase;
+    const { data: reunionCheck, error: reunionCheckError } = await clientToUse.from('reunioes').select('id').eq('id', reuniaoId).eq('celula_id', targetCelulaIdForValidation).single();
     if (reunionCheckError || !reunionCheck) { throw new Error("Reunião não pertence à sua célula ou não encontrada."); }
     try {
         const fileExtension = file.name.split('.').pop(); const path = `${targetCelulaIdForValidation}/${reuniaoId}.${fileExtension}`;
-        const { data, error: uploadError } = await supabase.storage.from('reunion_materials').upload(path, file, { cacheControl: '3600', upsert: true });
-        if (uploadError) { throw new Error("Falha no upload do arquivo: " + uploadError.message); } // CORREÇÃO
-        const { data: publicUrlData } = supabase.storage.from('reunion_materials').getPublicUrl(path);
+        const { data, error: uploadError } = await createServerClient().storage.from('reunion_materials').upload(path, file, { cacheControl: '3600', upsert: true });
+        if (uploadError) { console.error("Erro no upload do arquivo:", uploadError); throw new Error("Falha no upload do arquivo: " + uploadError.message); }
+        const { data: publicUrlData } = createServerClient().storage.from('reunion_materials').getPublicUrl(path);
         if (!publicUrlData || !publicUrlData.publicUrl) { throw new Error("Não foi possível obter a URL pública do arquivo."); }
-        const { error: updateError } = await supabase.from('reunioes').update({ caminho_pdf: publicUrlData.publicUrl }).eq('id', reuniaoId);
-        if (updateError) { throw new Error("Falha ao atualizar o registro da reunião com o caminho do PDF: " + updateError.message); } // CORREÇÃO
+        const { error: updateError } = await clientToUse.from('reunioes').update({ caminho_pdf: publicUrlData.publicUrl }).eq('id', reuniaoId);
+        if (updateError) { console.error("Erro ao atualizar o registro da reunião com o caminho do PDF:", updateError); throw new Error("Falha ao atualizar o registro da reunião com o caminho do PDF: " + updateError.message); }
         revalidatePath(`/reunioes/editar/${reuniaoId}`); revalidatePath(`/reunioes/resumo/${reuniaoId}`); return publicUrlData.publicUrl;
-    } catch (e: any) { throw e; }
+    } catch (e: any) { console.error("Falha ao fazer upload do material da reunião:", e); throw e; }
 }
 
 // ============================================================================
@@ -946,39 +1028,42 @@ export async function uploadMaterialReuniao(reuniaoId: string, file: File): Prom
 // ============================================================================
 
 export async function getUserProfile(): Promise<Profile | null> {
-    const { supabase, role } = await checkUserAuthorization();
+    const { supabase, role, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { throw new Error("Usuário não autenticado ou perfil inacessível."); }
 
     const { data: { user }, error: userError } = await createServerClient().auth.getUser();
     if (userError || !user) { throw new Error("Usuário não autenticado."); }
 
     try {
-        const { data: profileData, error: profileError } = await supabase.from('profiles').select('id, email, nome_completo, telefone, role, celula_id, created_at').eq('id', user.id).single();
+        const clientToUse = adminSupabase || supabase; 
+        const { data: profileData, error: profileError } = await clientToUse.from('profiles').select('id, email, nome_completo, telefone, role, celula_id, created_at').eq('id', user.id).single();
         if (profileError || !profileData) {
             if (profileError?.code === 'PGRST116') {
                  return { id: user.id, email: user.email || 'email@example.com', nome_completo: null, telefone: null, role: null, celula_id: null, celula_nome: null, created_at: user.created_at };
             }
-            throw new Error("Falha ao carregar perfil: " + profileError?.message); // CORREÇÃO
+            console.error("Erro ao carregar perfil:", profileError);
+            throw new Error("Falha ao carregar perfil: " + profileError?.message);
         }
         let celulaName: string | null = null;
         if (profileData.celula_id) {
-            const celulasNamesMap = await getCelulasNamesMap(new Set([profileData.celula_id]), createServerClient());
+            const celulasNamesMap = await getCelulasNamesMap(clientToUse, new Set([profileData.celula_id])); 
             celulaName = celulasNamesMap.get(profileData.celula_id) || null;
         }
         return { id: profileData.id, email: profileData.email || 'N/A', nome_completo: profileData.nome_completo, telefone: profileData.telefone, role: profileData.role, celula_id: profileData.celula_id, celula_nome: celulaName, created_at: profileData.created_at };
-    } catch (e: any) { throw new Error("Falha ao carregar perfil: " + e.message); } // CORREÇÃO
+    } catch (e: any) { console.error("Falha ao carregar perfil de usuário:", e); throw new Error("Falha ao carregar perfil: " + e.message); }
 }
 
 export async function updateUserProfileData(profileId: string, data: { nome_completo: string; telefone: string | null }): Promise<void> {
-    const { supabase, role } = await checkUserAuthorization();
+    const { supabase, role, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { throw new Error("Não autorizado."); }
     const { data: { user }, error: userError } = await createServerClient().auth.getUser();
     if (userError || !user || user.id !== profileId) { throw new Error("Não autorizado."); }
+    const clientToUse = adminSupabase || supabase;
     try {
-        const { error } = await supabase.from('profiles').update({ nome_completo: data.nome_completo, telefone: data.telefone }).eq('id', profileId);
-        if (error) { throw new Error("Falha ao atualizar perfil: " + error.message); } // CORREÇÃO
+        const { error } = await clientToUse.from('profiles').update({ nome_completo: data.nome_completo, telefone: data.telefone }).eq('id', profileId);
+        if (error) { console.error("Erro ao atualizar perfil:", error); throw new Error("Falha ao atualizar perfil: " + error.message); }
         revalidatePath('/profile'); revalidatePath('/dashboard');
-    } catch (e: any) { throw new Error("Falha ao atualizar perfil: " + e.message); } // CORREÇÃO
+    } catch (e: any) { console.error("Falha ao atualizar perfil de usuário:", e); throw new Error("Falha ao atualizar perfil: " + e.message); }
 }
 
 export async function updateUserPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
@@ -990,10 +1075,11 @@ export async function updateUserPassword(newPassword: string): Promise<{ success
         const { error } = await supabase.auth.updateUser({ password: newPassword });
         if (error) {
             if (error.message.includes('Password should be at least')) { return { success: false, message: "A senha é muito curta. Deve ter no mínimo 6 caracteres." }; }
-            return { success: false, message: "Falha ao trocar senha: " + error.message }; // CORRIGIDO AQUI
+            console.error("Erro ao trocar senha:", error);
+            return { success: false, message: "Falha ao trocar senha: " + error.message };
         }
         return { success: true, message: "Senha atualizada com sucesso!" };
-    } catch (e: any) { return { success: false, message: "Erro inesperado ao trocar senha: " + e.message }; } // CORREÇÃO
+    } catch (e: any) { console.error("Erro inesperado ao trocar senha:", e); return { success: false, message: "Erro inesperado ao trocar senha: " + e.message }; }
 }
 
 // ============================================================================
@@ -1001,7 +1087,7 @@ export async function updateUserPassword(newPassword: string): Promise<{ success
 // ============================================================================
 
 export async function uploadPalavraDaSemana(formData: FormData): Promise<{ success: boolean; message: string; url?: string }> {
-    const { supabase, role } = await checkUserAuthorization();
+    const { supabase, role, adminSupabase } = await checkUserAuthorization(); 
 
     if (role !== 'admin') {
         return { success: false, message: "Não autorizado: Apenas administradores podem gerenciar a Palavra da Semana." };
@@ -1022,7 +1108,8 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
     }
 
     try {
-        const { data: existingPalavra, error: checkError } = await supabase
+        const clientToUse = adminSupabase || supabase;
+        const { data: existingPalavra, error: checkError } = await clientToUse
             .from('palavra_semana')
             .select('id, url_arquivo')
             .eq('data_semana', data_semana)
@@ -1030,7 +1117,7 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
 
         if (checkError) {
             console.error("Erro ao verificar Palavra da Semana existente:", checkError);
-            throw new Error("Falha ao verificar duplicidade: " + checkError.message); // CORREÇÃO
+            throw new Error("Falha ao verificar duplicidade: " + checkError.message);
         }
 
         let fileUrl: string | null = existingPalavra?.url_arquivo || null;
@@ -1052,7 +1139,7 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
 
             if (uploadError) {
                 console.error("Erro no upload da Palavra da Semana:", uploadError);
-                throw new Error("Falha no upload do arquivo: " + uploadError.message); // CORREÇÃO
+                throw new Error("Falha no upload do arquivo: " + uploadError.message);
             }
 
             const { data: publicUrlData } = createServerClient().storage
@@ -1074,13 +1161,13 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
             created_by: user.id,
         };
 
-        const { error: upsertError } = await supabase
+        const { error: upsertError } = await clientToUse
             .from('palavra_semana')
             .upsert({ ...dataToUpsert, id: existingPalavra?.id }, { onConflict: 'data_semana' });
 
         if (upsertError) {
             console.error("Erro no upsert da Palavra da Semana:", upsertError);
-            throw new Error("Falha ao salvar a Palavra da Semana: " + upsertError.message); // CORREÇÃO
+            throw new Error("Falha ao salvar a Palavra da Semana: " + upsertError.message);
         }
 
         revalidatePath('/admin/palavra-semana');
@@ -1090,12 +1177,12 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
 
     } catch (e: any) {
         console.error("Erro na Server Action uploadPalavraDaSemana:", e);
-        return { success: false, message: "Erro: " + e.message }; // CORREÇÃO
+        return { success: false, message: "Erro: " + e.message };
     }
 }
 
 export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana | null> {
-    const { supabase, role } = await checkUserAuthorization();
+    const { supabase, role, adminSupabase } = await checkUserAuthorization(); 
 
     if (!role) {
         console.warn("getPalavraDaSemana: Usuário não autenticado. Retornando null.");
@@ -1103,7 +1190,8 @@ export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana
     }
 
     try {
-        let query = supabase
+        const clientToUse = adminSupabase || supabase;
+        let query = clientToUse
             .from('palavra_semana')
             .select(`
                 id,
@@ -1125,7 +1213,7 @@ export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana
 
         if (error) {
             console.error("Erro ao buscar Palavra da Semana:", error);
-            throw new Error("Falha ao carregar Palavra da Semana: " + error.message); // CORREÇÃO
+            throw new Error("Falha ao carregar Palavra da Semana: " + error.message);
         }
 
         if (!palavraData) return null;
@@ -1153,37 +1241,40 @@ export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana
     } catch (e: any) {
         console.error("Erro na Server Action getPalavraDaSemana:", e);
         if (e && typeof e === 'object' && 'message' in e) {
-            throw new Error("Erro: " + e.message); // CORREÇÃO
+            throw new Error("Erro: " + e.message);
         }
         throw new Error("Erro desconhecido ao carregar Palavra da Semana.");
     }
 }
 
 export async function deletePalavraDaSemana(id: string): Promise<{ success: boolean; message: string }> {
-    const { supabase, role } = await checkUserAuthorization();
+    const { supabase, role, adminSupabase } = await checkUserAuthorization(); 
 
     if (role !== 'admin') {
         return { success: false, message: "Não autorizado: Apenas administradores podem excluir a Palavra da Semana." };
     }
 
     try {
-        const { data: palavra, error: fetchError } = await supabase
+        const clientToUse = adminSupabase || supabase;
+        const { data: palavra, error: fetchError } = await clientToUse
             .from('palavra_semana')
             .select('url_arquivo')
             .eq('id', id)
             .single();
 
         if (fetchError || !palavra) {
-            throw new Error("Falha ao buscar registro: " + (fetchError?.message || 'Palavra da Semana não encontrada')); // CORREÇÃO
+            console.error("Erro ao buscar registro da Palavra da Semana para exclusão:", fetchError);
+            throw new Error("Falha ao buscar registro: " + (fetchError?.message || 'Palavra da Semana não encontrada'));
         }
 
-        const { error: deleteRecordError } = await supabase
+        const { error: deleteRecordError } = await clientToUse
             .from('palavra_semana')
             .delete()
             .eq('id', id);
 
         if (deleteRecordError) {
-            throw new Error("Falha ao excluir registro: " + deleteRecordError.message); // CORREÇÃO
+            console.error("Erro ao excluir registro da Palavra da Semana:", deleteRecordError);
+            throw new Error("Falha ao excluir registro: " + deleteRecordError.message);
         }
 
         const urlSegments = palavra.url_arquivo.split('/');
@@ -1208,6 +1299,6 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
         return { success: true, message: "Palavra da Semana excluída com sucesso!" };
     } catch (e: any) {
         console.error("Erro na Server Action deletePalavraDaSemana:", e);
-        return { success: false, message: "Erro: " + e.message }; // CORREÇÃO
+        return { success: false, message: "Erro: " + e.message };
     }
 }
