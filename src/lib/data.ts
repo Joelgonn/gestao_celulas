@@ -1,3 +1,4 @@
+// src/lib/data.ts
 'use server';
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
@@ -283,6 +284,52 @@ export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
     return [];
 }
 
+// ============================================================================
+//                          RPC para Filtro de Aniversário (Adicionado aqui para reutilização)
+// ============================================================================
+/*
+// CRIE ESTAS FUNÇÕES NO SEU BANCO DE DADOS SUPABASE (SQL Editor) SE AINDA NÃO EXISTIREM:
+
+-- Função para membros
+CREATE OR REPLACE FUNCTION public.get_members_birthday_ids_in_month(p_month INT, p_celula_id UUID DEFAULT NULL)
+RETURNS SETOF uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT id
+  FROM public.membros
+  WHERE
+    EXTRACT(MONTH FROM data_nascimento) = p_month
+    AND (p_celula_id IS NULL OR celula_id = p_celula_id);
+END;
+$$;
+
+-- Grant EXECUTE permission to authenticated role
+GRANT EXECUTE ON FUNCTION public.get_members_birthday_ids_in_month(p_month INT, p_celula_id UUID) TO authenticated;
+
+
+-- Função para visitantes (se você tiver dados de nascimento para visitantes e quiser filtrá-los)
+CREATE OR REPLACE FUNCTION public.get_visitors_birthday_ids_in_month(p_month INT, p_celula_id UUID DEFAULT NULL)
+RETURNS SETOF uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT id
+  FROM public.visitantes
+  WHERE
+    EXTRACT(MONTH FROM data_nascimento) = p_month
+    AND (p_celula_id IS NULL OR celula_id = p_celula_id);
+END;
+$$;
+
+-- Grant EXECUTE permission to authenticated role
+GRANT EXECUTE ON FUNCTION public.get_visitors_birthday_ids_in_month(p_month INT, p_celula_id UUID) TO authenticated;
+*/
+
 
 // ============================================================================
 //                               FUNÇÕES DE MEMBROS
@@ -295,20 +342,80 @@ export async function listarMembros(
 ): Promise<Membro[]> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { return []; }
-    let query = supabase.from('membros').select('*');
-    if (role === 'líder') { if (!celulaId) { return []; } query = query.eq('celula_id', celulaId); }
-    else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
-    else if (role === 'admin' && !celulaIdFilter) { /* Admin sem filtro vê todos, então não adiciona eq('celula_id') */ }
 
-    if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) { query = query.filter('EXTRACT(MONTH FROM data_nascimento)::int', 'eq', birthdayMonth); }
-    if (statusFilter !== 'all') { query = query.eq('status', statusFilter); }
+    const clientToUse = adminSupabase || supabase;
+    let query = clientToUse.from('membros').select('*');
+    
+    // Aplicar filtro de Aniversário via RPC se birthdayMonth for fornecido
+    if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) {
+        console.log(`listarMembros: Aplicando filtro de aniversário para o mês ${birthdayMonth}`);
+        let rpcCelulaIdParam: string | null | undefined = undefined; // Undefined para global
+        if (role === 'líder' && celulaId) {
+            rpcCelulaIdParam = celulaId;
+        } else if (role === 'admin' && celulaIdFilter) {
+            rpcCelulaIdParam = celulaIdFilter;
+        } else if (role === 'admin' && celulaIdFilter === null) {
+            rpcCelulaIdParam = null; // Admin sem filtro global
+        }
+        
+        const { data: rpcMemberIds, error: rpcError } = await clientToUse.rpc('get_members_birthday_ids_in_month', { 
+            p_month: birthdayMonth, 
+            p_celula_id: rpcCelulaIdParam 
+        });
+
+        if (rpcError) {
+            console.error("listarMembros: Erro na RPC get_members_birthday_ids_in_month:", rpcError);
+            throw new Error(`Falha ao carregar membros por mês de aniversário: ${rpcError.message}`);
+        }
+        
+        // CORRIGIDO: memberIdsToFilter é inicializado como array vazio
+        const memberIdsToFilter: string[] = rpcMemberIds || []; 
+
+        if (memberIdsToFilter.length === 0) { 
+            console.log("listarMembros: Nenhuns membros encontrados para o mês de aniversário filtrado.");
+            return []; // Nenhuns membros encontrados para o mês, retorna cedo
+        }
+        // Adiciona um filtro WHERE IN (memberIdsToFilter)
+        query = query.in('id', memberIdsToFilter);
+    }
+
+    // Aplicar filtro de Célula (se não for líder, ou se for admin com filtro específico)
+    if (role === 'líder') {
+        if (!celulaId) {
+            console.warn("listarMembros: Líder sem ID de célula. Retornando lista vazia.");
+            return [];
+        }
+        query = query.eq('celula_id', celulaId);
+    } else if (role === 'admin' && celulaIdFilter) {
+        query = query.eq('celula_id', celulaIdFilter);
+    } 
+    // Para admin sem celulaIdFilter, a RLS e o comportamento padrão do select já buscam todos.
+
+    // Aplicar filtro de SearchTerm
+    if (searchTerm) { 
+        query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`); 
+    }
+
+    // Aplicar filtro de Status
+    if (statusFilter !== 'all') { 
+        query = query.eq('status', statusFilter); 
+    }
+    
+    // Executar a query final
     const { data, error } = await query.order('nome', { ascending: true });
-    if (error) { console.error("Erro ao listar membros:", error); throw new Error(`Falha ao carregar membros: ${error.message}`); }
+
+    if (error) { 
+        console.error("Erro ao listar membros:", error); 
+        throw new Error(`Falha ao carregar membros: ${error.message}`); 
+    }
 
     const membros: Membro[] = data || [];
     if (membros.length === 0) return [];
+    
+    // Buscar nomes das células para exibição
     const celulaIds = new Set<string>(membros.map((m: Membro) => m.celula_id));
-    const celulasNamesMap = await getCelulasNamesMap(adminSupabase || supabase, celulaIds); 
+    const celulasNamesMap = await getCelulasNamesMap(clientToUse, celulaIds); 
+    
     return membros.map((m: Membro) => ({ ...m, celula_nome: celulasNamesMap.get(m.celula_id) || null }));
 }
 
@@ -317,7 +424,6 @@ export async function adicionarMembro(newMembroData: Omit<Membro, 'id' | 'create
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) { throw new Error("Não autorizado: Usuário não autenticado ou role inválida."); }
 
-    // CORREÇÃO APLICADA AQUI: Garante que newMembroData.celula_id seja string ou null
     let targetCelulaIdForInsert: string | null = (role === 'líder') 
         ? celulaId 
         : (newMembroData.celula_id ?? null); // Converte undefined para null
@@ -438,8 +544,36 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTe
     else if (role === 'admin' && !celulaIdFilter) { /* Admin sem filtro vê todos, então não adiciona eq('celula_id') */ }
 
     if (searchTerm) { query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`); }
-    if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) { query = query.filter('EXTRACT(MONTH FROM data_nascimento)::int', 'eq', birthdayMonth); }
+    
     if (statusFilter !== 'all') { query = query.eq('status', statusFilter); }
+    
+    // SE O FILTRO DE ANIVERSÁRIO FOR USADO, DEVE SER VIA RPC AQUI
+    if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) {
+        let rpcCelulaIdParam: string | null | undefined = undefined; 
+        if (role === 'líder' && celulaId) {
+            rpcCelulaIdParam = celulaId;
+        } else if (role === 'admin' && celulaIdFilter) {
+            rpcCelulaIdParam = celulaIdFilter;
+        } else if (role === 'admin' && celulaIdFilter === null) {
+            rpcCelulaIdParam = null; 
+        }
+
+        const { data: rpcMemberIds, error: rpcError } = await (adminSupabase || supabase).rpc('get_members_birthday_ids_in_month', {
+            p_month: birthdayMonth,
+            p_celula_id: rpcCelulaIdParam
+        });
+
+        if (rpcError) {
+            console.error("exportarMembrosCSV: Erro na RPC get_members_birthday_ids_in_month:", rpcError);
+            throw new Error(`Falha ao exportar membros por mês de aniversário: ${rpcError.message}`);
+        }
+        const memberIdsToFilter: string[] = rpcMemberIds || []; // Garante que seja um array, mesmo que vazio
+        if (memberIdsToFilter.length === 0) {
+            return "Nome,Telefone,Data de Ingresso,Data de Nascimento,Endereço,Status,Célula\n"; 
+        }
+        query = query.in('id', memberIdsToFilter);
+    }
+    
     const { data: membrosData, error } = await query.order('nome', { ascending: true });
     if (error) { console.error("Erro ao carregar membros para exportação:", error); throw new Error(`Falha ao carregar membros para exportação: ${error.message}`); }
     const membros: Membro[] = membrosData || [];
@@ -485,7 +619,6 @@ export async function adicionarVisitante(newVisitanteData: Omit<Visitante, 'id' 
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) throw new Error("Não autorizado");
     
-    // CORREÇÃO APLICADA AQUI: Garante que newVisitanteData.celula_id seja string ou null
     let targetCelulaIdForInsert: string | null = (role === 'líder') 
         ? celulaId 
         : (newVisitanteData.celula_id ?? null); // Converte undefined para null
@@ -558,7 +691,9 @@ export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return [];
 
-    let query = supabase.from('reunioes').select(`
+    const clientToUse = adminSupabase || supabase; 
+
+    let query = clientToUse.from('reunioes').select(`
         id, data_reuniao, tema, caminho_pdf, celula_id, created_at,
 
         ministrador_principal_alias:membros!ministrador_principal(nome),
@@ -567,17 +702,16 @@ export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
     `);
 
     if (role === 'líder') { if (!celulaId) return []; query = query.eq('celula_id', celulaId); }
-    // Para admin, ele deve ver todas as reuniões. Não adicionamos filtro de celula_id aqui, a RLS permite.
     
     const { data: reunioesData, error } = await query.order('data_reuniao', { ascending: false });
-    if (error) { console.error("Erro ao listar reuniões:", error); throw new Error("Falha ao carregar reuniões: " + error.message); }
+    if (error) { console.error("Erro ao listar reuniões:", error); throw new Error(`Falha ao carregar reuniões: ${error.message}`); }
 
     const reunioesComObjetosAninhados: any[] = reunioesData || [];
 
     if (reunioesComObjetosAninhados.length === 0) return [];
 
     const reuniaoIds = new Set<string>(reunioesComObjetosAninhados.map((r: any) => r.id));
-    const { data: criancasData, error: criancasError } = await supabase.from('criancas_reuniao').select('reuniao_id, numero_criancas').in('reuniao_id', Array.from(reuniaoIds)); // Use Array.from
+    const { data: criancasData, error: criancasError } = await clientToUse.from('criancas_reuniao').select('reuniao_id, numero_criancas').in('reuniao_id', Array.from(reuniaoIds)); 
     if (criancasError) console.warn("Aviso: Erro ao buscar contagem de crianças:", criancasError.message);
     const criancasMap = new Map((criancasData || []).map((c: CriancasReuniaoData) => [c.reuniao_id, c.numero_criancas]));
 
@@ -608,10 +742,9 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
     if (!role) return null;
 
     let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : null;
-    const clientToUse = adminSupabase || supabase; // Usa adminSupabase se disponível, senão o cliente com RLS
+    const clientToUse = adminSupabase || supabase; 
 
     if (role === 'admin' && !targetCelulaIdForQuery) {
-        // Admin: se não há um targetCelulaIdForQuery inicial, precisamos descobrir a celula_id da reunião.
         const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) { 
             console.error("Reunião não encontrada ou inacessível para admin:", reuniaoCheckError);
@@ -703,7 +836,6 @@ export async function adicionarReuniao(newReuniaoData: ReuniaoFormData): Promise
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) throw new Error("Não autorizado");
     
-    // CORREÇÃO APLICADA AQUI: Garante que newReuniaoData.celula_id seja string ou null
     let targetCelulaIdForInsert: string | null = (role === 'líder') 
         ? celulaId 
         : (newReuniaoData.celula_id ?? null); // Converte undefined para null
@@ -837,7 +969,7 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
         const { data: members, error: membersError } = await clientToUse.from('membros').select('id, celula_id, nome, telefone, data_ingresso, data_nascimento, endereco, status, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
         if (membersError) { console.error("Erro ao listar membros com presença:", membersError); throw membersError; }
         const memberIds = (members || []).map((m: Membro) => m.id);
-        const { data: presences, error: presencesError } = await clientToUse.from('presencas_membros').select('membro_id, presente').eq('reuniao_id', reuniaoId).in('membro_id', Array.from(memberIds)); // Use Array.from
+        const { data: presences, error: presencesError } = await clientToUse.from('presencas_membros').select('membro_id, presente').eq('reuniao_id', reuniaoId).in('membro_id', Array.from(memberIds)); 
         if (presencesError) { console.error("Erro ao listar presenças de membros:", presencesError); throw presencesError; }
         const presenceMap = new Map((presences || []).map(p => [p.membro_id, p.presente]));
         return (members || []).map(membro => ({ ...membro, presente: presenceMap.get(membro.id) || false }));
@@ -881,7 +1013,7 @@ export async function listarTodosVisitantesComPresenca(reuniaoId: string): Promi
         const { data: visitors, error: visitorsError } = await clientToUse.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
         if (visitorsError) { console.error("Erro ao listar visitantes com presença:", visitorsError); throw visitorsError; }
         const visitorIds = (visitors || []).map((v: Visitante) => v.id);
-        const { data: presences, error: presencesError } = await clientToUse.from('presencas_visitantes').select('visitante_id, presente').eq('reuniao_id', reuniaoId).in('visitante_id', Array.from(visitorIds)); // Use Array.from
+        const { data: presences, error: presencesError } = await clientToUse.from('presencas_visitantes').select('visitante_id, presente').eq('reuniao_id', reuniaoId).in('visitante_id', Array.from(visitorIds)); 
         if (presencesError) { console.error("Erro ao listar presenças de visitantes:", presencesError); throw presencesError; }
         const presenceMap = new Map((presences || []).map(p => [p.visitante_id, p.presente]));
         return (visitors || []).map(visitante => ({ visitante_id: visitante.id, nome: visitante.nome, telefone: visitante.telefone, presente: presenceMap.get(visitante.id) || false }));

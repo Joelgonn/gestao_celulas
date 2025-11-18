@@ -288,14 +288,17 @@ async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: Retu
 
 // Lista membros para os selects de filtro
 export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<MembroOption[]> {
-    const { supabase, role, celulaId } = await checkUserAuthorizationReports();
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports(); 
+    console.log(`listMembros: Chamada. Role: ${role}, celulaIdLogado: ${celulaId}, celulaIdParaFiltrar: ${celulaIdParaFiltrar}`); // NOVO LOG
 
     if (!role) { 
         console.warn("listMembros (reports_data): Usuário não autenticado. Retornando lista vazia.");
         return [];
     }
 
-    let query = supabase.from('membros').select('id, nome');
+    const clientToUse = adminSupabase || supabase; // Admin pode precisar do cliente admin para ignorar RLS
+
+    let query = clientToUse.from('membros').select('id, nome'); // Usando clientToUse aqui
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -305,14 +308,18 @@ export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
-    } 
+    } else if (role === 'admin' && !celulaIdParaFiltrar) {
+        // Admin sem filtro, deve ver TODOS os membros (se RLS permitir)
+        console.log("listMembros: Admin sem filtro de célula, buscando todos os membros.");
+    }
     
     const { data, error } = await query.order('nome', { ascending: true });
 
     if (error) {
-        console.error("Erro ao listar membros (reports_data):", error);
+        console.error("listMembros (reports_data): Erro ao listar membros:", error);
         throw new Error("Falha ao carregar membros: " + error.message); 
     }
+    console.log(`listMembros: Retornando ${data?.length} membros.`); // NOVO LOG
     return data || [];
 }
 
