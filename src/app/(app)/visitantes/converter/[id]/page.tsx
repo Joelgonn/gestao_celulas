@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-// Importa funções de data.ts
+
+// Importa funções de data.ts (REMOVIDAS as interfaces/types duplicadas daqui)
 import {
     getVisitante,
     converterVisitanteEmMembro,
-    Visitante, // Importar Visitante para tipagem
-    Membro, // Importar Membro para tipagem de status
 } from '@/lib/data';
-// Importa interfaces de types.ts <--- CORREÇÃO AQUI
+
+// Importa interfaces de types.ts (MANTIDAS as interfaces/types aqui)
 import {
     Visitante, // Importar Visitante para tipagem
     Membro,    // Importar Membro para tipagem de status
@@ -26,11 +26,12 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading i
 // --- FIM REFATORAÇÃO TOASTS ---
 
 // --- CORREÇÃO: Adicionar status e celula_id à interface MembroFormData ---
-interface MembroFormData {
+// Renomeado para MembroConversionFormData para evitar conflito com a interface Membro se ela já existisse
+interface MembroConversionFormData {
     nome: string;
     telefone: string | null; // Pode ser null se o visitante não tiver
     data_ingresso: string;
-    data_nascimento: string | null; 
+    data_nascimento: string | null;
     endereco: string | null; // Pode ser null
     status: Membro['status']; // Adicionar status, obrigatório para Membro
     celula_id: string; // Adicionar celula_id, será preenchido pelo visitante original
@@ -40,7 +41,7 @@ interface MembroFormData {
 export default function ConverterVisitantePage() {
     const params = useParams();
     const visitanteId = params.id as string;
-    
+
     const [formData, setFormData] = useState<MembroConversionFormData>({
         nome: '',
         telefone: null,
@@ -52,7 +53,7 @@ export default function ConverterVisitantePage() {
         celula_id: '', // Será preenchido do visitante original
         // --- FIM CORREÇÃO ---
     });
-    
+
     // --- REFATORAÇÃO: TOASTS ---
     const { toasts, addToast, removeToast } = useToast();
     // --- FIM REFATORAÇÃO TOASTS ---
@@ -203,7 +204,7 @@ export default function ConverterVisitantePage() {
                                 </h1>
                                 <p className="text-orange-100 mt-2">Transforme este visitante em um membro da célula</p>
                             </div>
-                            <Link 
+                            <Link
                                 href="/visitantes"
                                 className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30"
                             >
@@ -230,7 +231,7 @@ export default function ConverterVisitantePage() {
                                         Informações do Visitante
                                     </h3>
                                     <p className="text-sm text-blue-700">
-                                        Os dados abaixo foram preenchidos automaticamente a partir do cadastro do visitante. 
+                                        Os dados abaixo foram preenchidos automaticamente a partir do cadastro do visitante.
                                         Você pode ajustá-los conforme necessário para o cadastro como membro.
                                     </p>
                                 </div>
@@ -243,13 +244,13 @@ export default function ConverterVisitantePage() {
                                         </svg>
                                         Nome Completo *
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        id="nome" 
-                                        name="nome" 
-                                        value={formData.nome} 
-                                        onChange={handleChange} 
-                                        required 
+                                    <input
+                                        type="text"
+                                        id="nome"
+                                        name="nome"
+                                        value={formData.nome}
+                                        onChange={handleChange}
+                                        required
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         placeholder="Nome completo do novo membro"
                                     />
@@ -263,14 +264,14 @@ export default function ConverterVisitantePage() {
                                         </svg>
                                         Telefone
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        id="telefone" 
-                                        name="telefone" 
-                                        value={formData.telefone || ''} 
-                                        onChange={handleChange} 
-                                        placeholder="(XX) XXXXX-XXXX" 
-                                        maxLength={11} 
+                                    <input
+                                        type="text"
+                                        id="telefone"
+                                        name="telefone"
+                                        value={formData.telefone || ''}
+                                        onChange={handleChange}
+                                        placeholder="(XX) XXXXX-XXXX"
+                                        maxLength={11}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                     />
                                 </div>
@@ -284,12 +285,12 @@ export default function ConverterVisitantePage() {
                                         </svg>
                                         Endereço
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        id="endereco" 
-                                        name="endereco" 
-                                        value={formData.endereco || ''} 
-                                        onChange={handleChange} 
+                                    <input
+                                        type="text"
+                                        id="endereco"
+                                        name="endereco"
+                                        value={formData.endereco || ''}
+                                        onChange={handleChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         placeholder="Endereço completo do novo membro"
                                     />
@@ -305,13 +306,13 @@ export default function ConverterVisitantePage() {
                                             </svg>
                                             Data de Ingresso *
                                         </label>
-                                        <input 
-                                            type="date" 
-                                            id="data_ingresso" 
-                                            name="data_ingresso" 
-                                            value={formData.data_ingresso} 
-                                            onChange={handleChange} 
-                                            required 
+                                        <input
+                                            type="date"
+                                            id="data_ingresso"
+                                            name="data_ingresso"
+                                            value={formData.data_ingresso}
+                                            onChange={handleChange}
+                                            required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         />
                                     </div>
@@ -324,12 +325,12 @@ export default function ConverterVisitantePage() {
                                             </svg>
                                             Data de Nascimento
                                         </label>
-                                        <input 
-                                            type="date" 
-                                            id="data_nascimento" 
-                                            name="data_nascimento" 
-                                            value={formData.data_nascimento || ''} 
-                                            onChange={handleChange} 
+                                        <input
+                                            type="date"
+                                            id="data_nascimento"
+                                            name="data_nascimento"
+                                            value={formData.data_nascimento || ''}
+                                            onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         />
                                     </div>
@@ -343,12 +344,12 @@ export default function ConverterVisitantePage() {
                                         </svg>
                                         Status *
                                     </label>
-                                    <select 
-                                        id="status" 
-                                        name="status" 
-                                        value={formData.status} 
-                                        onChange={handleChange} 
-                                        required 
+                                    <select
+                                        id="status"
+                                        name="status"
+                                        value={formData.status}
+                                        onChange={handleChange}
+                                        required
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
                                     >
                                         <option value="Ativo">Ativo</option>
@@ -358,8 +359,8 @@ export default function ConverterVisitantePage() {
                                 </div>
 
                                 {/* Botão Submit */}
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={submitting}
                                     className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2"
                                 >
