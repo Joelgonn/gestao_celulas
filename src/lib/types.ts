@@ -168,7 +168,7 @@ export interface PalavraDaSemana {
     url_arquivo: string;
     data_semana: string;
     created_at: string;
-    created_by: string | null | undefined; // <--- CORREÇÃO AQUI: Permite que seja null
+    created_by?: string | null; // <--- CORREÇÃO AQUI: Use '?' para marcar como opcional
     created_by_email: string | null;
 }
 
