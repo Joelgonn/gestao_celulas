@@ -29,20 +29,23 @@ import {
 } from 'react-icons/fa';
 // --- FIM NOVO: Ícones ---
 
-// CORREÇÃO: Definir FormData diretamente baseada na interface Membro de types.ts
-// Omitimos 'id', 'created_at', 'celula_id' e 'celula_nome' porque não são editáveis diretamente aqui
-// ou são preenchidos por outras lógicas.
-interface MembroEditFormData extends Omit<Membro, 'id' | 'created_at' | 'celula_id' | 'celula_nome'> {}
-
+interface FormData {
+  nome: string;
+  telefone: string;
+  data_nascimento: string;
+  endereco: string;
+  data_ingresso: string;
+  status: 'Ativo' | 'Inativo' | 'Em transição';
+}
 
 export default function EditMembroPage() {
     const params = useParams();
     const membroId = params.id as string;
     const [formData, setFormData] = useState<MembroEditFormData>({ // <--- Usar a nova interface
         nome: '',
-        telefone: null, // Pode ser null
-        data_nascimento: null, // Pode ser null
-        endereco: null, // Pode ser null
+        telefone: '',
+        data_nascimento: '',
+        endereco: '',
         data_ingresso: '',
         status: 'Ativo',
     });
@@ -63,9 +66,9 @@ export default function EditMembroPage() {
                 if (membro) {
                     setFormData({
                         nome: membro.nome || '',
-                        telefone: membro.telefone || null,
-                        data_nascimento: membro.data_nascimento || null,
-                        endereco: membro.endereco || null,
+                        telefone: membro.telefone || '',
+                        data_nascimento: membro.data_nascimento || '',
+                        endereco: membro.endereco || '',
                         data_ingresso: membro.data_ingresso || '',
                         status: membro.status || 'Ativo', 
                     });
@@ -190,7 +193,7 @@ export default function EditMembroPage() {
                                         type="text" 
                                         id="telefone" 
                                         name="telefone" 
-                                        value={formData.telefone || ''} // Handle null
+                                        value={formData.telefone} 
                                         onChange={handleChange} 
                                         placeholder="(XX) XXXXX-XXXX" 
                                         maxLength={11} 
@@ -208,7 +211,7 @@ export default function EditMembroPage() {
                                         type="text" 
                                         id="endereco" 
                                         name="endereco" 
-                                        value={formData.endereco || ''} // Handle null
+                                        value={formData.endereco} 
                                         onChange={handleChange} 
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         placeholder="Endereço completo do membro"
@@ -241,7 +244,7 @@ export default function EditMembroPage() {
                                             type="date" 
                                             id="data_nascimento" 
                                             name="data_nascimento" 
-                                            value={formData.data_nascimento || ''} // Handle null
+                                            value={formData.data_nascimento} 
                                             onChange={handleChange} 
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         />

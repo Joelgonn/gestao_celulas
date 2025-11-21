@@ -5,51 +5,180 @@ import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { format, isSameMonth, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// CORREÇÃO CRÍTICA FINAL: Importar TODAS as interfaces relevantes diretamente de '@/lib/types'
-// E garantir que 'types.ts' é o ÚNICO lugar onde elas são exportadas.
-import type { // Usar 'type' import para clareza, pois são apenas tipos.
+// ============================================================================
+//                                DEFINIÇÕES DE TIPOS (Importadas ou Locais)
+// ============================================================================
+
+import {
     Membro, 
     Visitante, 
-    ReuniaoDB, // Adicionado se usado internamente para tipagem
-    CelulaOption, 
-    MembroOption, 
-    ReuniaoOption, 
-    
-    ReportDataPresencaReuniao,
-    ReportDataPresencaMembro,
-    ReportDataFaltososPeriodo,
-    ReportDataVisitantesPeriodo,
-    ReportDataAniversariantes,
-    ReportDataAlocacaoLideres,
-    ReportDataChavesAtivacao,
+    ReuniaoDB, // CORREÇÃO: Importar ReuniaoDB (a interface que representa a tabela do DB)
+    CelulaOption as BaseCelulaOption // Renomeado para evitar conflito com CelulaOption local
+} from '@/lib/data';
 
-    MembroAniversariante,
-    VisitanteAniversariante,
-    MembroFaltoso,
-    VisitantePorPeriodo,
-    RelatorioPresencaMembroItem,
-    LiderAlocacaoItem,
-    CelulaSemLiderItem,
-    ChaveAtivacaoItem,
-    
-    // Tipos auxiliares que foram movidos para types.ts
-    MembroNomeTelefoneId, 
-    VisitanteNomeTelefoneId,
-    CelulaNomeId,
-} from '@/lib/types'; 
+export interface MembroOption {
+    id: string;
+    nome: string;
+}
 
-// Importa funções utilitárias para formatação de dados em CSV
-import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
+// CORREÇÃO: Atualizar ReuniaoOption para refletir o SELECT em listReunioes
+export type ReuniaoOption = {
+    id: string;
+    data_reuniao: string;
+    tema: string;
+    ministrador_principal_nome: string | null; 
+};
+
+export type CelulaOption = BaseCelulaOption; // Reusa a CelulaOption base de data.ts
+
+interface MembroNomeTelefoneId {
+    id: string;
+    nome: string;
+    telefone: string | null;
+}
+
+interface VisitanteNomeTelefoneId {
+    id: string;
+    nome: string;
+    telefone: string | null;
+}
+
+interface CelulaNomeId {
+    id: string;
+    nome: string;
+}
+
+// CORREÇÃO: Ajustar ReportDataPresencaReuniao para os nomes de alias usados no select
+export interface ReportDataPresencaReuniao {
+    reuniao_detalhes: {
+        id: string;
+        data_reuniao: string;
+        tema: string;
+        caminho_pdf: string | null;
+        // As propriedades devem corresponder aos nomes dos aliases no SELECT
+        ministrador_principal_nome: string | null; 
+        ministrador_principal_telefone: string | null; // Acessível do alias
+        ministrador_secundario_nome: string | null;
+        ministrador_secundario_telefone: string | null;
+        responsavel_kids_nome: string | null;
+        responsavel_kids_telefone: string | null;
+        num_criancas: number; 
+        celula_nome?: string | null;
+    };
+    membros_presentes: { id: string; nome: string; telefone: string | null }[];
+    membros_ausentes: { id: string; nome: string; telefone: string | null }[];
+    visitantes_presentes: { id: string; nome: string; telefone: string | null }[];
+}
+
+export interface RelatorioPresencaMembroItem {
+    data_reuniao: string;
+    tema: string;
+    presente: boolean;
+}
+
+export interface ReportDataPresencaMembro {
+    membro_data: Membro & { celula_nome?: string | null };
+    historico_presenca: RelatorioPresencaMembroItem[];
+}
+
+export interface MembroFaltoso {
+    id: string;
+    nome: string;
+    telefone: string | null;
+    total_presencas: number;
+    total_reunioes_no_periodo: number;
+    celula_nome?: string | null;
+}
+
+export interface ReportDataFaltososPeriodo {
+    faltosos: MembroFaltoso[];
+    start_date: string;
+    end_date: string;
+}
+
+export interface VisitantePorPeriodo {
+    id: string;
+    nome: string;
+    telefone: string | null;
+    data_primeira_visita: string;
+    celula_nome?: string | null;
+}
+
+export interface ReportDataVisitantesPeriodo {
+    visitantes: VisitantePorPeriodo[];
+    start_date: string;
+    end_date: string;
+}
+
+export interface MembroAniversariante {
+    id: string;
+    nome: string;
+    data_nascimento: string; // YYYY-MM-DD
+    telefone: string | null;
+    celula_nome?: string | null;
+}
+
+export interface VisitanteAniversariante {
+    id: string;
+    nome: string;
+    data_primeira_visita: string; // YYYY-MM-DD
+    data_nascimento: string; // YYYY-MM-DD
+    telefone: string | null;
+    celula_nome?: string | null;
+}
+
+export interface ReportDataAniversariantes {
+    mes: number; // 1-12
+    ano_referencia: number; // Ano atual para exibição
+    membros: MembroAniversariante[];
+    visitantes: VisitanteAniversariante[];
+}
+
+export interface LiderAlocacaoItem {
+    id: string; // user_id do perfil
+    email: string;
+    role: 'admin' | 'líder';
+    celula_id: string | null;
+    celula_nome: string | null; // Nome da célula se alocado
+    data_criacao_perfil: string;
+    ultimo_login: string | null;
+}
+
+export interface CelulaSemLiderItem {
+    id: string; // celula_id
+    nome: string; // nome da célula
+    lider_principal_cadastrado_na_celula: string | null; // Nome do líder principal registrado na tabela 'celulas'
+}
+
+export interface ReportDataAlocacaoLideres {
+    lideres_alocados: LiderAlocacaoItem[];
+    lideres_nao_alocados: LiderAlocacaoItem[];
+    celulas_sem_lider_atribuido: CelulaSemLiderItem[];
+    total_perfis_lider: number;
+    total_celulas: number;
+}
+
+export interface ChaveAtivacaoItem {
+    chave: string;
+    celula_id: string;
+    celula_nome: string | null; // Nome da célula
+    usada: boolean;
+    data_uso: string | null; // Quando foi usada (se usada)
+    usada_por_email: string | null; // Email do usuário que usou (se usada)
+    usada_por_id: string | null; // ID do perfil do usuário que usou (se usada)
+}
+
+export interface ReportDataChavesAtivacao {
+    chaves_ativas: ChaveAtivacaoItem[];
+    chaves_usadas: ChaveAtivacaoItem[];
+    total_chaves: number;
+}
 
 
 // ============================================================================
 //                          FUNÇÕES AUXILIARES DE SUPABASE (Server Actions)
 // ============================================================================
 
-/**
- * Verifica a autorização do usuário logado para acesso a relatórios.
- * Retorna o cliente Supabase, o role do usuário, celulaId e o cliente admin (se admin).
- */
 async function checkUserAuthorizationReports(): Promise<{
     supabase: ReturnType<typeof createServerClient>; // Sempre um cliente com RLS
     role: 'admin' | 'líder' | null;
@@ -87,15 +216,7 @@ async function checkUserAuthorizationReports(): Promise<{
     };
 }
 
-/**
- * Obtém um mapa de IDs de membros para seus nomes e telefones.
- * Pode filtrar por celulaId.
- */
-async function getMemberNamesMapWithPhone(
-    memberIds: Set<string>, 
-    celulaId: string | null, 
-    supabaseInstance: ReturnType<typeof createServerClient> | ReturnType<typeof createAdminClient>
-): Promise<Map<string, { nome: string; telefone: string | null }>> {
+async function getMemberNamesMapWithPhone(memberIds: Set<string>, celulaId: string | null, supabaseInstance: ReturnType<typeof createServerClient>): Promise<Map<string, { nome: string; telefone: string | null }>> {
     let namesMap = new Map<string, { nome: string; telefone: string | null }>();
 
     if (memberIds.size === 0) return namesMap;
@@ -119,15 +240,7 @@ async function getMemberNamesMapWithPhone(
     return namesMap;
 }
 
-/**
- * Obtém um mapa de IDs de visitantes para seus nomes e telefones.
- * Pode filtrar por celulaId.
- */
-async function getVisitorNamesMap(
-    visitorIds: Set<string>, 
-    celulaId: string | null, 
-    supabaseInstance: ReturnType<typeof createServerClient> | ReturnType<typeof createAdminClient>
-): Promise<Map<string, { nome: string; telefone: string | null }>> {
+async function getVisitorNamesMap(visitorIds: Set<string>, celulaId: string | null, supabaseInstance: ReturnType<typeof createServerClient>): Promise<Map<string, { nome: string; telefone: string | null }>> {
     let namesMap = new Map<string, { nome: string; telefone: string | null }>();
 
     if (visitorIds.size === 0) return namesMap;
@@ -151,15 +264,7 @@ async function getVisitorNamesMap(
     return namesMap;
 }
 
-/**
- * Obtém um mapa de IDs de células para seus nomes.
- * Usa o cliente Supabase fornecido (RLS ou admin).
- */
-async function getCelulasNamesMap(
-    celulaIds: Set<string>, 
-    supabaseInstance: ReturnType<typeof createServerClient>, 
-    adminSupabase: ReturnType<typeof createAdminClient> | null
-): Promise<Map<string, string>> {
+async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: ReturnType<typeof createServerClient>, adminSupabase: ReturnType<typeof createAdminClient> | null): Promise<Map<string, string>> {
     let namesMap = new Map<string, string>();
     if (celulaIds.size === 0) return namesMap;
 
@@ -187,21 +292,16 @@ async function getCelulasNamesMap(
  */
 export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<MembroOption[]> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports(); 
-    console.log(`listMembros: Chamada. Role: ${role}, celulaIdLogado: ${celulaId}, celulaIdParaFiltrar: ${celulaIdParaFiltrar}`);
+    console.log(`listMembros: Chamada. Role: ${role}, celulaIdLogado: ${celulaId}, celulaIdParaFiltrar: ${celulaIdParaFiltrar}`); // NOVO LOG
 
     if (!role) { 
         console.warn("listMembros (reports_data): Usuário não autenticado. Retornando lista vazia.");
         return [];
     }
 
-    // Admins usam adminSupabase para listar TUDO e ignorar RLS, líderes usam supabase com RLS.
-    const clientToUse = (role === 'admin' && adminSupabase) ? adminSupabase : supabase; 
-    if (!clientToUse) {
-        console.error("listMembros (reports_data): Cliente Supabase não disponível. Erro interno.");
-        throw new Error("Erro interno: Cliente Supabase não disponível.");
-    }
+    const clientToUse = adminSupabase || supabase; // Admin pode precisar do cliente admin para ignorar RLS
 
-    let query = clientToUse.from('membros').select('id, nome, celula_id'); 
+    let query = clientToUse.from('membros').select('id, nome'); // Usando clientToUse aqui
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -211,8 +311,10 @@ export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
-    } 
-    // Para admin sem filtro, a query já está configurada para buscar todos (via adminSupabase)
+    } else if (role === 'admin' && !celulaIdParaFiltrar) {
+        // Admin sem filtro, deve ver TODOS os membros (se RLS permitir)
+        console.log("listMembros: Admin sem filtro de célula, buscando todos os membros.");
+    }
     
     const { data, error } = await query.order('nome', { ascending: true });
 
@@ -220,18 +322,8 @@ export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<
         console.error("listMembros (reports_data): Erro ao listar membros:", error);
         throw new Error("Falha ao carregar membros: " + error.message); 
     }
-    console.log(`listMembros: Retornando ${data?.length} membros.`);
-
-    const celulaIds = new Set(data?.map(m => m.celula_id) || []);
-    // getCelulasNamesMap precisa do mesmo cliente para garantir visibilidade
-    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase, adminSupabase);
-
-    return data?.map(m => ({
-        id: m.id,
-        nome: m.nome,
-        celula_id: m.celula_id,
-        celula_nome: celulasNamesMap.get(m.celula_id) || null
-    })) || [];
+    console.log(`listMembros: Retornando ${data?.length} membros.`); // NOVO LOG
+    return data || [];
 }
 
 /**
@@ -254,7 +346,7 @@ export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise
     let query = clientToUse
         .from('reunioes')
         .select(`
-            id, data_reuniao, tema, celula_id,
+            id, data_reuniao, tema,
             ministrador_principal_ref:membros!ministrador_principal(nome)
         `);
 
@@ -276,16 +368,12 @@ export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise
         throw new Error("Falha ao carregar reuniões: " + error.message); 
     }
 
-    const celulaIds = new Set(data?.map(r => r.celula_id) || []);
-    const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase, adminSupabase);
-
+    // Mapeamento para ReuniaoOption
     return data?.map((r: any) => ({ 
         id: r.id,
         data_reuniao: r.data_reuniao,
         tema: r.tema,
-        ministrador_principal_nome: r.ministrador_principal_ref?.nome || null,
-        celula_id: r.celula_id,
-        celula_nome: celulasNamesMap.get(r.celula_id) || null
+        ministrador_principal_nome: r.ministrador_principal_ref?.nome || null 
     })) || [];
 }
 
@@ -330,10 +418,6 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
 
     let targetCelulaIdForQuery: string | null = null;
     const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
-    if (!clientToUse) {
-        console.error("fetchReportDataPresencaReuniao (reports_data): Cliente Supabase não disponível. Erro interno.");
-        return null;
-    }
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -406,7 +490,7 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
             clientToUse.from('presencas_membros').select('membro_id, membros(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
             clientToUse.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
             clientToUse.from('presencas_visitantes').select('visitante_id, visitantes(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            getCelulasNamesMap(new Set([reuniaoData.celula_id]), supabase, adminSupabase) // Usar supabase/adminSupabase original
+            getCelulasNamesMap(new Set([reuniaoData.celula_id]), clientToUse, adminSupabase) 
         ]);
 
         if (presentesMembrosRaw.error) throw presentesMembrosRaw.error;
@@ -469,10 +553,6 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
 
     let targetCelulaIdForQuery: string | null = null;
     const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
-    if (!clientToUse) {
-        console.error("fetchReportDataPresencaMembro (reports_data): Cliente Supabase não disponível. Erro interno.");
-        return null;
-    }
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -516,7 +596,8 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
         }
         if (!membroData) return null;
 
-        const celulasNamesMap = await getCelulasNamesMap(new Set([membroData.celula_id]), supabase, adminSupabase);
+        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
+        const celulasNamesMap = await getCelulasNamesMap(new Set([membroData.celula_id]), clientToUse, adminSupabase);
         const celulaNome = celulasNamesMap.get(membroData.celula_id) || null;
         
         const membroDataWithCelularName = { ...membroData, celula_nome: celulaNome } as Membro & { celula_nome?: string | null };
@@ -573,10 +654,6 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
 
     let targetCelulaIdForQuery: string | null = null;
     const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
-    if (!clientToUse) {
-        console.error("fetchReportDataFaltososPeriodo (reports_data): Cliente Supabase não disponível. Erro interno.");
-        throw new Error("Erro interno: Cliente Supabase não disponível.");
-    }
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -629,21 +706,15 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
 
         const faltososList: MembroFaltoso[] = [];
         const celulaIds = new Set((allMembers || []).map(m => m.celula_id)); 
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase, adminSupabase); 
-
-        let finalTotalReunioesPeriodo: number = 0; // Inicializa para o objeto 'periodo' do retorno
-        if (targetCelulaIdForQuery === null) { // Admin global
-            finalTotalReunioesPeriodo = Array.from(reunioesPorCelula.values()).flat().length;
-        } else { // Líder ou Admin com filtro
-            finalTotalReunioesPeriodo = reunioesPorCelula.get(targetCelulaIdForQuery)?.length || 0;
-        }
+        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
+        const celulasNamesMap = await getCelulasNamesMap(celulaIds, clientToUse, adminSupabase); 
 
         for (const membro of allMembers || []) {
             const reunioesDaCelulaDoMembro = reunioesPorCelula.get(membro.celula_id) || [];
             const totalReunioesNoPeriodoParaMembro = reunioesDaCelulaDoMembro.length;
 
             if (totalReunioesNoPeriodoParaMembro === 0) continue; 
-            
+
             const { count: totalPresencasMembro, error: presencasCountError } = await clientToUse
                 .from('presencas_membros')
                 .select('id', { count: 'exact' })
@@ -667,16 +738,9 @@ export async function fetchReportDataFaltososPeriodo(startDate: string, endDate:
                 });
             }
         }
-        
+
         faltososList.sort((a, b) => a.nome.localeCompare(b.nome)); 
-        return { 
-            faltosos: faltososList, 
-            periodo: {
-                start_date: startDate,
-                end_date: endDate,
-                total_reunioes: finalTotalReunioesPeriodo
-            }
-        };
+        return { faltosos: faltososList, start_date: startDate, end_date: endDate };
     } catch (error: any) {
         console.error('Erro ao gerar relatório de faltosos:', error);
         throw error;
@@ -705,6 +769,8 @@ export async function fetchReportDataVisitantesPeriodo(startDate: string, endDat
             .from('visitantes')
             .select('id, nome, telefone, data_primeira_visita, celula_id');
     
+    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
+
     if (role === 'líder') {
         if (!celulaId) {
              // CORREÇÃO: Estrutura o retorno para o tipo ReportDataVisitantesPeriodo
@@ -733,7 +799,8 @@ export async function fetchReportDataVisitantesPeriodo(startDate: string, endDat
         }
 
         const celulaIds = new Set(visitantes.map(v => v.celula_id));
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase, adminSupabase); 
+        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
+        const celulasNamesMap = await getCelulasNamesMap(celulaIds, clientToUse, adminSupabase); 
 
         const visitantesWithCelularName = visitantes.map(v => ({
             ...v,
@@ -771,10 +838,6 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
 
     let targetCelulaIdForQuery: string | null = null;
     const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
-    if (!clientToUse) {
-        console.error("fetchReportDataAniversariantes (reports_data): Cliente Supabase não disponível. Erro interno.");
-        throw new Error("Erro interno: Cliente Supabase não disponível.");
-    }
 
     if (role === 'líder') {
         if (!celulaId) {
@@ -850,7 +913,8 @@ export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFi
         membrosRaw?.forEach(m => m.celula_id && allCelulaIds.add(m.celula_id));
         visitantesRaw?.forEach(v => v.celula_id && allCelulaIds.add(v.celula_id));
         
-        const celulasNamesMap = await getCelulasNamesMap(allCelulaIds, supabase, adminSupabase);
+        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
+        const celulasNamesMap = await getCelulasNamesMap(allCelulaIds, clientToUse, adminSupabase);
 
         const membrosAniversariantes: MembroAniversariante[] = (membrosRaw || []).map(m => ({
             id: m.id,
@@ -925,6 +989,7 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
 
         if (allCelulasResult.error) throw allCelulasResult.error;
         const celulas = allCelulasResult.data || [];
+        // CORREÇÃO: Passar adminSupabase explicitamente para getCelulasNamesMap
         const celulasNamesMap = await getCelulasNamesMap(new Set(celulas.map(c => c.id)), adminSupabase, adminSupabase);
 
         const authUsersMap = new Map((authUsersResult.data?.users || []).map(u => [u.id, u.last_sign_in_at]));
@@ -980,7 +1045,7 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
 
     } catch (error: any) {
         console.error("fetchReportDataAlocacaoLideres: Erro ao buscar dados de alocação de líderes:", error);
-        throw new Error("Falha ao carregar relatório de alocação de líderes: " + error.message); 
+        throw new Error("Falha ao carregar relatório de alocação de líderes: " + error.message); // CORREÇÃO
     }
 }
 
@@ -1015,6 +1080,7 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
         const total_chaves = allChaves.length;
 
         const celulaIds = new Set(allChaves.map(c => c.celula_id));
+        // CORREÇÃO: Passar adminSupabase explicitamente para getCelulasNamesMap
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, adminSupabase, adminSupabase);
 
         const chavesAtivas: ChaveAtivacaoItem[] = [];
@@ -1028,7 +1094,7 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
                 usada: chave.usada,
                 data_uso: chave.data_uso ? new Date(chave.data_uso).toISOString().split('T')[0] : null,
                 usada_por_id: chave.usada_por_id,
-                usada_por_email: (chave as any).profiles?.email || null, 
+                usada_por_email: (chave as any).profiles?.email || null, // CORREÇÃO: Acessar .email diretamente, não .[0].email
             };
 
             if (chave.usada) {
@@ -1049,7 +1115,7 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
 
     } catch (error: any) {
         console.error("fetchReportDataChavesAtivacao: Erro ao buscar dados de chaves de ativação:", error);
-        throw new Error("Falha ao carregar relatório de chaves de ativação: " + error.message); 
+        throw new Error("Falha ao carregar relatório de chaves de ativação: " + error.message); // CORREÇÃO
     }
 }
 
@@ -1058,9 +1124,8 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
 //                          FUNÇÕES DE EXPORTAÇÃO CSV (SERVER ACTIONS)
 // ============================================================================
 
-/**
- * Escapa uma string para ser usada em CSV (lidando com aspas duplas e vírgulas).
- */
+import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
+
 function escapeCsv(value: string | number | null | undefined): string {
     if (value === null || value === undefined) return '';
     const strValue = String(value).replace(/"/g, '""');
@@ -1077,33 +1142,33 @@ export async function exportReportDataPresencaReuniaoCSV(reuniaoId: string, celu
     let csv = '';
 
     csv += 'Detalhes da Reunião:\n';
-    csv += 'Data,' + escapeCsv(formatDateForDisplay(reportData.reuniao_detalhes.data_reuniao)) + '\n';
-    csv += 'Tema,' + escapeCsv(reportData.reuniao_detalhes.tema) + '\n';
-    csv += 'Ministrador Principal,' + escapeCsv(reportData.reuniao_detalhes.ministrador_principal_nome) + '\n';
-    csv += 'Ministrador Secundário,' + escapeCsv(reportData.reuniao_detalhes.ministrador_secundario_nome) + '\n';
-    csv += 'Responsável Kids,' + escapeCsv(reportData.reuniao_detalhes.responsavel_kids_nome) + '\n';
-    csv += 'Crianças Presentes,' + escapeCsv(reportData.reuniao_detalhes.num_criancas) + '\n';
-    csv += 'Célula,' + escapeCsv(reportData.reuniao_detalhes.celula_nome) + '\n';
+    csv += 'Data,' + escapeCsv(reportData.reuniao_detalhes.data_reuniao) + '\n'; // CORREÇÃO
+    csv += 'Tema,' + escapeCsv(reportData.reuniao_detalhes.tema) + '\n'; // CORREÇÃO
+    csv += 'Ministrador Principal,' + escapeCsv(reportData.reuniao_detalhes.ministrador_principal_nome) + '\n'; // CORREÇÃO
+    csv += 'Ministrador Secundário,' + escapeCsv(reportData.reuniao_detalhes.ministrador_secundario_nome) + '\n'; // CORREÇÃO
+    csv += 'Responsável Kids,' + escapeCsv(reportData.reuniao_detalhes.responsavel_kids_nome) + '\n'; // CORREÇÃO
+    csv += 'Crianças Presentes,' + escapeCsv(reportData.reuniao_detalhes.num_criancas) + '\n'; // CORREÇÃO
+    csv += 'Célula,' + escapeCsv(reportData.reuniao_detalhes.celula_nome) + '\n'; // CORREÇÃO
     csv += '\n';
 
     csv += 'Membros Presentes:\n';
     csv += 'Nome,Telefone\n';
     reportData.membros_presentes.forEach(m => {
-        csv += escapeCsv(m.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + '\n';
+        csv += escapeCsv(m.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + '\n'; // CORREÇÃO
     });
     csv += '\n';
 
     csv += 'Membros Ausentes:\n';
     csv += 'Nome,Telefone\n';
     reportData.membros_ausentes.forEach(m => {
-        csv += escapeCsv(m.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + '\n';
+        csv += escapeCsv(m.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + '\n'; // CORREÇÃO
     });
     csv += '\n';
 
     csv += 'Visitantes Presentes:\n';
     csv += 'Nome,Telefone\n';
     reportData.visitantes_presentes.forEach(v => {
-        csv += escapeCsv(v.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + '\n';
+        csv += escapeCsv(v.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + '\n'; // CORREÇÃO
     });
     csv += '\n';
 
@@ -1120,17 +1185,17 @@ export async function exportReportDataPresencaMembroCSV(membroId: string, celula
     let csv = '';
 
     csv += 'Detalhes do Membro:\n';
-    csv += 'Nome,' + escapeCsv(reportData.membro_data.nome) + '\n';
-    csv += 'Telefone,' + escapeCsv(formatPhoneNumberDisplay(reportData.membro_data.telefone)) + '\n';
-    csv += 'Data de Ingresso,' + escapeCsv(formatDateForDisplay(reportData.membro_data.data_ingresso)) + '\n';
-    csv += 'Data de Nascimento,' + escapeCsv(formatDateForDisplay(reportData.membro_data.data_nascimento)) + '\n';
-    csv += 'Célula,' + escapeCsv(reportData.membro_data.celula_nome) + '\n';
+    csv += 'Nome,' + escapeCsv(reportData.membro_data.nome) + '\n'; // CORREÇÃO
+    csv += 'Telefone,' + escapeCsv(formatPhoneNumberDisplay(reportData.membro_data.telefone)) + '\n'; // CORREÇÃO
+    csv += 'Data de Ingresso,' + escapeCsv(formatDateForDisplay(reportData.membro_data.data_ingresso)) + '\n'; // CORREÇÃO
+    csv += 'Data de Nascimento,' + escapeCsv(formatDateForDisplay(reportData.membro_data.data_nascimento)) + '\n'; // CORREÇÃO
+    csv += 'Célula,' + escapeCsv(reportData.membro_data.celula_nome) + '\n'; // CORREÇÃO
     csv += '\n';
 
     csv += 'Histórico de Presença:\n';
     csv += 'Data da Reunião,Tema,Presente?\n';
     reportData.historico_presenca.forEach(h => {
-        csv += escapeCsv(formatDateForDisplay(h.data_reuniao)) + ',' + escapeCsv(h.tema) + ',' + escapeCsv(h.presente ? 'Sim' : 'Não') + '\n';
+        csv += escapeCsv(formatDateForDisplay(h.data_reuniao)) + ',' + escapeCsv(h.tema) + ',' + escapeCsv(h.presente ? 'Sim' : 'Não') + '\n'; // CORREÇÃO
     });
     csv += '\n';
 
@@ -1146,10 +1211,10 @@ export async function exportReportDataFaltososPeriodoCSV(startDate: string, endD
 
     let csv = '';
 
-    csv += 'Relatório de Membros Faltosos entre ' + formatDateForDisplay(reportData.periodo.start_date) + ' e ' + formatDateForDisplay(reportData.periodo.end_date) + '\n\n';
+    csv += 'Relatório de Membros Faltosos entre ' + formatDateForDisplay(reportData.start_date) + ' e ' + formatDateForDisplay(reportData.end_date) + '\n\n'; // CORREÇÃO
     csv += 'Nome,Telefone,Presenças,Reuniões no Período,Célula\n';
     reportData.faltosos.forEach(f => {
-        csv += escapeCsv(f.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(f.telefone)) + ',' + escapeCsv(f.total_presencas) + ',' + escapeCsv(f.total_reunioes_no_periodo) + ',' + escapeCsv(f.celula_nome) + '\n';
+        csv += escapeCsv(f.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(f.telefone)) + ',' + escapeCsv(f.total_presencas) + ',' + escapeCsv(f.total_reunioes_no_periodo) + ',' + escapeCsv(f.celula_nome) + '\n'; // CORREÇÃO
     });
     csv += '\n';
 
@@ -1165,10 +1230,10 @@ export async function exportReportDataVisitantesPeriodoCSV(startDate: string, en
 
     let csv = '';
 
-    csv += 'Relatório de Visitantes entre ' + formatDateForDisplay(reportData.periodo.start_date) + ' e ' + formatDateForDisplay(reportData.periodo.end_date) + '\n\n';
+    csv += 'Relatório de Visitantes entre ' + formatDateForDisplay(reportData.start_date) + ' e ' + formatDateForDisplay(reportData.end_date) + '\n\n'; // CORREÇÃO
     csv += 'Nome,Telefone,Primeira Visita,Célula\n';
     reportData.visitantes.forEach(v => {
-        csv += escapeCsv(v.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + ',' + escapeCsv(formatDateForDisplay(v.data_primeira_visita)) + ',' + escapeCsv(v.celula_nome) + '\n';
+        csv += escapeCsv(v.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + ',' + escapeCsv(formatDateForDisplay(v.data_primeira_visita)) + ',' + escapeCsv(v.celula_nome) + '\n'; // CORREÇÃO
     });
     csv += '\n';
 
@@ -1185,13 +1250,13 @@ export async function exportReportDataAniversariantesCSV(mes: number, celulaIdPa
     let csv = '';
     const mesNome = new Date(reportData.ano_referencia, reportData.mes - 1).toLocaleString('pt-BR', { month: 'long' });
 
-    csv += 'Aniversariantes de ' + mesNome + ' de ' + reportData.ano_referencia + '\n\n';
+    csv += 'Aniversariantes de ' + mesNome + ' de ' + reportData.ano_referencia + '\n\n'; // CORREÇÃO
 
     if (reportData.membros.length > 0) {
         csv += 'Membros Aniversariantes:\n';
         csv += 'Nome,Data Nasc.,Telefone,Célula\n';
         reportData.membros.forEach(m => {
-            csv += escapeCsv(m.nome) + ',' + escapeCsv(formatDateForDisplay(m.data_nascimento)) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + ',' + escapeCsv(m.celula_nome) + '\n';
+            csv += escapeCsv(m.nome) + ',' + escapeCsv(formatDateForDisplay(m.data_nascimento)) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + ',' + escapeCsv(m.celula_nome) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {
@@ -1202,7 +1267,7 @@ export async function exportReportDataAniversariantesCSV(mes: number, celulaIdPa
         csv += 'Visitantes Aniversariantes:\n';
         csv += 'Nome,Data Nasc.,Telefone,Célula\n';
         reportData.visitantes.forEach(v => {
-            csv += escapeCsv(v.nome) + ',' + escapeCsv(formatDateForDisplay(v.data_nascimento)) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + ',' + escapeCsv(v.celula_nome) + '\n';
+            csv += escapeCsv(v.nome) + ',' + escapeCsv(formatDateForDisplay(v.data_nascimento)) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + ',' + escapeCsv(v.celula_nome) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {
@@ -1212,9 +1277,6 @@ export async function exportReportDataAniversariantesCSV(mes: number, celulaIdPa
     return csv;
 }
 
-/**
- * Exporta o relatório de alocação de líderes para CSV.
- */
 export async function exportReportDataAlocacaoLideresCSV(): Promise<string> {
     const reportData = await fetchReportDataAlocacaoLideres();
     if (!reportData) return "Nenhum dado encontrado para exportação CSV.";
@@ -1222,15 +1284,15 @@ export async function exportReportDataAlocacaoLideresCSV(): Promise<string> {
     let csv = '';
     const dataGeracao = formatDateForDisplay(new Date().toISOString());
 
-    csv += 'Relatório de Alocação de Líderes - Gerado em: ' + dataGeracao + '\n';
-    csv += 'Total de Perfis de Líder/Admin: ' + reportData.total_perfis_lider + '\n';
-    csv += 'Total de Células Registradas: ' + reportData.total_celulas + '\n\n';
+    csv += 'Relatório de Alocação de Líderes - Gerado em: ' + dataGeracao + '\n'; // CORREÇÃO
+    csv += 'Total de Perfis de Líder/Admin: ' + reportData.total_perfis_lider + '\n'; // CORREÇÃO
+    csv += 'Total de Células Registradas: ' + reportData.total_celulas + '\n\n'; // CORREÇÃO
 
     if (reportData.lideres_alocados.length > 0) {
         csv += 'Líderes Alocados em Células:\n';
         csv += 'Email,Role,Célula Associada,Último Login\n';
         reportData.lideres_alocados.forEach(l => {
-            csv += escapeCsv(l.email) + ',' + escapeCsv(l.role) + ',' + escapeCsv(l.celula_nome) + ',' + escapeCsv(formatDateForDisplay(l.ultimo_login)) + '\n';
+            csv += escapeCsv(l.email) + ',' + escapeCsv(l.role) + ',' + escapeCsv(l.celula_nome) + ',' + escapeCsv(formatDateForDisplay(l.ultimo_login)) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {
@@ -1241,7 +1303,7 @@ export async function exportReportDataAlocacaoLideresCSV(): Promise<string> {
         csv += 'Líderes sem Célula Alocada no Perfil:\n';
         csv += 'Email,Role,Data Criação Perfil,Último Login\n';
         reportData.lideres_nao_alocados.forEach(l => {
-            csv += escapeCsv(l.email) + ',' + escapeCsv(l.role) + ',' + escapeCsv(formatDateForDisplay(l.data_criacao_perfil)) + ',' + escapeCsv(formatDateForDisplay(l.ultimo_login)) + '\n';
+            csv += escapeCsv(l.email) + ',' + escapeCsv(l.role) + ',' + escapeCsv(formatDateForDisplay(l.data_criacao_perfil)) + ',' + escapeCsv(formatDateForDisplay(l.ultimo_login)) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {
@@ -1252,7 +1314,7 @@ export async function exportReportDataAlocacaoLideresCSV(): Promise<string> {
         csv += 'Células sem Líder Atribuído em Perfis:\n';
         csv += 'Nome da Célula,Líder Principal (no registro da célula)\n';
         reportData.celulas_sem_lider_atribuido.forEach(c => {
-            csv += escapeCsv(c.nome) + ',' + escapeCsv(c.lider_principal_cadastrado_na_celula) + '\n';
+            csv += escapeCsv(c.nome) + ',' + escapeCsv(c.lider_principal_cadastrado_na_celula) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {
@@ -1262,9 +1324,6 @@ export async function exportReportDataAlocacaoLideresCSV(): Promise<string> {
     return csv;
 }
 
-/**
- * Exporta o relatório de chaves de ativação para CSV.
- */
 export async function exportReportDataChavesAtivacaoCSV(): Promise<string> {
     const reportData = await fetchReportDataChavesAtivacao();
     if (!reportData) return "Nenhum dado encontrado para exportação CSV.";
@@ -1272,14 +1331,14 @@ export async function exportReportDataChavesAtivacaoCSV(): Promise<string> {
     let csv = '';
     const dataGeracao = formatDateForDisplay(new Date().toISOString());
 
-    csv += 'Relatório de Chaves de Ativação - Gerado em: ' + dataGeracao + '\n';
-    csv += 'Total de Chaves Registradas: ' + reportData.total_chaves + '\n\n';
+    csv += 'Relatório de Chaves de Ativação - Gerado em: ' + dataGeracao + '\n'; // CORREÇÃO
+    csv += 'Total de Chaves Registradas: ' + reportData.total_chaves + '\n\n'; // CORREÇÃO
 
     if (reportData.chaves_ativas.length > 0) {
         csv += 'Chaves Ativas:\n';
         csv += 'Chave,Célula Associada\n';
         reportData.chaves_ativas.forEach(c => {
-            csv += escapeCsv(c.chave) + ',' + escapeCsv(c.celula_nome) + '\n';
+            csv += escapeCsv(c.chave) + ',' + escapeCsv(c.celula_nome) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {
@@ -1290,7 +1349,7 @@ export async function exportReportDataChavesAtivacaoCSV(): Promise<string> {
         csv += 'Chaves Usadas:\n';
         csv += 'Chave,Célula Original,Usada Por (Email),Data de Uso\n';
         reportData.chaves_usadas.forEach(c => {
-            csv += escapeCsv(c.chave) + ',' + escapeCsv(c.celula_nome) + ',' + escapeCsv(c.usada_por_email) + ',' + escapeCsv(formatDateForDisplay(c.data_uso)) + '\n';
+            csv += escapeCsv(c.chave) + ',' + escapeCsv(c.celula_nome) + ',' + escapeCsv(c.usada_por_email) + ',' + escapeCsv(formatDateForDisplay(c.data_uso)) + '\n'; // CORREÇÃO
         });
         csv += '\n';
     } else {

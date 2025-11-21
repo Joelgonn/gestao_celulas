@@ -17,12 +17,19 @@ import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial
+import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
-// --- CORREÇÃO: Interface VisitanteEditFormData atualizada e correta ---
-// Omitindo 'id', 'created_at', 'celula_id', 'celula_nome' que não são editados via form ou são internos.
-interface VisitanteEditFormData extends Omit<Visitante, 'id' | 'created_at' | 'celula_id' | 'celula_nome'> {}
+// --- CORREÇÃO: Adicionar data_nascimento à interface VisitanteFormData ---
+interface VisitanteFormData {
+    nome: string;
+    telefone: string | null; // Pode ser null
+    data_primeira_visita: string;
+    data_nascimento: string | null; // Adicionado: data de nascimento
+    endereco: string | null; // Pode ser null
+    data_ultimo_contato: string | null; // Pode ser null
+    observacoes: string | null; // Pode ser null
+}
 // --- FIM CORREÇÃO ---
 
 export default function EditVisitantePage() {
@@ -32,11 +39,11 @@ export default function EditVisitantePage() {
     // CORREÇÃO: Usar a interface VisitanteEditFormData
     const [formData, setFormData] = useState<VisitanteEditFormData>({
         nome: '',
-        telefone: null, // Pode ser null
+        telefone: null,
         data_primeira_visita: '',
-        data_nascimento: null, // Adicionado: data de nascimento
+        data_nascimento: null, // Inicializar
         endereco: null,
-        data_ultimo_contato: null, // Pode ser null
+        data_ultimo_contato: null,
         observacoes: null
     });
     
@@ -52,7 +59,7 @@ export default function EditVisitantePage() {
         const fetchVisitante = async () => {
             setLoading(true);
             try {
-                // getVisitante agora retorna com data_nascimento (se o lib/data.ts estiver atualizado)
+                // CORREÇÃO: getVisitante agora retorna com data_nascimento
                 const data = await getVisitante(visitanteId); 
 
                 if (!data) {
@@ -92,8 +99,7 @@ export default function EditVisitantePage() {
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            // CORREÇÃO: Lidar com campos que podem ser nulos corretamente (string vazia vira null)
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); 
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); // Lidar com campos que podem ser nulos
         }
     };
 

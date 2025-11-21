@@ -28,10 +28,9 @@ import {
     deleteUserAndProfile,
     UserProfile,
 } from '@/app/api/admin/users/actions';
-import { listarCelulasParaAdmin } from '@/lib/data'; // REMOVIDO CelulaOption daqui
-import { CelulaOption } from '@/lib/types'; // ADICIONADO: Importa CelulaOption do types.ts
-
-import { formatDateForDisplay } from '@/utils/formatters';
+import { listarCelulasParaAdmin, CelulaOption } from '@/lib/data';
+// CORREÇÃO AQUI: Adicionar 'from ' antes do caminho do arquivo
+import { formatDateForDisplay } from '@/utils/formatters'; // Corrigido
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 

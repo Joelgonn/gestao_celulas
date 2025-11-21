@@ -23,26 +23,7 @@ import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 // Removendo a implementação local de Toast e usando o hook global.
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Usando o LoadingSpinner principal
 // --- FIM REFATORAÇÃO TOASTS ---
-
-// --- NOVO: Ícones para a página (para o layout moderno) ---
-import { 
-    FaPlus, 
-    FaCalendarAlt, // Para data
-    FaBookOpen,    // Para tema
-    FaUser,        // Para ministradores
-    FaChild,       // Para responsável kids
-    FaFilePdf,     // Para material (embora no novo seja upload, o ícone pode ser sugestivo)
-    FaArrowLeft,   // Para voltar
-    FaSave,        // Para salvar
-    FaUpload,      // Para upload
-    FaPhone,       // Adicionado, embora não usado no formulário de Nova Reunião, mantém a consistência se outros campos forem adicionados
-    FaMapMarkerAlt, // Adicionado, similar ao FaPhone
-    FaComments,    // Adicionado, similar ao FaPhone
-    FaCheckCircle, // Importar FaCheckCircle
-} from 'react-icons/fa';
-// --- FIM NOVO: Ícones ---
 
 
 export default function NovaReuniaoPage() {
@@ -55,7 +36,10 @@ export default function NovaReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
+    // --- REFATORAÇÃO: TOASTS ---
+    // Substituir o estado local de toasts pelo hook global
     const { toasts, addToast, removeToast } = useToast();
+    // --- FIM REFATORAÇÃO TOASTS ---
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -66,22 +50,26 @@ export default function NovaReuniaoPage() {
 
     const router = useRouter();
 
+    // --- REFATORAÇÃO: TOASTS ---
+    // As funções addToast e removeToast locais foram removidas, agora usamos as do hook.
+    // --- FIM REFATORAÇÃO TOASTS ---
+
     useEffect(() => {
         const fetchMembrosForSelect = async () => {
             try {
                 const data = await listarMembros();
                 setMembros(data);
 
-                addToast('Lista de membros carregada com sucesso', 'success', 3000);
+                addToast('Lista de membros carregada com sucesso', 'success', 3000); // Usando o addToast do hook
             } catch (e: any) {
                 console.error("Erro ao carregar membros para selects:", e);
-                addToast(e.message || 'Erro desconhecido ao carregar lista de membros', 'error');
+                addToast(e.message || 'Erro desconhecido ao carregar lista de membros', 'error'); // Usando o addToast do hook
             } finally {
                 setLoading(false);
             }
         };
         fetchMembrosForSelect();
-    }, [addToast]);
+    }, [addToast]); // Adicionar addToast às dependências do useEffect
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -94,17 +82,17 @@ export default function NovaReuniaoPage() {
 
         // Validações
         if (!formData.tema.trim()) {
-            addToast('O campo "Tema / Palavra" é obrigatório', 'error');
+            addToast('O campo "Tema / Palavra" é obrigatório', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
         if (!formData.ministrador_principal) {
-            addToast('O campo "Ministrador Principal" é obrigatório', 'error');
+            addToast('O campo "Ministrador Principal" é obrigatório', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
         if (!formData.data_reuniao) {
-            addToast('O campo "Data da Reunião" é obrigativo', 'error');
+            addToast('O campo "Data da Reunião" é obrigativo', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
@@ -113,18 +101,19 @@ export default function NovaReuniaoPage() {
         try {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema);
             if (isDuplicate) {
-                addToast(`Já existe uma reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}`, 'error');
+                addToast(`Já existe uma reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}`, 'error'); // Usando o addToast do hook
                 setSubmitting(false);
                 return;
             }
         } catch (e: any) {
             console.error("Erro ao verificar duplicidade:", e);
-            addToast(e.message || 'Erro ao verificar duplicidade da reunião', 'error');
+            addToast(e.message || 'Erro ao verificar duplicidade da reunião', 'error'); // Usando o addToast do hook
             setSubmitting(false);
             return;
         }
 
         try {
+            // Adiciona a reunião e obtém o ID da reunião recém-criada (que é uma string)
             const novaReuniaoId = await adicionarReuniao({
                 data_reuniao: formData.data_reuniao,
                 tema: formData.tema,
@@ -147,13 +136,15 @@ export default function NovaReuniaoPage() {
                     }
                 }, 200);
 
+                // --- CORREÇÃO APLICADA AQUI ---
+                // novaReuniaoId já é a string do ID.
                 const publicUrl = await uploadMaterialReuniao(novaReuniaoId, selectedFile);
                 clearInterval(interval);
                 setUploadProgress(100);
 
-                addToast('Reunião registrada e material enviado com sucesso', 'success', 4000);
+                addToast('Reunião registrada e material enviado com sucesso', 'success', 4000); // Usando o addToast do hook
             } else {
-                addToast('Reunião registrada com sucesso', 'success', 4000);
+                addToast('Reunião registrada com sucesso', 'success', 4000); // Usando o addToast do hook
             }
 
             setTimeout(() => {
@@ -162,7 +153,7 @@ export default function NovaReuniaoPage() {
 
         } catch (e: any) {
             console.error("Erro ao registrar reunião ou fazer upload:", e);
-            addToast(e.message || 'Erro desconhecido ao registrar reunião', 'error');
+            addToast(e.message || 'Erro desconhecido ao registrar reunião', 'error'); // Usando o addToast do hook
             setUploadProgress(0);
         } finally {
             setSubmitting(false);
@@ -175,6 +166,10 @@ export default function NovaReuniaoPage() {
             setSelectedFile(e.target.files[0]);
         }
     };
+
+    // --- REFATORAÇÃO: TOASTS ---
+    // getToastIcon e getToastStyles foram removidos, agora usamos o componente Toast.
+    // --- FIM REFATORAÇÃO TOASTS ---
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">

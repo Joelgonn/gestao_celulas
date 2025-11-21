@@ -2,10 +2,8 @@
 'use client';
 
 import React from 'react';
-// CORREÇÃO: Importar ReportDataAlocacaoLideres de '@/lib/types'
-import { ReportDataAlocacaoLideres } from '@/lib/types'; // <--- CORREÇÃO AQUI
+import { ReportDataAlocacaoLideres } from '@/lib/reports_data';
 import { formatDateForDisplay } from '@/utils/formatters';
-
 
 export const ReportAlocacaoLideresDisplay = ({ data }: { data: ReportDataAlocacaoLideres }) => {
     // CORREÇÃO: As propriedades agora existem na interface importada, então a desestruturação é segura.

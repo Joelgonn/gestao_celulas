@@ -4,23 +4,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// Importa funções de data.ts
 import { 
     adicionarVisitante, 
     listarCelulasParaAdmin, 
-} from '@/lib/data';
-// Importa interfaces de types.ts <--- CORREÇÃO AQUI
-import { 
     CelulaOption,
-    Visitante // Se Visitante for usado para tipar o FormData, importar também
-} from '@/lib/types';
-
+    Visitante // Manter Visitante para tipagem interna se necessário
+} from '@/lib/data';
 import { normalizePhoneNumber } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS (CORRETO AGORA) ---
 import useToast from '@/hooks/useToast'; // Importa o hook useToast global
 import Toast from '@/components/ui/Toast';   // Importa o componente Toast global
-import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial
+import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
 import { 
@@ -35,8 +30,16 @@ import {
 } from 'react-icons/fa';
 
 // --- CORREÇÃO: Interface NovoVisitanteFormData atualizada e correta ---
-// Omitindo 'id', 'created_at', 'celula_nome' que são gerados ou não editáveis no formulário.
-interface NovoVisitanteFormData extends Omit<Visitante, 'id' | 'created_at' | 'celula_nome'> {}
+interface NovoVisitanteFormData { 
+    nome: string;
+    telefone: string | null;
+    data_primeira_visita: string;
+    data_nascimento: string | null; // Adicionado: data de nascimento
+    endereco: string | null;
+    data_ultimo_contato: string | null; 
+    observacoes: string | null;
+    celula_id: string; // Adicionado: celula_id é obrigatório para adicionar um visitante
+}
 // --- FIM CORREÇÃO ---
 
 export default function NovoVisitantePage() {
@@ -60,7 +63,7 @@ export default function NovoVisitantePage() {
 
     const router = useRouter();
     // --- REFATORAÇÃO: TOASTS (USANDO O HOOK GLOBAL) ---
-    const { toasts, addToast, removeToast } = useToast();
+    const { toasts, addToast, removeToast } = useToast(); // AQUI ESTAVA O ERRO useToastStore()
     // --- FIM REFATORAÇÃO TOASTS ---
 
     useEffect(() => {
@@ -91,7 +94,6 @@ export default function NovoVisitantePage() {
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            // CORREÇÃO: Garante que strings vazias de campos opcionais são convertidas para null.
             setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         }
         
@@ -157,7 +159,7 @@ export default function NovoVisitantePage() {
                 nome: formData.nome.trim(),
                 telefone: normalizePhoneNumber(formData.telefone) || null,
                 data_primeira_visita: formData.data_primeira_visita,
-                data_nascimento: formData.data_nascimento || null, // Incluído
+                data_nascimento: formData.data_nascimento || null,
                 endereco: formData.endereco || null,
                 data_ultimo_contato: formData.data_ultimo_contato || null, 
                 observacoes: formData.observacoes || null,
@@ -326,8 +328,8 @@ export default function NovoVisitantePage() {
                                 />
                             </div>
 
-                            {/* Campo de seleção de Célula (apenas para admins ou se houver mais de uma opção) */}
-                            {celulasOptions.length > 0 && ( // CORREÇÃO: se for 0, não mostra o seletor.
+                            {/* Campo de seleção de Célula (apenas para admins) */}
+                            {celulasOptions.length > 1 && (
                                 <div className="space-y-2">
                                     <label htmlFor="celula_id" className="block text-sm font-medium text-gray-700">
                                         Célula <span className="text-red-500">*</span>
@@ -348,9 +350,8 @@ export default function NovoVisitantePage() {
                                                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50' 
                                                     : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
                                             }`}
-                                            disabled={celulasOptions.length === 1} // Desabilita se houver apenas uma opção
                                         >
-                                            {celulasOptions.length > 1 && <option value="">-- Selecione a Célula --</option>} {/* Opção padrão apenas se houver mais de 1 */}
+                                            <option value="">-- Selecione a Célula --</option>
                                             {celulasOptions.map(celula => (
                                                 <option key={celula.id} value={celula.id}>{celula.nome}</option>
                                             ))}

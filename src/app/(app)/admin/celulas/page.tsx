@@ -32,13 +32,12 @@ import {
     createCelulaAdmin, 
     updateCelulaAdmin, 
     deleteCelulaAdmin, 
+    Celula 
 } from '@/app/api/admin/celulas/actions'; 
 
 // Importações das Server Actions para gerenciamento de chaves de ativação
 import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions'; 
-
-// Importações de interfaces de types.ts <--- CORREÇÃO AQUI
-import { Celula, ChaveAtivacao } from '@/lib/types'; 
+import { ChaveAtivacao } from '@/lib/types'; 
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 

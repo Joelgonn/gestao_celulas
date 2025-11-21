@@ -24,24 +24,10 @@ import {
 } from '@/lib/reports_data';
 
 import {
+    CelulaOption,
     listarCelulasParaAdmin,
     listarCelulasParaLider,
 } from '@/lib/data';
-
-// Importações de INTERFACES de types.ts <--- CORREÇÃO AQUI
-import {
-    CelulaOption,
-    MembroOption, 
-    ReuniaoOption, 
-    ReportDataPresencaReuniao, 
-    ReportDataPresencaMembro, 
-    ReportDataFaltososPeriodo, 
-    ReportDataVisitantesPeriodo, 
-    ReportDataAniversariantes, 
-    ReportDataAlocacaoLideres, 
-    ReportDataChavesAtivacao, 
-} from '@/lib/types'; // <--- Agora o MembroOption está completo aqui.
-
 
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 

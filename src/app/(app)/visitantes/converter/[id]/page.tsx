@@ -8,6 +8,8 @@ import Link from 'next/link';
 import {
     getVisitante,
     converterVisitanteEmMembro,
+    Visitante, // Importar Visitante para tipagem
+    Membro, // Importar Membro para tipagem de status
 } from '@/lib/data';
 // Importa interfaces de types.ts <--- CORREÇÃO AQUI
 import {
@@ -20,15 +22,18 @@ import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial
+import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
-// --- CORREÇÃO: Interface MembroConversionFormData atualizada e correta ---
-// Renomeada para evitar confusão com MembroFormData de reuniões,
-// e omitindo 'id', 'created_at', 'celula_nome' (que não são passados no formulário)
-interface MembroConversionFormData extends Omit<Membro, 'id' | 'created_at' | 'celula_nome'> {
-    // 'celula_id' e 'status' agora fazem parte de Membro, mas vamos garantir que são preenchidos
-    // e o `celula_id` é essencial.
+// --- CORREÇÃO: Adicionar status e celula_id à interface MembroFormData ---
+interface MembroFormData {
+    nome: string;
+    telefone: string | null; // Pode ser null se o visitante não tiver
+    data_ingresso: string;
+    data_nascimento: string | null; 
+    endereco: string | null; // Pode ser null
+    status: Membro['status']; // Adicionar status, obrigatório para Membro
+    celula_id: string; // Adicionar celula_id, será preenchido pelo visitante original
 }
 // --- FIM CORREÇÃO ---
 
@@ -42,8 +47,10 @@ export default function ConverterVisitantePage() {
         data_ingresso: formatDateForInput(new Date().toISOString()), // Data padrão de ingresso
         data_nascimento: null,
         endereco: null,
+        // --- CORREÇÃO: Inicializar status e celula_id ---
         status: 'Ativo', // Status padrão para novo membro
         celula_id: '', // Será preenchido do visitante original
+        // --- FIM CORREÇÃO ---
     });
     
     // --- REFATORAÇÃO: TOASTS ---
@@ -72,8 +79,10 @@ export default function ConverterVisitantePage() {
                     data_ingresso: formatDateForInput(new Date().toISOString()), // Manter como data atual para o membro
                     data_nascimento: data.data_nascimento || null, // Usar a data de nascimento do visitante
                     endereco: data.endereco || null,
+                    // --- CORREÇÃO: Preencher celula_id do visitante original e status padrão ---
                     status: 'Ativo', // Status padrão para o novo membro
                     celula_id: data.celula_id, // Usar a celula_id do visitante original
+                    // --- FIM CORREÇÃO ---
                 });
 
                 addToast('Informações do visitante carregadas para conversão', 'success', 3000); // Usando addToast do hook
@@ -97,8 +106,7 @@ export default function ConverterVisitantePage() {
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            // CORREÇÃO: Lidar com campos que podem ser nulos corretamente (string vazia vira null)
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); 
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); // Lidar com campos que podem ser nulos
         }
     };
 
@@ -131,7 +139,7 @@ export default function ConverterVisitantePage() {
         }
 
         try {
-            // Inverter a ordem dos argumentos e incluir celula_id e status
+            // --- CORREÇÃO: Inverter a ordem dos argumentos e incluir celula_id e status ---
             const { success, message } = await converterVisitanteEmMembro(visitanteId, { // Primeiro o visitanteId
                 nome: formData.nome,
                 telefone: normalizedPhone || null,
@@ -162,7 +170,7 @@ export default function ConverterVisitantePage() {
     };
 
     if (loading) {
-        return <LoadingSpinner text="Carregando dados do visitante..." />; // Ajusta o fullScreen para false se o container já o gerencia
+        return <LoadingSpinner text="Carregando dados do visitante..." fullScreen={true} />;
     }
 
     return (

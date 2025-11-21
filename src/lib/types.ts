@@ -148,13 +148,23 @@ export interface DuplicateVisitorGroup {
     type: 'nome' | 'telefone';
 }
 
+export interface ActivityLogItem {
+    id: string;
+    type: 'member_added' | 'visitor_added' | 'reunion_added' | 'visitor_converted' | 'celula_created' | 'celula_updated' | 'profile_activated';
+    description: string;
+    created_at: string;
+    celula_nome?: string | null;
+}
+
 // --- Interfaces para CHAVES DE ATIVAÇÃO ---
+// Usada em `src/app/(app)/admin/celulas/page.tsx` e `src/app/api/admin/chaves-ativacao/actions.ts`
 export interface ChaveAtivacao {
     chave: string;
     celula_id: string;
     usada: boolean;
-    created_at: string;
-    data_uso?: string | null;
+    created_at: string; // <-- **CORREÇÃO APLICADA AQUI**
+    // Adicionado para relatório de chaves de ativação
+    data_uso?: string | null; 
     usada_por_email?: string | null;
     usada_por_id?: string | null;
 }

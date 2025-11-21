@@ -42,7 +42,7 @@ type PresenceData = { reuniao_id: string };
 
 // Função auxiliar para verificar a autorização e retornar o cliente Supabase apropriado
 async function checkUserAuthorizationDashboard(): Promise<{
-    supabase: ReturnType<typeof createServerClient> | ReturnType<typeof createAdminClient>; // Pode ser RLS ou Admin
+    supabase: any; // createServerClient (RLS) ou createAdminClient (service_role)
     role: 'admin' | 'líder' | null;
     celulaId: string | null;
 }> {
@@ -88,7 +88,7 @@ async function getMemberNamesMap(
     if (memberIds.size === 0) return namesMap;
 
     let query = supabaseInstance.from('membros').select('id, nome, telefone').in('id', Array.from(memberIds));
-    if (celulaId !== null) { // RLS se aplica para o cliente normal
+    if (celulaId !== null) {
         query = query.eq('celula_id', celulaId);
     }
 
@@ -97,7 +97,7 @@ async function getMemberNamesMap(
     if (membersError) {
         console.error("Erro ao buscar nomes e telefones de membros (getMemberNamesMap):", membersError);
     } else {
-        membersData?.forEach((m: MembroNomeTelefoneId) => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone }));
+        membersData?.forEach((m: MemberData) => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone }));
     }
     return namesMap;
 }
@@ -114,7 +114,7 @@ async function getCelulasNamesMap(
     if (error) {
         console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error);
     } else {
-        data?.forEach((c: CelulaNomeId) => namesMap.set(c.id, c.nome));
+        data?.forEach((c: CelulaData) => namesMap.set(c.id, c.nome));
     }
     return namesMap;
 }
@@ -130,11 +130,13 @@ export async function getTotalMembros(celulaIdFilter: string | null = null): Pro
   let query = supabase.from('membros').select('id', { count: 'exact', head: true });
 
   if (role === 'líder') {
-    if (!userCelulaId) { return 0; } 
+    if (!userCelulaId) { return 0; } // Líder sem célula, retorna 0
     query = query.eq('celula_id', userCelulaId);
   } else if (role === 'admin' && celulaIdFilter) {
     query = query.eq('celula_id', celulaIdFilter);
-  } 
+  } else if (role === 'admin' && !celulaIdFilter) {
+    // Admin global, não adiciona filtro de célula
+  }
 
   const { count, error } = await query;
   if (error) { throw new Error(`Falha ao carregar total de membros: ${error.message}`); }
@@ -153,7 +155,9 @@ export async function getTotalVisitantesDistintos(celulaIdFilter: string | null 
     query = query.eq('celula_id', userCelulaId);
   } else if (role === 'admin' && celulaIdFilter) {
     query = query.eq('celula_id', celulaIdFilter);
-  } 
+  } else if (role === 'admin' && !celulaIdFilter) {
+    // Admin global, não adiciona filtro de célula
+  }
 
   const { count, error } = await query;
   if (error) { throw new Error(`Falha ao carregar total de visitantes: ${error.message}`); }
@@ -172,13 +176,17 @@ export async function getPresenceCountsLastMeeting(celulaIdFilter: string | null
   } else if (role === 'admin' && celulaIdFilter) {
     targetCelulaId = celulaIdFilter;
   } else if (role === 'admin' && !celulaIdFilter) {
-      return null; // Admin global sem filtro específico para este widget
-  }
-
-  if (!targetCelulaId) { 
+      // Para admin sem filtro, pode buscar a última reunião em geral no sistema.
+      // Ou, se preferir que este widget mostre apenas dados filtrados, deixar como está.
+      // Mantendo como está para que ele apareça apenas com filtro.
       return null;
   }
 
+  if (!targetCelulaId) { // Se ainda não tem um targetCelulaId (admin sem filtro), retorna null.
+      return null;
+  }
+
+  // CORREÇÃO: Usar alias para pegar o nome do ministrador diretamente do select
   let lastMeetingQuery = supabase.from('reunioes').select(`
       id, data_reuniao, tema, celula_id,
       ministrador_principal_alias:membros!ministrador_principal(nome)
@@ -206,6 +214,7 @@ export async function getPresenceCountsLastMeeting(celulaIdFilter: string | null
     celulaName = celulaNamesMap.get(reuniaoCelulaId) || null;
   }
 
+  // CORREÇÃO: Acessar o nome do ministrador via alias
   const ministradorPrincipalNome = (lastMeetingRaw as any).ministrador_principal_alias?.nome || null;
 
 
@@ -257,7 +266,9 @@ export async function getRecentesMembros(limit: number = 5, celulaIdFilter: stri
         query = query.eq('celula_id', userCelulaId);
     } else if (role === 'admin' && celulaIdFilter) {
         query = query.eq('celula_id', celulaIdFilter);
-    } 
+    } else if (role === 'admin' && !celulaIdFilter) {
+        // Admin global, não adiciona filtro de célula
+    }
 
     const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
     if (error) { throw new Error(`Falha ao carregar membros recentes: ${error.message}`); }
@@ -266,7 +277,6 @@ export async function getRecentesMembros(limit: number = 5, celulaIdFilter: stri
     if (membros.length === 0) return [];
 
     const celulaIds = new Set(membros.map((m: any) => m.celula_id).filter(Boolean) as string[]);
-    // Passa o cliente Supabase adequado
     const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
 
     return membros.map((m: any) => ({
@@ -289,7 +299,9 @@ export async function getRecentesVisitantes(limit: number = 5, celulaIdFilter: s
         query = query.eq('celula_id', userCelulaId);
     } else if (role === 'admin' && celulaIdFilter) {
         query = query.eq('celula_id', celulaIdFilter);
-    } 
+    } else if (role === 'admin' && !celulaIdFilter) {
+        // Admin global, não adiciona filtro de célula
+    }
 
     const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
     if (error) { throw new Error(`Falha ao carregar visitantes recentes: ${error.message}`); }
@@ -298,7 +310,6 @@ export async function getRecentesVisitantes(limit: number = 5, celulaIdFilter: s
     if (visitantes.length === 0) return [];
 
     const celulaIds = new Set(visitantes.map((v: any) => v.celula_id).filter(Boolean) as string[]);
-    // Passa o cliente Supabase adequado
     const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
 
     return visitantes.map((v: any) => ({
@@ -313,8 +324,9 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
     const { supabase, role, celulaId: userCelulaId } = await checkUserAuthorizationDashboard();
     if (!role) { return []; }
 
+    // CORREÇÃO: Usar aliases para pegar o nome dos ministradores diretamente como objetos aninhados
     let query = supabase.from('reunioes').select(`
-        id, data_reuniao, tema, caminho_pdf, celula_id, created_at, 
+        id, data_reuniao, tema, caminho_pdf, celula_id,
         ministrador_principal_alias:membros!ministrador_principal(nome),
         ministrador_secundario_alias:membros!ministrador_secundario(nome),
         responsavel_kids_alias:membros!responsavel_kids(nome),
@@ -327,7 +339,9 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
         targetCelulaId = userCelulaId;
     } else if (role === 'admin' && celulaIdFilter) {
         targetCelulaId = celulaIdFilter;
-    } 
+    } else if (role === 'admin' && !celulaIdFilter) {
+        // Admin global, não adiciona filtro de célula
+    }
 
     if (targetCelulaId) {
         query = query.eq('celula_id', targetCelulaId);
@@ -343,7 +357,7 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
 
     const processedData: ReuniaoComNomes[] = [];
     for (const item of data) {
-        const numCriancas = item.criancas_reuniao?.[0]?.numero_criancas || 0;
+        const numCriancas = item.criancas_reuniao?.[0]?.numero_criancas || 0; // Isso parece estar correto
 
         const { count: presentesMembrosCount, error: pmError } = await supabase.from('presencas_membros')
             .select('id', { count: 'exact', head: true })
@@ -364,10 +378,10 @@ export async function getUltimasReunioes(limit: number = 5, celulaIdFilter: stri
             caminho_pdf: item.caminho_pdf,
             celula_id: item.celula_id,
             celula_nome: celulasNamesMap.get(item.celula_id) || null,
-            // CORREÇÃO: Acessar o primeiro elemento do array antes de '.nome'
-            ministrador_principal_nome: item.ministrador_principal_alias?.[0]?.nome || null,
-            ministrador_secundario_nome: item.ministrador_secundario_alias?.[0]?.nome || null,
-            responsavel_kids_nome: item.responsavel_kids_alias?.[0]?.nome || null,
+            // CORREÇÃO: Acessar os nomes dos ministradores através dos aliases
+            ministrador_principal_nome: item.ministrador_principal_alias?.nome || null,
+            ministrador_secundario_nome: item.ministrador_secundario_alias?.nome || null,
+            responsavel_kids_nome: item.responsavel_kids_alias?.nome || null,
             num_criancas: numCriancas,
             num_presentes_membros: presentesMembrosCount || 0,
             num_presentes_visitantes: presentesVisitantesCount || 0,
@@ -388,6 +402,7 @@ export async function getFaltososAlert(celulaIdFilter: string | null = null, min
     } else if (role === 'admin' && celulaIdFilter) {
         targetCelulaId = celulaIdFilter;
     }
+    // Se admin global e não há filtro, não busca este alerta, pois é específico de célula
     if (!targetCelulaId) { return { count: 0, members: [], startDate: '', endDate: '', totalMeetingsPeriod: 0 }; }
 
     try {
@@ -423,6 +438,7 @@ export async function getFaltososAlert(celulaIdFilter: string | null = null, min
                 .in('reuniao_id', reuniaoIds);
             if (presencesError) throw presencesError;
 
+            // Se o número de ausências (total reuniões - presenças) for maior ou igual a minAbsences
             if ((totalMeetingsPeriod - (presencesCount || 0)) >= minAbsences) {
                 faltosos.push({ id: member.id, nome: member.nome, telefone: member.telefone });
             }
@@ -430,7 +446,7 @@ export async function getFaltososAlert(celulaIdFilter: string | null = null, min
 
         return {
             count: faltosos.length,
-            members: faltosos.sort((a, b) => a.nome.localeCompare(b.nome)),
+            members: faltosos.sort((a, b) => a.nome.localeCompare(b.nome)), // Ordena por nome
             startDate: startDate,
             endDate: endDate,
             totalMeetingsPeriod: totalMeetingsPeriod,
@@ -451,6 +467,7 @@ export async function getUnconvertedVisitorsAlert(celulaIdFilter: string | null 
     } else if (role === 'admin' && celulaIdFilter) {
         targetCelulaId = celulaIdFilter;
     }
+    // Se admin global e não há filtro, não busca este alerta, pois é específico de célula
     if (!targetCelulaId) { return { count: 0, visitors: [] }; }
 
     try {
@@ -466,7 +483,7 @@ export async function getUnconvertedVisitorsAlert(celulaIdFilter: string | null 
         if (error) throw error;
 
         const unconvertedVisitors = visitors || [];
-        type VisitorSort = { nome: string }; 
+        type VisitorSort = { nome: string }; // Tipo auxiliar para a ordenação
 
         return {
             count: unconvertedVisitors.length,
@@ -488,6 +505,7 @@ export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null)
     } else if (role === 'admin' && celulaIdFilter) {
         targetCelulaId = celulaIdFilter;
     }
+    // Se admin global e não há filtro, não busca este alerta, pois é específico de célula
     if (!targetCelulaId) { return { count: 0, members: [] }; }
 
     try {
@@ -507,10 +525,11 @@ export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null)
             const birthDate = new Date(member.data_nascimento);
             const currentYearBirthDate = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
 
+            // Verifica se a data de aniversário no ano atual está dentro da semana atual
             return currentYearBirthDate >= startOfThisWeek && currentYearBirthDate <= endOfThisWeek;
         });
 
-        type BirthdaySort = { data_nascimento: string }; 
+        type BirthdaySort = { data_nascimento: string }; // Tipo auxiliar para a ordenação
 
         return {
             count: birthdaysThisWeek.length,
@@ -531,6 +550,7 @@ export async function getBirthdaysThisWeek(celulaIdFilter: string | null = null)
 
 export async function getCelulasOptionsForAdmin(): Promise<{id: string; nome: string}[]> {
     const { supabase, role } = await checkUserAuthorizationDashboard();
+    // Admin com service_role_key para buscar todas as células
     if (role !== 'admin') {
         return [];
     }
@@ -556,6 +576,7 @@ export async function getAveragePresenceRate(celulaIdFilter: string | null = nul
     } else if (role === 'admin' && celulaIdFilter) {
         targetCelulaId = celulaIdFilter;
     }
+    // Se admin global e não há filtro, não busca esta média, pois é específica de célula
     if (!targetCelulaId) { return null; }
 
     try {
@@ -571,6 +592,7 @@ export async function getAveragePresenceRate(celulaIdFilter: string | null = nul
         if (meetingsError) throw meetingsError;
 
         if (!meetings || meetings.length === 0) {
+            // Se não há reuniões, retorna labels para as semanas, mas com dados zerados
             const labels = eachWeekOfInterval({ start: startOfPeriod, end: today }, { locale: ptBR }).map((weekStart) => format(weekStart, 'dd/MM', { locale: ptBR }));
             return { labels, data: labels.map(() => 0) };
         }
@@ -656,7 +678,7 @@ export async function getCelulasSummary(): Promise<CelulasSummary> {
         const { data: allCelulas, error: allCelulasError } = await supabase.from('celulas').select('id');
         if (allCelulasError) throw allCelulasError;
 
-        const celulasWithoutLeaders = (allCelulas || []).filter((celula: CelulaWithId) => !celulaIdsComLideres.has(celula.id)).length;
+        const celulasWithoutLeaders = (allCelulas || []).filter((celula: ReuniaoSimple) => !celulaIdsComLideres.has(celula.id)).length;
 
         return {
             totalCelulas: totalCelulas || 0,
@@ -720,7 +742,7 @@ export async function getTopBottomPresence(numMeetings: number = 5, limit: numbe
 
         return {
             top: presenceData.slice(0, limit),
-            bottom: presenceData.slice(-limit).reverse(),
+            bottom: presenceData.slice(-limit).reverse(), // Pega os últimos e inverte para ordem crescente
         };
     } catch (e: any) {
         throw new Error(`Falha ao obter Top/Flop Presença: ${e.message}`);
@@ -780,7 +802,8 @@ export async function getMembersByCelulaDistribution(): Promise<MembersByCelulaD
         const { data: allMembers, error } = await supabase.from('membros').select('celula_id');
         if (error) throw error;
 
-        const countsMap = (allMembers || []).reduce((acc: Map<string, number>, member: MemberWithCelulaId) => {
+        // Conta quantos membros em cada célula
+        const countsMap = (allMembers || []).reduce((acc: Map<string, number>, member: { celula_id: string | null }) => {
             if (member.celula_id) {
                 acc.set(member.celula_id, (acc.get(member.celula_id) || 0) + 1);
             }
@@ -796,7 +819,7 @@ export async function getMembersByCelulaDistribution(): Promise<MembersByCelulaD
             result.push({ celula_nome: celulasNamesMap.get(celula_id) || 'Célula Desconhecida', count: count });
         }
 
-        return result.sort((a, b) => a.celula_nome.localeCompare(b.celula_nome));
+        return result.sort((a, b) => a.celula_nome.localeCompare(b.celula_nome)); // Ordena por nome da célula
     } catch (e: any) {
         throw new Error(`Falha ao obter distribuição de membros por célula: ${e.message}`);
     }
@@ -811,7 +834,8 @@ export async function getVisitorsByCelulaDistribution(): Promise<VisitorsByCelul
         const { data: allVisitors, error } = await supabase.from('visitantes').select('celula_id');
         if (error) throw error;
 
-        const countsMap = (allVisitors || []).reduce((acc: Map<string, number>, visitor: VisitorWithCelulaId) => {
+        // Conta quantos visitantes em cada célula
+        const countsMap = (allVisitors || []).reduce((acc: Map<string, number>, visitor: { celula_id: string | null }) => {
             if (visitor.celula_id) {
                 acc.set(visitor.celula_id, (acc.get(visitor.celula_id) || 0) + 1);
             }
@@ -827,7 +851,7 @@ export async function getVisitorsByCelulaDistribution(): Promise<VisitorsByCelul
             result.push({ celula_nome: celulasNamesMap.get(celula_id) || 'Célula Desconhecida', count: count });
         }
 
-        return result.sort((a, b) => a.celula_nome.localeCompare(b.celula_nome));
+        return result.sort((a, b) => a.celula_nome.localeCompare(b.celula_nome)); // Ordena por nome da célula
     } catch (e: any) {
         throw new Error(`Falha ao obter distribuição de visitantes por célula: ${e.message}`);
     }
@@ -890,7 +914,7 @@ export async function getGlobalRecentActivity(limit: number = 10): Promise<Activ
 
         activities.sort((a, b) => b.raw_date.getTime() - a.raw_date.getTime());
 
-        return activities.slice(0, limit);
+        return activities.slice(0, limit); // Limita ao número desejado
     } catch (e: any) {
         console.error("Erro em getGlobalRecentActivity:", e);
         throw e;
@@ -918,7 +942,7 @@ export async function getVisitorsConversionAnalysis(): Promise<VisitorsConversio
             .eq('presente', true);
         if (presencesError) throw presencesError;
 
-        const countMap = (presencesCount || []).reduce((acc: Map<string, number>, p: PresenceRaw) => {
+        const countMap = (presencesCount || []).reduce((acc: Map<string, number>, p: { visitante_id: string }) => {
             acc.set(p.visitante_id, (acc.get(p.visitante_id) || 0) + 1);
             return acc;
         }, new Map<string, number>());
@@ -941,7 +965,7 @@ export async function getVisitorsConversionAnalysis(): Promise<VisitorsConversio
             }
 
             const currentAnalysis = analysisMap.get(celulaId);
-            if(currentAnalysis) { 
+            if(currentAnalysis) { // Garante que currentAnalysis não é undefined
                 currentAnalysis.visitors.push({
                     id: visitor.id,
                     nome: visitor.nome,
@@ -953,6 +977,7 @@ export async function getVisitorsConversionAnalysis(): Promise<VisitorsConversio
             }
         }
 
+        // Retorna a análise ordenada pelo total de visitantes com alta presença
         return Array.from(analysisMap.values()).sort((a, b) => b.total_unconverted_with_presences - a.total_unconverted_with_presences);
     } catch (e: any) {
         console.error("Erro em getVisitorsConversionAnalysis:", e);
@@ -976,8 +1001,8 @@ export async function getNewVisitorsTrend(numMonths: number = 6): Promise<NewVis
         if (error) throw error;
 
         const countsByMonth = new Map<string, number>();
-        (visitorsData || []).forEach((v: VisitorDate) => {
-            const monthKey = format(new Date(v.data_primeira_visita), 'yyyy-MM'); 
+        (visitorsData || []).forEach((v: { data_primeira_visita: string }) => {
+            const monthKey = format(new Date(v.data_primeira_visita), 'yyyy-MM'); // Ex: '2023-10'
             countsByMonth.set(monthKey, (countsByMonth.get(monthKey) || 0) + 1);
         });
 
@@ -987,10 +1012,10 @@ export async function getNewVisitorsTrend(numMonths: number = 6): Promise<NewVis
 
         for (let i = 0; i < numMonths; i++) {
             const monthKey = format(currentDate, 'yyyy-MM');
-            labels.push(format(currentDate, 'MMM yy', { locale: ptBR })); 
-            data.push(countsByMonth.get(monthKey) || 0);
+            labels.push(format(currentDate, 'MMM yy', { locale: ptBR })); // Ex: 'Out 23'
+            data.push(countsByMonth.get(monthKey) || 0); // Pega a contagem ou 0
 
-            currentDate = subMonths(currentDate, -1);
+            currentDate = subMonths(currentDate, -1); // Avança para o próximo mês
         }
 
         return { labels, data };
@@ -1015,11 +1040,13 @@ export async function detectDuplicateVisitors(): Promise<DuplicateVisitorGroup[]
         // Passa o cliente Supabase adequado
         const celulasNamesMap = await getCelulasNamesMap(celulaIds, supabase);
 
-        const groupsByName = new Map<string, VisitorRaw[]>();
-        const groupsByPhone = new Map<string, VisitorRaw[]>();
+        // Agrupa visitantes por nome normalizado e por telefone normalizado
+        const groupsByName = new Map<string, any[]>();
+        const groupsByPhone = new Map<string, any[]>();
 
         visitorsList.forEach((v: VisitorRaw) => {
             const normalizedName = v.nome.trim().toLowerCase();
+            // Remove caracteres não numéricos do telefone
             const normalizedPhone = v.telefone ? v.telefone.replace(/\D/g, '') : null;
 
             if (normalizedName) {
@@ -1035,29 +1062,32 @@ export async function detectDuplicateVisitors(): Promise<DuplicateVisitorGroup[]
         const duplicateGroups: DuplicateVisitorGroup[] = [];
 
         groupsByName.forEach((visitors, common_value) => {
-            if (visitors.length > 1) { 
+            if (visitors.length > 1) { // Mais de um visitante com o mesmo nome
                 duplicateGroups.push({
                     group_id: `name-${common_value}`,
                     common_value: common_value,
                     type: 'nome',
-                    visitors: visitors.map((v: VisitorRaw) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id || '') || 'N/A' }))
+                    visitors: visitors.map((v: any) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A' }))
                 });
             }
         });
 
         groupsByPhone.forEach((visitors, common_value) => {
-            if (visitors.length > 1) { 
+            if (visitors.length > 1) { // Mais de um visitante com o mesmo telefone
                 duplicateGroups.push({
                     group_id: `phone-${common_value}`,
                     common_value: common_value,
                     type: 'telefone',
-                    visitors: visitors.map((v: VisitorRaw) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id || '') || 'N/A' }))
+                    visitors: visitors.map((v: any) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || 'N/A' }))
                 });
             }
         });
 
         const finalGroupsMap = new Map<string, DuplicateVisitorGroup>();
         duplicateGroups.forEach(group => {
+            // Uma heurística simples para evitar grupos completamente duplicados:
+            // Se o ID do grupo já existe (ex: name-joao), ou se a lista de visitantes (ordenada) já foi vista.
+            // Para simplicidade, vamos usar o group_id gerado.
             if (!finalGroupsMap.has(group.group_id)) {
                 finalGroupsMap.set(group.group_id, group);
             }

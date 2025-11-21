@@ -2,8 +2,7 @@
 'use client';
 
 import React from 'react';
-// CORREÇÃO: Importar ReportDataAniversariantes de '@/lib/types'
-import { ReportDataAniversariantes } from '@/lib/types'; // <--- CORREÇÃO AQUI
+import { ReportDataAniversariantes } from '@/lib/reports_data';
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
 export const ReportAniversariantesDisplay = ({ data }: { data: ReportDataAniversariantes }) => {

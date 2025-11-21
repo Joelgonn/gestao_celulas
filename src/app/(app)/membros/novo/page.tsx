@@ -4,17 +4,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// Importa funções de data.ts
 import {
     adicionarMembro,
     listarCelulasParaAdmin,
+    Membro,
+    CelulaOption
 } from '@/lib/data';
-// Importa interfaces de types.ts
-import {
-    Membro,        // Para referenciar o tipo 'status'
-    CelulaOption   // Para as opções de célula
-} from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Membro e CelulaOption de types.ts
-
 import { normalizePhoneNumber } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS ---
@@ -36,13 +31,18 @@ import {
 } from 'react-icons/fa';
 // --- FIM NOVO: Ícones ---
 
-// CORREÇÃO: Definir FormData diretamente baseada na interface Membro de types.ts
-// Omitimos 'id' e 'created_at' e 'celula_nome' porque não são fornecidos ao criar.
-interface MembroNewFormData extends Omit<Membro, 'id' | 'created_at' | 'celula_nome'> {}
-
+interface FormData {
+    nome: string;
+    telefone: string | null;
+    data_ingresso: string;
+    data_nascimento: string | null;
+    endereco: string | null;
+    status: Membro['status'];
+    celula_id: string;
+}
 
 export default function NewMembroPage() {
-    const [formData, setFormData] = useState<MembroNewFormData>({ // <--- Usar a nova interface
+    const [formData, setFormData] = useState<FormData>({
         nome: '',
         telefone: null,
         data_ingresso: new Date().toISOString().split('T')[0], // Data padrão atual
@@ -84,7 +84,6 @@ export default function NewMembroPage() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        // CORREÇÃO: Garante que strings vazias de campos opcionais são convertidas para null.
         setFormData(prev => ({ 
             ...prev, 
             [name]: name === 'telefone' ? normalizePhoneNumber(value) : (value === '' ? null : value) 
@@ -112,12 +111,9 @@ export default function NewMembroPage() {
             return;
         }
 
-        // Normaliza o telefone novamente antes de enviar para a ação do servidor
-        const normalizedPhone = normalizePhoneNumber(formData.telefone);
-
         const newMembroDataForAction: Omit<Membro, 'id' | 'created_at' | 'celula_nome'> = {
             nome: formData.nome.trim(), // Garantir trim
-            telefone: normalizedPhone || null, // Garante que seja null se vazio
+            telefone: formData.telefone,
             data_ingresso: formData.data_ingresso,
             data_nascimento: formData.data_nascimento,
             endereco: formData.endereco,
@@ -294,7 +290,7 @@ export default function NewMembroPage() {
                                 </div>
 
                                 {/* Seleção de Célula (apenas para admins, ou se houver mais de uma opção) */}
-                                {celulasOptions.length > 0 && ( // CORREÇÃO: se for 0, não mostra o seletor. Se for 1, mostra e preenche.
+                                {celulasOptions.length > 1 && (
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="celula_id" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                             <FaComments className="w-4 h-4 text-indigo-500" /> {/* Ícone genérico, pode ser mudado */}
@@ -307,9 +303,8 @@ export default function NewMembroPage() {
                                             value={formData.celula_id}
                                             onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white"
-                                            disabled={celulasOptions.length === 1} // Desabilita se houver apenas uma opção
                                         >
-                                            {celulasOptions.length > 1 && <option value="">-- Selecione a Célula --</option>} {/* Opção padrão apenas se houver mais de 1 */}
+                                            <option value="">-- Selecione a Célula --</option>
                                             {celulasOptions.map(celula => (
                                                 <option key={celula.id} value={celula.id}>{celula.nome}</option>
                                             ))}
@@ -317,10 +312,9 @@ export default function NewMembroPage() {
                                     </div>
                                 )}
                                 {/* Se houver apenas uma célula (Líder), o input de celula_id está oculto e preenchido automaticamente */}
-                                {/* REMOVIDO: Este input hidden não é mais necessário se o select está desabilitado e preenchido */}
-                                {/* {celulasOptions.length === 1 && (
+                                {celulasOptions.length === 1 && (
                                     <input type="hidden" name="celula_id" value={formData.celula_id} />
-                                )} */}
+                                )}
 
 
                                 {/* Botões de Ação */}

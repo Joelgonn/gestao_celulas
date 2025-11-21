@@ -85,9 +85,7 @@ import {
     VisitorsConversionAnalysis,
     NewVisitorsTrendData,
     DuplicateVisitorGroup,
-    PalavraDaSemana, // <--- Importado de types.ts
-    CelulaOption,     // <--- Importado de types.ts
-} from '@/lib/types'; // <--- Todas as interfaces de tipos agora vêm de '@/lib/types'
+} from '@/lib/types';
 
 
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';

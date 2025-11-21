@@ -5,11 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
 import { FaPhone, FaWhatsapp, FaPlus, FaEdit, FaTrash, FaUserPlus, FaUsers, FaSearch, FaFilter, FaCalendarAlt, FaComment } from 'react-icons/fa';
-// Importa funções de data.ts
-import { listarVisitantes, excluirVisitante, listarCelulasParaAdmin } from '@/lib/data';
-// Importa interfaces de types.ts <--- CORREÇÃO AQUI
-import { CelulaOption, Visitante } from '@/lib/types';
-
+import { listarVisitantes, excluirVisitante, listarCelulasParaAdmin, CelulaOption, Visitante } from '@/lib/data';
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS & LOADING SPINNER ---

@@ -11,32 +11,14 @@ import {
     listarMembros,
     verificarDuplicidadeReuniao,
     uploadMaterialReuniao,
-} from '@/lib/data';
-// Importa interfaces de types.ts <--- CORREÇÃO AQUI
-import {
     Membro,
     ReuniaoFormData,
     ReuniaoParaEdicao,
-} from '@/lib/types';
-
+} from '@/lib/data';
 import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 
 import useToast from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Usando o LoadingSpinner principal
-// --- NOVO: Ícones para a página (para o layout moderno) ---
-import {
-    FaCalendarAlt, // Para data
-    FaBookOpen,    // Para tema
-    FaUser,        // Para ministradores
-    FaChild,       // Para responsável kids
-    FaFilePdf,     // Para material
-    FaArrowLeft,   // Para voltar
-    FaSave,        // Para salvar
-    FaUpload       // Para upload
-} from 'react-icons/fa';
-// --- FIM NOVO: Ícones ---
-
 
 export default function EditReuniaoPage() {
     const params = useParams();
@@ -85,7 +67,7 @@ export default function EditReuniaoPage() {
                     ministrador_secundario: reuniaoDataFromLib.ministrador_secundario || null,
                     responsavel_kids: reuniaoDataFromLib.responsavel_kids || null,
                     caminho_pdf: reuniaoDataFromLib.caminho_pdf || null,
-                    celula_id: reuniaoDataFromLib.celula_id, // Incluir celula_id aqui
+                    celula_id: reuniaoDataFromLib.celula_id,
                 });
 
                 addToast('Informações da reunião carregadas com sucesso', 'success', 3000);
@@ -134,7 +116,7 @@ export default function EditReuniaoPage() {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema, reuniaoId);
             if (isDuplicate) {
                 // CORREÇÃO: Usar concatenação de string simples para evitar o erro de parsing
-                addToast(`Já existe outra reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}`, 'warning');
+                addToast('Já existe outra reunião com o tema \'' + formData.tema + '\' na data ' + formatDateForDisplay(formData.data_reuniao), 'warning');
                 setSubmitting(false);
                 return;
             }

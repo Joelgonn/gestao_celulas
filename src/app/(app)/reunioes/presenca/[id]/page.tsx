@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-// Importa funções de data.ts
 import {
     getReuniao,
     listarTodosMembrosComPresenca,
@@ -13,25 +12,25 @@ import {
     registrarPresencaVisitante,
     getNumCriancasReuniao,
     setNumCriancasReuniao,
-} from '@/lib/data';
-// Importa interfaces de types.ts
-import {
-    ReuniaoParaEdicao,
+    // Importe ReuniaoDB ou ReuniaoParaEdicao, já que 'Reuniao' foi renomeada/reestruturada
+    ReuniaoDB, // Para a estrutura do DB, se precisar dos IDs brutos
+    ReuniaoParaEdicao, // Se precisar dos IDs e nomes para pré-preenchimento
     MembroComPresenca,
     VisitanteComPresenca
-} from '@/lib/types';
-
+} from '@/lib/data';
 import { formatDateForDisplay } from '@/utils/formatters';
 
 // IMPORTS DOS COMPONENTES E HOOKS AGORA SEPARADOS
-import Toast from '@/components/ui/Toast';
-import useToast from '@/hooks/useToast';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Toast from '@/components/ui/Toast'; // Importa o componente Toast
+import useToast from '@/hooks/useToast';   // Importa o hook useToast
+import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Importa o componente LoadingSpinner
 
 export default function GerenciarPresencaPage() {
     const params = useParams();
     const reuniaoId = params.id as string;
     
+    // CORREÇÃO: Tipar o estado 'reuniao' com ReuniaoParaEdicao,
+    // pois 'getReuniao' agora retorna esta interface.
     const [reuniao, setReuniao] = useState<ReuniaoParaEdicao | null>(null);
     const [membrosPresenca, setMembrosPresenca] = useState<MembroComPresenca[]>([]);
     const [visitantesPresenca, setVisitantesPresenca] = useState<VisitanteComPresenca[]>([]);
@@ -44,8 +43,10 @@ export default function GerenciarPresencaPage() {
     const [ministradorSecundarioId, setMinistradorSecundarioId] = useState<string | null>(null);
     const [responsavelKidsId, setResponsavelKidsId] = useState<string | null>(null);
 
+    // Usar o hook de toast real
     const { toasts, addToast, removeToast } = useToast();
 
+    // Contadores para feedback visual
     const membrosPresentes = membrosPresenca.filter(m => m.presente).length;
     const visitantesPresentes = visitantesPresenca.filter(v => v.presente).length;
 
@@ -53,6 +54,7 @@ export default function GerenciarPresencaPage() {
         const fetchPresencaData = async () => {
             setLoading(true);
             try {
+                // CORREÇÃO: getReuniao agora retorna ReuniaoParaEdicao
                 const fetchedReuniao = await getReuniao(reuniaoId);
                 if (!fetchedReuniao) {
                     addToast('Reunião não encontrada!', 'error');
@@ -60,37 +62,20 @@ export default function GerenciarPresencaPage() {
                     return;
                 }
                 setReuniao(fetchedReuniao);
-                
-                // Extrai os IDs dos responsáveis da reunião
-                const mpId = fetchedReuniao.ministrador_principal || null;
-                const msId = fetchedReuniao.ministrador_secundario || null;
-                const rkId = fetchedReuniao.responsavel_kids || null;
+                // CORREÇÃO: Acessar os IDs diretamente da propriedade, não de um array aninhado.
+                // ministrador_principal em fetchedReuniao já é o UUID ou null.
+                setMinistradorPrincipalId(fetchedReuniao.ministrador_principal || null);
+                setMinistradorSecundarioId(fetchedReuniao.ministrador_secundario || null);
+                setResponsavelKidsId(fetchedReuniao.responsavel_kids || null);
+                // FIM CORREÇÃO
 
-                setMinistradorPrincipalId(mpId);
-                setMinistradorSecundarioId(msId);
-                setResponsavelKidsId(rkId);
-                
                 const [membrosData, visitantesData, criancasCount] = await Promise.all([
                     listarTodosMembrosComPresenca(reuniaoId),
                     listarTodosVisitantesComPresenca(reuniaoId),
                     getNumCriancasReuniao(reuniaoId),
                 ]);
 
-                // --- INÍCIO DA CORREÇÃO DE LÓGICA ---
-                // Mapeia os membros para marcar ministradores/responsáveis como presentes
-                const updatedMembrosPresenca = membrosData.map(membro => {
-                    // Verifica se o membro é um dos responsáveis desta reunião
-                    const isSpecialRole = [mpId, msId, rkId].includes(membro.id);
-                    // Se ele é um responsável E não está presente na base de dados (primeira vez),
-                    // force-o como presente. Caso contrário, mantenha o estado da base de dados.
-                    if (isSpecialRole && !membro.presente) {
-                         return { ...membro, presente: true };
-                    }
-                    return membro;
-                });
-                setMembrosPresenca(updatedMembrosPresenca);
-                // --- FIM DA CORREÇÃO DE LÓGICA ---
-
+                setMembrosPresenca(membrosData);
                 setVisitantesPresenca(visitantesData);
                 setNumCriancas(criancasCount);
 
@@ -108,7 +93,7 @@ export default function GerenciarPresencaPage() {
         if (reuniaoId) {
             fetchPresencaData();
         }
-    }, [reuniaoId, router, addToast]); // Dependências: reuniaoId, router, addToast
+    }, [reuniaoId, router, addToast]);
 
     const handleMembroChange = (membroId: string, presente: boolean) => {
         setMembrosPresenca(prev => prev.map(m =>
@@ -134,6 +119,10 @@ export default function GerenciarPresencaPage() {
         try {
             // Salvar presenças de membros
             await Promise.all(membrosPresenca.map(async (membro) => {
+                const isSpecialRole = [ministradorPrincipalId, ministradorSecundarioId, responsavelKidsId].includes(membro.id);
+                // A presença de membros com funções especiais deve ser considerada 'presente' se forem marcados como tal
+                // A sua lógica atual desabilita o checkbox, então 'membro.presente' já deve refletir a intenção.
+                // A linha abaixo já está correta, usando membro.presente.
                 return registrarPresencaMembro(reuniaoId, membro.id, membro.presente);
             }));
 
@@ -204,6 +193,7 @@ export default function GerenciarPresencaPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
+            {/* Container de Toasts */}
             <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
                     <Toast
@@ -217,6 +207,7 @@ export default function GerenciarPresencaPage() {
             </div>
 
             <div className="max-w-6xl mx-auto px-4">
+                {/* Header com Gradiente */}
                 <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
                     <div className="flex items-center justify-between">
                         <div>
@@ -420,6 +411,7 @@ export default function GerenciarPresencaPage() {
                 </div>
             </div>
 
+            {/* Adicionar estilos de animação */}
             <style jsx>{`
                 @keyframes slide-in {
                     from {
