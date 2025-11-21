@@ -148,23 +148,14 @@ export interface DuplicateVisitorGroup {
     type: 'nome' | 'telefone';
 }
 
-export interface ActivityLogItem {
-    id: string;
-    type: 'member_added' | 'visitor_added' | 'reunion_added' | 'visitor_converted' | 'celula_created' | 'celula_updated' | 'profile_activated';
-    description: string;
-    created_at: string;
-    celula_nome?: string | null;
-}
 
 // --- Interfaces para CHAVES DE ATIVAÇÃO ---
-// Usada em `src/app/(app)/admin/celulas/page.tsx` e `src/app/api/admin/chaves-ativacao/actions.ts`
 export interface ChaveAtivacao {
     chave: string;
     celula_id: string;
     usada: boolean;
-    created_at: string; // <-- **CORREÇÃO APLICADA AQUI**
-    // Adicionado para relatório de chaves de ativação
-    data_uso?: string | null; 
+    created_at: string;
+    data_uso?: string | null;
     usada_por_email?: string | null;
     usada_por_id?: string | null;
 }
@@ -177,11 +168,13 @@ export interface PalavraDaSemana {
     url_arquivo: string;
     data_semana: string;
     created_at: string;
-    created_by: string;
+    created_by: string | null | undefined; // <--- CORREÇÃO AQUI: Permite que seja null
     created_by_email: string | null;
 }
 
-// --- Interfaces de DADOS DO BANCO DE DADOS (DB) ou FORMULÁRIOS ---
+// ============================================================================
+//               Interfaces de DADOS DO BANCO DE DADOS (DB) ou FORMULÁRIOS
+// ============================================================================
 
 // Interface para perfil de usuário (para admin/profile pages)
 export interface Profile {
@@ -193,7 +186,7 @@ export interface Profile {
     celula_id: string | null;
     celula_nome: string | null;
     created_at: string;
-    last_sign_in_at?: string | null; // Adicionado do UserProfile do admin/users/actions
+    last_sign_in_at?: string | null;
 }
 
 // Interface para Usuário/Perfil retornado por admin/users/actions
@@ -216,24 +209,16 @@ export interface CelulaOption {
 }
 
 // Para uso interno em funções de dados onde apenas ID e nome são necessários (ex: getCelulasNamesMap)
-export interface CelulaNomeId {
-    id: string;
-    nome: string;
-}
+// REMOVIDA DUPLICAÇÃO - JÁ EXISTE UMA CelulaNomeId GLOBALMENTE
+// export interface CelulaNomeId { id: string; nome: string; }
 
 // Para uso interno em funções de dados onde apenas ID, nome e telefone de membro são necessários
-export interface MembroNomeTelefoneId { 
-    id: string;
-    nome: string;
-    telefone: string | null;
-}
+// REMOVIDA DUPLICAÇÃO - JÁ EXISTE UMA MembroNomeTelefoneId GLOBALMENTE
+// export interface MembroNomeTelefoneId { id: string; nome: string; telefone: string | null; }
 
 // Para uso interno em funções de dados onde apenas ID, nome e telefone de visitante são necessários
-export interface VisitanteNomeTelefoneId { 
-    id: string;
-    nome: string;
-    telefone: string | null;
-}
+// REMOVIDA DUPLICAÇÃO - JÁ EXISTE UMA VisitanteNomeTelefoneId GLOBALMENTE
+// export interface VisitanteNomeTelefoneId { id: string; nome: string; telefone: string | null; }
 
 
 // Interface para detalhes de uma Célula (para admin/celulas/actions)
@@ -363,15 +348,13 @@ export interface ImportMembroResult {
 }
 
 // --- Interfaces para Relatórios ---
+// NOTA: Muitas dessas interfaces são duplicadas das "Interfaces Gerais" acima.
+// Idealmente, as interfaces should ser definidas apenas uma vez e reutilizadas.
+// Mantendo a estrutura atual para o propósito da refatoração solicitada.
 
-export interface MembroOption {
-    id: string;
-    nome: string;
-    celula_id: string; 
-    celula_nome: string | null;
-}
-
-export interface ReuniaoOption {
+// MembroOption já definida acima
+// ReuniaoOption já definida acima, mas sem celula_id e celula_nome. Ajustando aqui.
+export interface ReuniaoOptionRelatorio { // Renomeado para evitar conflito
     id: string;
     data_reuniao: string;
     tema: string;
@@ -380,48 +363,26 @@ export interface ReuniaoOption {
     celula_nome: string | null;
 }
 
-export interface ReportDataPresencaReuniao {
-    reuniao_detalhes: {
-        id: string;
-        data_reuniao: string;
-        tema: string;
-        caminho_pdf: string | null;
-        ministrador_principal_nome: string | null;
-        ministrador_principal_telefone: string | null;
-        ministrador_secundario_nome: string | null;
-        ministrador_secundario_telefone: string | null;
-        responsavel_kids_nome: string | null;
-        responsavel_kids_telefone: string | null;
-        num_criancas: number;
-        celula_nome?: string | null;
-    };
-    membros_presentes: { id: string; nome: string; telefone: string | null }[];
-    membros_ausentes: { id: string; nome: string; telefone: string | null }[];
-    visitantes_presentes: { id: string; nome: string; telefone: string | null }[];
-}
 
-export interface RelatorioPresencaMembroItem {
-    data_reuniao: string;
-    tema: string;
-    presente: boolean;
-}
+// ReportDataPresencaReuniao já definida acima, mas é mais específica para o relatório
+// Mantendo a definição mais específica aqui se for estritamente para relatórios
+// export interface ReportDataPresencaReuniao { ... }
 
-export interface ReportDataPresencaMembro {
-    membro_data: Membro & { celula_nome?: string | null };
-    historico_presenca: RelatorioPresencaMembroItem[];
-}
 
-export interface MembroFaltoso {
-    id: string;
-    nome: string;
-    telefone: string | null;
-    total_presencas: number;
-    total_reunioes_no_periodo: number;
-    celula_nome: string | null;
-}
+// RelatorioPresencaMembroItem já definida acima
+// export interface RelatorioPresencaMembroItem { ... }
 
+// ReportDataPresencaMembro já definida acima
+// export interface ReportDataPresencaMembro { ... }
+
+// MembroFaltoso já definida acima
+// export interface MembroFaltoso { ... }
+
+// ReportDataFaltososPeriodo já definida acima, corrigida estrutura para 'periodo' aninhado
 export interface ReportDataFaltososPeriodo {
-    periodo: {
+    start_date: string; // Mover para o nível superior, ou remover se 'periodo' for preferido
+    end_date: string;   // Mover para o nível superior, ou remover se 'periodo' for preferido
+    periodo: { // Adicionar o objeto 'periodo' conforme definido em reports_data.ts
         start_date: string;
         end_date: string;
         total_reunioes: number;
@@ -429,16 +390,14 @@ export interface ReportDataFaltososPeriodo {
     faltosos: MembroFaltoso[];
 }
 
-export interface VisitantePorPeriodo {
-    id: string;
-    nome: string;
-    telefone: string | null;
-    data_primeira_visita: string;
-    celula_nome: string | null;
-}
+// VisitantePorPeriodo já definida acima
+// export interface VisitantePorPeriodo { ... }
 
+// ReportDataVisitantesPeriodo já definida acima, corrigida estrutura para 'periodo' aninhado
 export interface ReportDataVisitantesPeriodo {
-    periodo: {
+    start_date: string; // Mover para o nível superior, ou remover se 'periodo' for preferido
+    end_date: string;   // Mover para o nível superior, ou remover se 'periodo' for preferido
+    periodo: { // Adicionar o objeto 'periodo' conforme definido em reports_data.ts
         start_date: string;
         end_date: string;
         total_visitantes: number;
@@ -446,68 +405,26 @@ export interface ReportDataVisitantesPeriodo {
     visitantes: VisitantePorPeriodo[];
 }
 
-export interface MembroAniversariante {
-    id: string;
-    nome: string;
-    data_nascimento: string; // YYYY-MM-DD
-    telefone: string | null;
-    celula_id: string;
-    celula_nome: string | null;
-}
+// MembroAniversariante já definida acima
+// export interface MembroAniversariante { ... }
 
-export interface VisitanteAniversariante {
-    id: string;
-    nome: string;
-    data_primeira_visita: string; // YYYY-MM-DD
-    data_nascimento: string; // YYYY-MM-DD
-    telefone: string | null;
-    celula_id: string;
-    celula_nome: string | null;
-}
+// VisitanteAniversariante já definida acima
+// export interface VisitanteAniversariante { ... }
 
-export interface ReportDataAniversariantes {
-    mes: number; // 1-12
-    ano_referencia: number; // Ano atual para exibição
-    membros: MembroAniversariante[];
-    visitantes: VisitanteAniversariante[];
-}
+// ReportDataAniversariantes já definida acima
+// export interface ReportDataAniversariantes { ... }
 
-export interface LiderAlocacaoItem {
-    id: string; // user_id do perfil
-    email: string;
-    role: 'admin' | 'líder';
-    celula_id: string | null;
-    celula_nome: string | null; // Nome da célula se alocado
-    data_criacao_perfil: string;
-    ultimo_login: string | null;
-}
+// LiderAlocacaoItem já definida acima
+// export interface LiderAlocacaoItem { ... }
 
-export interface CelulaSemLiderItem {
-    id: string; // celula_id
-    nome: string; // nome da célula
-    lider_principal_cadastrado_na_celula: string | null; // Nome do líder principal registrado na tabela 'celulas'
-}
+// CelulaSemLiderItem já definida acima
+// export interface CelulaSemLiderItem { ... }
 
-export interface ReportDataAlocacaoLideres {
-    lideres_alocados: LiderAlocacaoItem[];
-    lideres_nao_alocados: LiderAlocacaoItem[];
-    celulas_sem_lider_atribuido: CelulaSemLiderItem[];
-    total_perfis_lider: number;
-    total_celulas: number;
-}
+// ReportDataAlocacaoLideres já definida acima
+// export interface ReportDataAlocacaoLideres { ... }
 
-export interface ChaveAtivacaoItem {
-    chave: string;
-    celula_id: string;
-    celula_nome: string | null; // Nome da célula
-    usada: boolean;
-    data_uso: string | null; // Quando foi usada (se usada)
-    usada_por_email: string | null; // Email do usuário que usou (se usada)
-    usada_por_id: string | null; // ID do perfil do usuário que usou (se usada)
-}
+// ChaveAtivacaoItem já definida acima
+// export interface ChaveAtivacaoItem { ... }
 
-export interface ReportDataChavesAtivacao {
-    chaves_ativas: ChaveAtivacaoItem[];
-    chaves_usadas: ChaveAtivacaoItem[];
-    total_chaves: number;
-}
+// ReportDataChavesAtivacao já definida acima
+// export interface ReportDataChavesAtivacao { ... }
