@@ -15,104 +15,116 @@ import {
   FaExclamationTriangle, 
   FaInfoCircle, 
   FaTimes,
-  FaSearch // ← Adicionei esta importação
+  FaSearch 
 } from 'react-icons/fa';
 
+// Importa funções de data.ts
 import {
     listarReunioes,
     excluirReuniao,
-    ReuniaoComNomes,
     listarCelulasParaAdmin, 
-    CelulaOption,
     duplicarReuniao,
 } from '@/lib/data'; 
+
+// Importa interfaces de types.ts <--- CORREÇÃO AQUI
+import { 
+    ReuniaoComNomes,    // Adicionado
+    CelulaOption,       // Adicionado
+} from '@/lib/types';
+
 
 import { formatDateForDisplay } from '@/utils/formatters'; 
 import LoadingSpinner from '@/components/LoadingSpinner'; 
 
-// Sistema de Toast integrado
-interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  duration?: number;
-}
+// REMOVER ESTE BLOCO: Sistema de Toast integrado, será substituído pelo global
+// interface Toast {
+//   id: string;
+//   message: string;
+//   type: 'success' | 'error' | 'warning' | 'info';
+//   duration?: number;
+// }
 
-const useToast = () => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+// const useToast = () => {
+//   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 5000) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newToast: Toast = { id, message, type, duration };
+//   const addToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 5000) => {
+//     const id = Math.random().toString(36).substring(2, 9);
+//     const newToast: Toast = { id, message, type, duration };
     
-    setToasts(prev => [...prev, newToast]);
+//     setToasts(prev => [...prev, newToast]);
 
-    if (duration > 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
-    }
-  }, []);
+//     if (duration > 0) {
+//       setTimeout(() => {
+//         removeToast(id);
+//       }, duration);
+//     }
+//   }, []);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
+//   const removeToast = useCallback((id: string) => {
+//     setToasts(prev => prev.filter(toast => toast.id !== id));
+//   }, []);
 
-  const ToastContainer = () => (
-    <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={`p-4 rounded-xl shadow-lg border-l-4 transform transition-all duration-300 ease-in-out ${
-            toast.type === 'success' 
-              ? 'bg-green-50 border-green-500 text-green-800' 
-              : toast.type === 'error'
-              ? 'bg-red-50 border-red-500 text-red-800'
-              : toast.type === 'warning'
-              ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
-              : 'bg-blue-50 border-blue-500 text-blue-800'
-          }`}
-        >
-          <div className="flex items-start space-x-3">
-            <div className={`flex-shrink-0 mt-0.5 ${
-              toast.type === 'success' 
-                ? 'text-green-500' 
-                : toast.type === 'error'
-                ? 'text-red-500'
-                : toast.type === 'warning'
-                ? 'text-yellow-500'
-                : 'text-blue-500'
-            }`}>
-              {toast.type === 'success' && <FaCheckCircle className="text-lg" />}
-              {toast.type === 'error' && <FaExclamationTriangle className="text-lg" />}
-              {toast.type === 'warning' && <FaExclamationTriangle className="text-lg" />}
-              {toast.type === 'info' && <FaInfoCircle className="text-lg" />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{toast.message}</p>
-            </div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className={`flex-shrink-0 ml-2 hover:bg-opacity-20 hover:bg-black rounded-full p-1 transition-colors ${
-                toast.type === 'success' 
-                  ? 'text-green-500 hover:text-green-700' 
-                  : toast.type === 'error'
-                  ? 'text-red-500 hover:text-red-700'
-                  : toast.type === 'warning'
-                  ? 'text-yellow-500 hover:text-yellow-700'
-                  : 'text-blue-500 hover:text-blue-700'
-              }`}
-            >
-              <FaTimes className="text-sm" />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+//   const ToastContainer = () => (
+//     <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
+//       {toasts.map((toast) => (
+//         <div
+//           key={toast.id}
+//           className={`p-4 rounded-xl shadow-lg border-l-4 transform transition-all duration-300 ease-in-out ${
+//             toast.type === 'success' 
+//               ? 'bg-green-50 border-green-500 text-green-800' 
+//               : toast.type === 'error'
+//               ? 'bg-red-50 border-red-500 text-red-800'
+//               : toast.type === 'warning'
+//               ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
+//               : 'bg-blue-50 border-blue-500 text-blue-800'
+//           }`}
+//         >
+//           <div className="flex items-start space-x-3">
+//             <div className={`flex-shrink-0 mt-0.5 ${
+//               toast.type === 'success' 
+//                 ? 'text-green-500' 
+//                 : toast.type === 'error'
+//                 ? 'text-red-500'
+//                 : toast.type === 'warning'
+//                 ? 'text-yellow-500'
+//                 : 'text-blue-500'
+//             }`}>
+//               {toast.type === 'success' && <FaCheckCircle className="text-lg" />}
+//               {toast.type === 'error' && <FaExclamationTriangle className="text-lg" />}
+//               {toast.type === 'warning' && <FaExclamationTriangle className="text-lg" />}
+//               {toast.type === 'info' && <FaInfoCircle className="text-lg" />}
+//             </div>
+//             <div className="flex-1">
+//               <p className="text-sm font-medium">{toast.message}</p>
+//             </div>
+//             <button
+//               onClick={() => removeToast(toast.id)}
+//               className={`flex-shrink-0 ml-2 hover:bg-opacity-20 hover:bg-black rounded-full p-1 transition-colors ${
+//                 toast.type === 'success' 
+//                   ? 'text-green-500 hover:text-green-700' 
+//                   : toast.type === 'error'
+//                   ? 'text-red-500 hover:text-red-700'
+//                   : toast.type === 'warning'
+//                   ? 'text-yellow-500 hover:text-yellow-700'
+//                   : 'text-blue-500 hover:text-blue-700'
+//               }`}
+//             >
+//               <FaTimes className="text-sm" />
+//             </button>
+//           </div>
+//         </div>
+//       ))}
+//     </div>
+//   );
 
-  return { addToast, removeToast, ToastContainer };
-};
+//   return { addToast, removeToast, ToastContainer };
+// };
+// FIM DO BLOCO A SER REMOVIDO
+
+// ADICIONAR IMPORTS DO TOAST GLOBAL
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+
 
 export default function ReunioesPage() {
     const [reunioes, setReunioes] = useState<ReuniaoComNomes[]>([]);
@@ -126,7 +138,8 @@ export default function ReunioesPage() {
     const [searchTermMinistrador, setSearchTermMinistrador] = useState('');
 
     const [submitting, setSubmitting] = useState(false);
-    const { addToast, ToastContainer } = useToast();
+    // CORREÇÃO: Usar o hook useToast global
+    const { addToast, toasts, removeToast } = useToast();
 
     const fetchReunioesAndOptions = useCallback(async () => { 
         setLoading(true);
@@ -165,7 +178,7 @@ export default function ReunioesPage() {
         } finally {
             setLoading(false);
         }
-    }, [addToast]);
+    }, [addToast]); // addToast é uma dependência estável do hook global
 
     useEffect(() => {
         fetchReunioesAndOptions();
@@ -495,8 +508,20 @@ export default function ReunioesPage() {
                 )}
             </div>
 
-            {/* Container de Toasts */}
-            <ToastContainer />
+            {/* Container de Toasts global */}
+            {/* CORREÇÃO: Renderizar o ToastContainer do hook global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+            {/* FIM CORREÇÃO */}
         </div>
     );
 }

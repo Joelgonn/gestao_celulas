@@ -5,107 +5,26 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client'; 
 import Link from 'next/link';
 import { FaPhone, FaWhatsapp, FaPlus, FaUserCog, FaFileImport, FaFileExport, FaSpinner, FaEdit, FaTrash, FaSearch, FaFilter, FaUsers } from 'react-icons/fa'; 
-import { Membro, listarMembros, excluirMembro, listarCelulasParaAdmin, CelulaOption, exportarMembrosCSV } from '@/lib/data'; 
+
+// Importações de funções de data.ts
+import { 
+    listarMembros, 
+    excluirMembro, 
+    listarCelulasParaAdmin, 
+    exportarMembrosCSV 
+} from '@/lib/data'; 
+
+// Importações de interfaces de types.ts
+import { 
+    Membro, 
+    CelulaOption 
+} from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Membro e CelulaOption de types.ts
+
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters'; 
 
-// Componente Toast moderno
-interface ToastProps {
-    message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    onClose: () => void;
-    duration?: number;
-}
-
-const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration = 5000 }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, duration);
-        return () => clearTimeout(timer);
-    }, [onClose, duration]);
-
-    const getIcon = () => {
-        switch (type) {
-            case 'success':
-                return (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                );
-            case 'error':
-                return (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                );
-            case 'warning':
-                return (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                );
-            case 'info':
-                return (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                );
-        }
-    };
-
-    const getStyles = () => {
-        const base = "flex items-center p-4 mb-2 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out animate-slide-in";
-        switch (type) {
-            case 'success':
-                return `${base} bg-green-50 border border-green-200 text-green-800`;
-            case 'error':
-                return `${base} bg-red-50 border border-red-200 text-red-800`;
-            case 'warning':
-                return `${base} bg-yellow-50 border border-yellow-200 text-yellow-800`;
-            case 'info':
-                return `${base} bg-blue-50 border border-blue-200 text-blue-800`;
-        }
-    };
-
-    return (
-        <div className={getStyles()}>
-            <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-500' : type === 'error' ? 'bg-red-100 text-red-500' : type === 'warning' ? 'bg-yellow-100 text-yellow-500' : 'bg-blue-100 text-blue-500'}`}>
-                {getIcon()}
-            </div>
-            <div className="ml-3 text-sm font-medium">{message}</div>
-            <button
-                type="button"
-                className="ml-auto -mx-1.5 -my-1.5 rounded-lg p-1.5 inline-flex h-8 w-8 hover:bg-gray-100 transition-colors duration-200"
-                onClick={onClose}
-            >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-            </button>
-        </div>
-    );
-};
-
-// Hook para gerenciar toasts
-const useToast = () => {
-    const [toasts, setToasts] = useState<Array<{ id: number; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
-
-    const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, message, type }]);
-    };
-
-    const removeToast = (id: number) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    };
-
-    return { toasts, addToast, removeToast };
-};
-
-// Componente de Loading com spinner animado
-const LoadingSpinner: React.FC = () => (
-    <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-    </div>
-);
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast'; 
+import LoadingSpinner from '@/components/LoadingSpinner'; 
 
 export default function MembrosPage() {
     const [membros, setMembros] = useState<Membro[]>([]); 
@@ -121,86 +40,116 @@ export default function MembrosPage() {
     const [submitting, setSubmitting] = useState(false); 
     const [exporting, setExporting] = useState(false); 
 
-    // Usar o hook de toast
     const { toasts, addToast, removeToast } = useToast();
 
-    const fetchMembrosAndCelulas = useCallback(async () => { 
-        setLoading(true);
-
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', user.id)
-                    .single();
-                if (profileError || !profile) {
-                    console.error("Erro ao buscar perfil do usuário:", profileError);
-                    setUserRole(null);
-                } else {
-                    setUserRole(profile.role as 'admin' | 'líder');
-                    if (profile.role === 'admin') {
-                        const celulasData = await listarCelulasParaAdmin();
-                        setCelulasOptions(celulasData);
+    // 1. Efeito para buscar o userRole UMA ÚNICA VEZ na montagem inicial
+    useEffect(() => {
+        async function fetchInitialUserRole() {
+            setLoading(true); // Ativa o loading
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                let fetchedRole: 'admin' | 'líder' | null = null;
+                if (user) {
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+                    if (!profileError && profile) {
+                        fetchedRole = profile.role as 'admin' | 'líder';
                     }
                 }
-            } else {
-                setUserRole(null);
+                setUserRole(fetchedRole);
+            } catch (e: any) {
+                console.error("Erro ao buscar perfil inicial do usuário:", e);
+                addToast('Erro ao carregar seu perfil: ' + (e.message || 'Erro desconhecido.'), 'error');
+            }
+        }
+        fetchInitialUserRole();
+    }, [addToast]);
+
+    // 2. useCallback para carregar opções de célula e membros.
+    // Esta função consolida a busca de dados e reage aos filtros e ao role.
+    const loadAllData = useCallback(async () => { 
+        if (userRole === null) return; // Aguarda userRole ser definido
+
+        setLoading(true);
+        try {
+            // -- Parte 1: Carregar opções de Célula (apenas para Admin) --
+            if (userRole === 'admin') {
+                const celulasData = await listarCelulasParaAdmin();
+                setCelulasOptions(celulasData);
+                // Se o selectedCelulaId atual não é válido para as novas opções, reseta.
+                if (selectedCelulaId !== "" && !celulasData.some(c => c.id === selectedCelulaId)) {
+                    setSelectedCelulaId("");
+                    addToast("Filtro de célula resetado para o admin.", 'info');
+                    return; // Retorna para re-executar com o estado correto
+                }
+            } else if (userRole === 'líder') {
+                 setCelulasOptions([]); // Garante que o dropdown de células do admin não apareça para o líder
+                 // Para líder, o filtro será sempre a sua própria célula (lógica interna do listarMembros)
             }
 
-            const data = await listarMembros(
-                selectedCelulaId === "" ? null : selectedCelulaId, 
-                null, 
+            // -- Parte 2: Carregar Membros com base nos filtros e role --
+            let celulaIdForMembrosFetch: string | null = null;
+            if (userRole === 'admin') {
+                celulaIdForMembrosFetch = selectedCelulaId === "" ? null : selectedCelulaId;
+            } else if (userRole === 'líder') {
+                // Para líder, passamos null, e a Server Action `listarMembros` (em lib/data.ts)
+                // internamente usará o celulaId do perfil do líder.
+                celulaIdForMembrosFetch = null; 
+            }
+
+            // Passar o searchTerm para a Server Action
+            const membrosData = await listarMembros(
+                celulaIdForMembrosFetch, 
+                searchTerm, 
                 selectedBirthdayMonth === "" ? null : parseInt(selectedBirthdayMonth), 
                 selectedStatusFilter 
             );
-            setMembros(data);
-            addToast('Dados carregados com sucesso!', 'success');
+            setMembros(membrosData);
+            addToast('Membros carregados com sucesso!', 'success');
+
         } catch (e: any) {
-            console.error("Erro ao buscar membros ou células:", e);
-            addToast(`Erro ao carregar dados: ${e.message || 'Erro desconhecido.'}`, 'error'); 
+            console.error("Erro ao carregar dados na página Membros:", e);
+            addToast('Erro ao carregar dados: ' + (e.message || 'Erro desconhecido.'), 'error'); 
         } finally {
             setLoading(false);
         }
-    }, [selectedCelulaId, selectedBirthdayMonth, selectedStatusFilter, addToast]); 
+    }, [userRole, selectedCelulaId, searchTerm, selectedBirthdayMonth, selectedStatusFilter, addToast]); 
 
+    // 3. Efeito para disparar `loadAllData` quando as dependências mudam
     useEffect(() => {
-        fetchMembrosAndCelulas();
-    }, [fetchMembrosAndCelulas]); 
+        loadAllData();
+    }, [loadAllData]);
 
     const handleDelete = async (membroId: string, nome: string) => {
-        if (!confirm(`Tem certeza que deseja remover ${nome}? Esta ação é irreversível.`)) {
+        if (!confirm('Tem certeza que deseja remover ' + nome + '? Esta ação é irreversível.')) {
             return; 
         }
         setSubmitting(true); 
         try {
             await excluirMembro(membroId);
-            setMembros(membros.filter(m => m.id !== membroId)); 
-            addToast(`${nome} removido com sucesso!`, 'success'); 
+            setMembros(prevMembros => prevMembros.filter(m => m.id !== membroId)); 
+            addToast(nome + ' removido com sucesso!', 'success'); 
         } catch (e: any) {
             console.error("Erro ao excluir membro:", e);
-            addToast(`Falha ao excluir ${nome}: ${e.message || "Erro desconhecido."}`, 'error'); 
+            addToast('Falha ao excluir ' + nome + ': ' + (e.message || "Erro desconhecido."), 'error'); 
         } finally {
             setSubmitting(false); 
         }
     };
 
+    // `filteredMembros` agora é apenas um alias para `membros`, já que a filtragem `searchTerm`
+    // e de célula ocorrem no servidor via `listarMembros`.
     const filteredMembros = useMemo(() => {
-        if (!searchTerm) {
-            return membros; 
-        }
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        return membros.filter(membro => 
-            membro.nome.toLowerCase().includes(lowerCaseSearchTerm) ||
-            (membro.telefone && membro.telefone.toLowerCase().includes(lowerCaseSearchTerm)) ||
-            (userRole === 'admin' && membro.celula_nome && membro.celula_nome.toLowerCase().includes(lowerCaseSearchTerm))
-        );
-    }, [membros, searchTerm, userRole]); 
+        return membros; 
+    }, [membros]); 
 
     const handleExportCSV = async () => {
         setExporting(true); 
         try {
+            // A exportação CSV usa os mesmos parâmetros de filtro da listagem
             const csv = await exportarMembrosCSV(
                 selectedCelulaId === "" ? null : selectedCelulaId, 
                 searchTerm, 
@@ -213,7 +162,7 @@ export default function MembrosPage() {
             if (link.download !== undefined) { 
                 const url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);
-                link.setAttribute('download', `membros_${new Date().toISOString().split('T')[0]}.csv`);
+                link.setAttribute('download', 'membros_' + new Date().toISOString().split('T')[0] + '.csv');
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
@@ -225,13 +174,13 @@ export default function MembrosPage() {
             }
         } catch (e: any) {
             console.error("Erro ao exportar CSV:", e);
-            addToast(`Erro ao exportar CSV: ${e.message || "Erro desconhecido."}`, 'error'); 
+            addToast('Erro ao exportar CSV: ' + (e.message || "Erro desconhecido."), 'error'); 
         } finally {
             setExporting(false); 
         }
     };
 
-    if (loading) {
+    if (userRole === null) { // Mostra o spinner inicial enquanto espera o role ser carregado
         return (
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
                 <div className="max-w-7xl mx-auto px-4">
@@ -244,6 +193,27 @@ export default function MembrosPage() {
                             </div>
                         </div>
                         <LoadingSpinner />
+                        <p className="mt-4 text-gray-600 text-center">Carregando informações do usuário...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (loading) { // Mostra o spinner se as opções estiverem sendo carregadas após o role já ter sido definido
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="bg-white rounded-xl shadow-lg p-8">
+                        <div className="animate-pulse">
+                            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
+                            <div className="space-y-4">
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                            </div>
+                        </div>
+                        <LoadingSpinner />
+                        <p className="mt-4 text-gray-600 text-center">Carregando membros...</p>
                     </div>
                 </div>
             </div>
@@ -290,7 +260,7 @@ export default function MembrosPage() {
                             <div className="flex items-center space-x-4 text-green-100">
                                 <div className="flex items-center space-x-2">
                                     <FaUsers className="w-5 h-5" />
-                                    <span>{filteredMembros.length} membro(s) encontrado(s)</span>
+                                    <span>{membros.length} membro(s) encontrado(s)</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -303,6 +273,11 @@ export default function MembrosPage() {
                         {userRole === 'admin' && (
                             <div className="bg-green-400 text-green-900 px-4 py-2 rounded-full font-semibold">
                                 Administrador
+                            </div>
+                        )}
+                        {userRole === 'líder' && (
+                            <div className="bg-blue-400 text-blue-900 px-4 py-2 rounded-full font-semibold">
+                                Líder
                             </div>
                         )}
                     </div>
@@ -417,7 +392,7 @@ export default function MembrosPage() {
 
                         <button
                             onClick={handleExportCSV}
-                            disabled={exporting || (filteredMembros.length === 0 && !searchTerm && !selectedCelulaId && selectedBirthdayMonth === "" && selectedStatusFilter === "all")}
+                            disabled={exporting || (membros.length === 0 && !searchTerm && !selectedCelulaId && selectedBirthdayMonth === "" && selectedStatusFilter === "all")} 
                             className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center space-x-2 font-medium"
                         >
                             {exporting ? (
@@ -436,7 +411,7 @@ export default function MembrosPage() {
                 </div>
 
                 {/* Lista de Membros */}
-                {filteredMembros.length === 0 && !searchTerm && !selectedCelulaId && selectedBirthdayMonth === "" && selectedStatusFilter === "all" ? ( 
+                {membros.length === 0 && !searchTerm && !selectedCelulaId && selectedBirthdayMonth === "" && selectedStatusFilter === "all" ? ( 
                     <div className="text-center p-12 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl">
                         <div className="max-w-md mx-auto">
                             <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -459,7 +434,7 @@ export default function MembrosPage() {
                             )}
                         </div>
                     </div>
-                ) : filteredMembros.length === 0 && (searchTerm || selectedCelulaId || selectedBirthdayMonth !== "" || selectedStatusFilter !== "all") ? ( 
+                ) : membros.length === 0 && (searchTerm || selectedCelulaId || selectedBirthdayMonth !== "" || selectedStatusFilter !== "all") ? ( 
                     <div className="text-center p-12 bg-yellow-50 border border-yellow-200 rounded-2xl">
                         <div className="max-w-md mx-auto">
                             <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -476,7 +451,9 @@ export default function MembrosPage() {
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                     <tr>
                                         <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Nome</th>
-                                        {userRole === 'admin' && (<th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Célula</th>)}
+                                        {userRole === 'admin' && (
+                                            <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Célula</th>
+                                        )}
                                         <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Telefone</th>
                                         <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Ingresso</th>
                                         <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Nascimento</th>
@@ -485,7 +462,7 @@ export default function MembrosPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredMembros.map((membro) => (
+                                    {membros.map((membro) => (
                                         <tr key={membro.id} className="hover:bg-gray-50 transition-colors duration-150">
                                             <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
                                                 <span className="font-medium text-gray-900">{membro.nome}</span>
@@ -502,10 +479,10 @@ export default function MembrosPage() {
                                                     <span className="text-gray-700">{formatPhoneNumberDisplay(membro.telefone)}</span>
                                                     {membro.telefone && (userRole === 'líder' || (userRole === 'admin' && selectedCelulaId)) && (
                                                         <div className="flex space-x-1">
-                                                            <a href={`tel:${membro.telefone}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors">
+                                                            <a href={'tel:' + membro.telefone} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors">
                                                                 <FaPhone className="text-sm" />
                                                             </a>
-                                                            <a href={`https://wa.me/${membro.telefone}`} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-700 p-1 rounded hover:bg-green-50 transition-colors">
+                                                            <a href={'https://wa.me/' + membro.telefone} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-700 p-1 rounded hover:bg-green-50 transition-colors">
                                                                 <FaWhatsapp className="text-sm" />
                                                             </a>
                                                         </div>
@@ -519,14 +496,14 @@ export default function MembrosPage() {
                                                 <span className="text-gray-700">{formatDateForDisplay(membro.data_nascimento)}</span>
                                             </td>
                                             <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(membro.status)}`}>
+                                                <span className={'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ' + getStatusBadge(membro.status)}>
                                                     {membro.status || 'N/A'}
                                                 </span>
                                             </td>
                                             <td className="py-4 px-6 whitespace-nowrap">
                                                 <div className="flex items-center justify-start space-x-2">
                                                     <Link 
-                                                        href={`/membros/editar/${membro.id}`} 
+                                                        href={'/membros/editar/' + membro.id}
                                                         className="inline-flex items-center space-x-1 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                                                         title="Editar Membro"
                                                     >

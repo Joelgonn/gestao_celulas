@@ -17,14 +17,19 @@ import {
     FaBookOpen,
     FaFileDownload
 } from 'react-icons/fa';
-import { useToastStore } from '@/lib/toast';
+// REMOVER ESTA LINHA: import { useToastStore } from '@/lib/toast';
+// ADICIONAR ESTAS DUAS LINHAS:
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
     uploadPalavraDaSemana, 
     getPalavraDaSemana, 
     deletePalavraDaSemana, 
-    PalavraDaSemana 
+    // REMOVA: PalavraDaSemana // <--- REMOVA ESTA LINHA
 } from '@/lib/data';
+import { PalavraDaSemana } from '@/lib/types'; // <--- ADICIONE ESTA LINHA para importar do types.ts
 import { formatDateForDisplay, formatDateForInput } from '@/utils/formatters';
 
 export default function AdminPalavraSemanaPage() {
@@ -38,7 +43,9 @@ export default function AdminPalavraSemanaPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const [currentPalavra, setCurrentPalavra] = useState<PalavraDaSemana | null>(null);
-    const { addToast } = useToastStore();
+    // ALTERAR ESTA LINHA: const { addToast } = useToastStore();
+    // PARA ESTA LINHA:
+    const { toasts, addToast, removeToast } = useToast();
 
     // Calcula a data da segunda-feira da semana atual para o input padrão
     const getDefaultDateForWeek = useMemo(() => {
@@ -107,22 +114,18 @@ export default function AdminPalavraSemanaPage() {
             return;
         }
 
-        // Se for uma NOVA palavra (não existe `currentPalavra` para a data selecionada), um arquivo é obrigatório.
-        // A lógica do servidor já lida com a verificação de `currentPalavra` pela data.
         if (!currentPalavra && !selectedFile) {
             addToast('É necessário selecionar um arquivo PDF/PPT para uma nova Palavra da Semana.', 'error');
             setSubmitting(false);
             return;
         }
 
-        // Verifica se há alguma alteração antes de submeter
-        // Se `currentPalavra` existe, verifica se os campos de texto mudaram OU se um novo arquivo foi selecionado.
         const noChanges = 
             currentPalavra &&
             currentPalavra.titulo === titulo.trim() &&
-            currentPalavra.descricao === (descricao.trim() || null) && // Compara trim() e null
+            currentPalavra.descricao === (descricao.trim() || null) &&
             currentPalavra.data_semana === dataSemana &&
-            !selectedFile; // Não tem novo arquivo selecionado
+            !selectedFile;
 
         if (noChanges) {
             addToast('Nenhuma alteração detectada para salvar.', 'info');
@@ -134,12 +137,12 @@ export default function AdminPalavraSemanaPage() {
         formData.append('titulo', titulo.trim());
         formData.append('descricao', descricao.trim());
         formData.append('data_semana', dataSemana);
-        if (selectedFile) { // Só adiciona o arquivo se um novo foi selecionado
+        if (selectedFile) {
             formData.append('file', selectedFile);
         }
         
         try {
-            if (selectedFile) { // Se um arquivo foi selecionado, mostra o progresso.
+            if (selectedFile) {
                 const simulateProgress = setInterval(() => {
                     setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
                 }, 200);
@@ -151,21 +154,20 @@ export default function AdminPalavraSemanaPage() {
                 if (result.success) {
                     addToast(result.message, 'success');
                     setSelectedFile(null);
-                    // Limpa o input file manualmente após o upload
                     if (document.getElementById('file')) {
                         (document.getElementById('file') as HTMLInputElement).value = '';
                     }
-                    await fetchCurrentPalavra(); // Recarrega para mostrar a nova palavra
+                    await fetchCurrentPalavra();
                 } else {
                     addToast(result.message, 'error');
-                    setUploadProgress(0); // Reseta progresso no erro
+                    setUploadProgress(0);
                 }
 
-            } else { // Caso de apenas atualização de texto, sem novo arquivo
+            } else {
                 const result = await uploadPalavraDaSemana(formData);
                 if (result.success) {
                     addToast(result.message, 'success');
-                    await fetchCurrentPalavra(); // Recarrega para mostrar a palavra atualizada
+                    await fetchCurrentPalavra();
                 } else {
                     addToast(result.message, 'error');
                 }
@@ -176,7 +178,6 @@ export default function AdminPalavraSemanaPage() {
             addToast(`Erro inesperado: ${error.message}`, 'error');
         } finally {
             setSubmitting(false);
-            // O progresso é resetado após um pequeno delay para feedback visual final
             setTimeout(() => setUploadProgress(0), 1000); 
         }
     };
@@ -191,7 +192,6 @@ export default function AdminPalavraSemanaPage() {
             if (result.success) {
                 addToast(result.message, 'success');
                 setCurrentPalavra(null);
-                // Reseta o formulário para criar uma nova
                 setTitulo('');
                 setDescricao('');
                 setDataSemana(getDefaultDateForWeek);
@@ -221,6 +221,20 @@ export default function AdminPalavraSemanaPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
+            {/* NOVO: Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+            {/* FIM NOVO: Container de Toasts */}
+
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
@@ -305,7 +319,7 @@ export default function AdminPalavraSemanaPage() {
                             <input
                                 type="file"
                                 id="file"
-                                accept=".pdf,.ppt,.pptx" // Aceita PDF e PPT/PPTX
+                                accept=".pdf,.ppt,.pptx"
                                 onChange={handleFileChange}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                                 disabled={submitting}
@@ -325,7 +339,7 @@ export default function AdminPalavraSemanaPage() {
                         <button
                             type="submit"
                             className="bg-gradient-to-r from-emerald-600 to-green-500 text-white py-3 px-6 rounded-xl hover:from-emerald-700 hover:to-green-600 transition-all duration-200 disabled:from-emerald-400 disabled:to-green-400 disabled:cursor-not-allowed w-full font-medium shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
-                            disabled={submitting || (!selectedFile && !currentPalavra)} // Desabilita se não tiver arquivo para upload e não houver palavra atual para atualizar o texto
+                            disabled={submitting || (!selectedFile && !currentPalavra)}
                         >
                             {submitting ? (
                                 <>

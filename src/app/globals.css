@@ -1,27 +1,133 @@
 /* src/app/globals.css */
 @import "tailwindcss";
 
+/*
+  Variáveis CSS customizadas para o tema claro e escuro.
+  A propriedade '--background' define a cor de fundo principal da aplicação.
+  A propriedade '--foreground' define a cor principal do texto.
+  Outras variáveis podem ser adicionadas conforme a necessidade para
+  cores de destaque, bordas, etc., mantendo a consistência do tema.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ffffff; /* Fundo claro padrão */
+  --foreground: #171717; /* Texto escuro padrão */
+
+  /* Cores para os componentes que precisam de contraste no modo claro */
+  --input-background-light: #ffffff;
+  --input-text-light: #111827;   /* gray-900 para bom contraste */
+  --input-placeholder-light: #4b5563; /* gray-600 para bom contraste */
 }
 
+/*
+  Configuração do tema "inline" para Tailwind CSS (se estiver usando Tailwind JIT/v3+
+  e configurado para usar variáveis CSS para o tema).
+  Isso pode variar dependendo da sua configuração exata do Tailwind.
+*/
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* --font-sans: var(--font-geist-sans); */ /* Comentado se Geist Sans não estiver em uso */
+  /* --font-mono: var(--font-geist-mono); */ /* Comentado se Geist Mono não estiver em uso */
 }
 
+/*
+  Regras para o Modo Escuro (Dark Mode).
+  Quando o sistema operacional do usuário prefere o modo escuro,
+  estas variáveis sobrescrevem as definidas em `:root`.
+*/
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0a0a0a; /* Fundo escuro para o dark mode */
+    --foreground: #ededed; /* Texto claro para o dark mode */
+
+    /* Cores para os componentes que precisam de contraste no modo escuro */
+    --input-background-dark: #374151; /* Tailwind gray-700, um bom fundo para inputs escuros */
+    --input-text-dark: #ededed;     /* var(--foreground) para bom contraste */
+    --input-placeholder-dark: #9ca3af; /* Tailwind gray-400, para um placeholder visível, mas sutil */
   }
 }
 
+/*
+  Estilos globais para o corpo da página.
+  Utiliza as variáveis de tema para fundo e cor do texto.
+*/
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif; /* Manteremos a fonte padrão por enquanto */
+  font-family: Arial, Helvetica, sans-serif; /* Mantido Arial como fonte padrão por enquanto */
+  /* Adicione aqui quaisquer outros estilos globais para o body */
+}
+
+/*
+  Refatoração: Estilos para melhorar a legibilidade dos campos de formulário (input, textarea, select).
+  Estas regras visam garantir um bom contraste para o texto digitado e os placeholders
+  em ambos os modos (claro e escuro).
+*/
+
+/* Estilos gerais para inputs, textareas e selects */
+input,
+textarea,
+select {
+  /* No modo claro, usa as variáveis light. No modo escuro, as dark sobrescreverão */
+  color: var(--input-text-light) !important;
+  background-color: var(--input-background-light) !important;
+  border-color: #d1d5db !important; /* Tailwind gray-300 para borda padrão */
+  /* Outros estilos comuns como padding, border-radius, etc., podem ser definidos por classes do Tailwind
+     ou aqui, se precisarem ser globais e sobrescrever tudo. */
+}
+
+/* Estilos para placeholders */
+input::placeholder,
+textarea::placeholder {
+  color: var(--input-placeholder-light) !important;
+  opacity: 1 !important; /* Garante que o placeholder não fique muito transparente */
+}
+
+/* Estilos para selects que não possuem um valor selecionado (como options vazios) */
+select:invalid {
+  color: var(--input-placeholder-light) !important; /* Ajuda a manter a visibilidade do "selecione uma opção" */
+}
+
+
+/* Sobrescritas para Modo Escuro */
+@media (prefers-color-scheme: dark) {
+  input,
+  textarea,
+  select {
+    color: var(--input-text-dark) !important;
+    background-color: var(--input-background-dark) !important;
+    border-color: #4b5563 !important; /* Tailwind gray-600 para borda no dark mode */
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--input-placeholder-dark) !important;
+    opacity: 0.7 !important; /* Um pouco menos opaco no dark mode para o placeholder */
+  }
+
+  select:invalid {
+    color: var(--input-placeholder-dark) !important;
+  }
+}
+
+/*
+  Ajuste para garantir que inputs desabilitados tenham um estilo apropriado
+  e não sejam confundidos com inputs normais, mantendo a legibilidade.
+*/
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.6; /* Torna o campo ligeiramente transparente */
+  background-color: #e5e7eb !important; /* Fundo cinza claro para desabilitados no modo claro */
+  color: #6b7280 !important; /* Texto cinza escuro para desabilitados no modo claro */
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    background-color: #4b5563 !important; /* Fundo cinza escuro para desabilitados no modo escuro */
+    color: #9ca3af !important; /* Texto cinza claro para desabilitados no modo escuro */
+  }
 }

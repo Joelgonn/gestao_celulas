@@ -1,12 +1,28 @@
 // src/app/(app)/visitantes/novo/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { adicionarVisitante } from '@/lib/data';
+// Importa funções de data.ts
+import { 
+    adicionarVisitante, 
+    listarCelulasParaAdmin, 
+} from '@/lib/data';
+// Importa interfaces de types.ts <--- CORREÇÃO AQUI
+import { 
+    CelulaOption,
+    Visitante // Se Visitante for usado para tipar o FormData, importar também
+} from '@/lib/types';
+
 import { normalizePhoneNumber } from '@/utils/formatters';
-import { useToastStore } from '@/lib/toast';
+
+// --- REFATORAÇÃO: TOASTS (CORRETO AGORA) ---
+import useToast from '@/hooks/useToast'; // Importa o hook useToast global
+import Toast from '@/components/ui/Toast';   // Importa o componente Toast global
+import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial
+// --- FIM REFATORAÇÃO TOASTS ---
+
 import { 
     FaUserPlus, 
     FaPhone, 
@@ -18,37 +34,65 @@ import {
     FaTimes
 } from 'react-icons/fa';
 
-interface NovoVisitanteFormData { 
-    nome: string;
-    telefone: string;
-    data_primeira_visita: string;
-    endereco: string;
-    data_ultimo_contato: string; 
-    observacoes: string;
-}
+// --- CORREÇÃO: Interface NovoVisitanteFormData atualizada e correta ---
+// Omitindo 'id', 'created_at', 'celula_nome' que são gerados ou não editáveis no formulário.
+interface NovoVisitanteFormData extends Omit<Visitante, 'id' | 'created_at' | 'celula_nome'> {}
+// --- FIM CORREÇÃO ---
 
 export default function NovoVisitantePage() {
+    // CORREÇÃO: Usar a interface NovoVisitanteFormData
     const [formData, setFormData] = useState<NovoVisitanteFormData>({
         nome: '',
-        telefone: '',
+        telefone: null,
         data_primeira_visita: new Date().toISOString().split('T')[0],
-        endereco: '',
-        data_ultimo_contato: '', 
-        observacoes: '' 
+        data_nascimento: null,
+        endereco: null,
+        data_ultimo_contato: null, 
+        observacoes: null,
+        celula_id: '',
     });
     
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<string, boolean>>({});
-    const router = useRouter();
-    const { addToast } = useToastStore();
+    
+    const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const router = useRouter();
+    // --- REFATORAÇÃO: TOASTS (USANDO O HOOK GLOBAL) ---
+    const { toasts, addToast, removeToast } = useToast();
+    // --- FIM REFATORAÇÃO TOASTS ---
+
+    useEffect(() => {
+        const fetchDependencies = async () => {
+            setLoading(true);
+            try {
+                const cells = await listarCelulasParaAdmin();
+                setCelulasOptions(cells);
+
+                if (cells.length === 1) {
+                    setFormData(prev => ({ ...prev, celula_id: cells[0].id }));
+                }
+
+                addToast('Listas de células carregadas.', 'success', 3000);
+            } catch (e: any) {
+                console.error("Erro ao carregar dependências para novo visitante:", e);
+                addToast(e.message || 'Erro ao carregar dados iniciais', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchDependencies();
+    }, [addToast]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         
         if (name === 'telefone') {
-            setFormData({ ...formData, [name]: normalizePhoneNumber(value) });
+            setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            setFormData({ ...formData, [name]: value });
+            // CORREÇÃO: Garante que strings vazias de campos opcionais são convertidas para null.
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         }
         
         if (!touched[name]) {
@@ -56,7 +100,7 @@ export default function NovoVisitantePage() {
         }
     };
 
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name } = e.target;
         if (!touched[name]) {
             setTouched({ ...touched, [name]: true });
@@ -70,7 +114,7 @@ export default function NovoVisitantePage() {
         
         switch (fieldName) {
             case 'nome':
-                return !value.trim() ? 'Nome é obrigatório' : null;
+                return !value || !value.trim() ? 'Nome é obrigatório' : null;
             case 'telefone':
                 if (value && (value.length < 10 || value.length > 11)) {
                     return 'Telefone deve ter 10 ou 11 dígitos';
@@ -78,23 +122,25 @@ export default function NovoVisitantePage() {
                 return null;
             case 'data_primeira_visita':
                 return !value ? 'Data da primeira visita é obrigatória' : null;
+            case 'celula_id':
+                return !value ? 'Célula é obrigatória' : null;
             default:
                 return null;
         }
     };
     
-    // --- INÍCIO DA CORREÇÃO ---
     const hasErrors = (): boolean => {
         return !formData.nome.trim() || 
-               !!(formData.telefone && (formData.telefone.length < 10 || formData.telefone.length > 11));
+               !!(formData.telefone && (formData.telefone.length < 10 || formData.telefone.length > 11)) ||
+               !formData.data_primeira_visita ||
+               !formData.celula_id;
     };
-    // --- FIM DA CORREÇÃO ---
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         const allTouched = Object.keys(formData).reduce((acc, key) => {
-            acc[key] = true;
+            acc[key as keyof NovoVisitanteFormData] = true;
             return acc;
         }, {} as Record<string, boolean>);
         setTouched(allTouched);
@@ -104,19 +150,21 @@ export default function NovoVisitantePage() {
             return;
         }
 
-        setLoading(true);
+        setSubmitting(true);
 
         try {
             await adicionarVisitante({
                 nome: formData.nome.trim(),
-                telefone: formData.telefone || null,
+                telefone: normalizePhoneNumber(formData.telefone) || null,
                 data_primeira_visita: formData.data_primeira_visita,
+                data_nascimento: formData.data_nascimento || null, // Incluído
                 endereco: formData.endereco || null,
                 data_ultimo_contato: formData.data_ultimo_contato || null, 
-                observacoes: formData.observacoes || null, 
+                observacoes: formData.observacoes || null,
+                celula_id: formData.celula_id,
             });
             
-            addToast('Visitante adicionado com sucesso!', 'success');
+            addToast('Visitante adicionado com sucesso!', 'success', 3000);
             
             setTimeout(() => {
                 router.push('/visitantes');
@@ -127,10 +175,10 @@ export default function NovoVisitantePage() {
             if (e.code === '23505') { 
                 addToast('Já existe um visitante com este nome na sua célula', 'error');
             } else {
-                addToast(`Falha ao adicionar: ${e.message}`, 'error');
+                addToast(`Falha ao adicionar: ${e.message || 'Erro desconhecido'}`, 'error');
             }
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
@@ -145,7 +193,7 @@ export default function NovoVisitantePage() {
         rows
     }: {
         label: string;
-        name: keyof NovoVisitanteFormData;
+        name: keyof NovoVisitanteFormData; // CORREÇÃO: Usar a nova interface
         type?: string;
         required?: boolean;
         icon?: any;
@@ -173,7 +221,7 @@ export default function NovoVisitantePage() {
                         <textarea
                             id={name}
                             name={name}
-                            value={formData[name] as string}
+                            value={(formData[name] as string) || ''}
                             onChange={handleChange}
                             onBlur={handleBlur}
                             rows={rows}
@@ -189,7 +237,7 @@ export default function NovoVisitantePage() {
                             type={type}
                             id={name}
                             name={name}
-                            value={formData[name] as string}
+                            value={(formData[name] as string) || ''}
                             onChange={handleChange}
                             onBlur={handleBlur}
                             required={required}
@@ -216,6 +264,20 @@ export default function NovoVisitantePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+
+            {/* Conteúdo Principal */}
             <div className="max-w-2xl mx-auto">
                 <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
                     <div className="flex items-center space-x-4">
@@ -257,18 +319,64 @@ export default function NovoVisitantePage() {
                                 />
 
                                 <InputField
-                                    label="Data Último Contato"
-                                    name="data_ultimo_contato"
+                                    label="Data de Nascimento"
+                                    name="data_nascimento"
                                     type="date"
                                     icon={FaCalendar}
                                 />
                             </div>
+
+                            {/* Campo de seleção de Célula (apenas para admins ou se houver mais de uma opção) */}
+                            {celulasOptions.length > 0 && ( // CORREÇÃO: se for 0, não mostra o seletor.
+                                <div className="space-y-2">
+                                    <label htmlFor="celula_id" className="block text-sm font-medium text-gray-700">
+                                        Célula <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                            <FaMapMarkerAlt className="w-4 h-4" />
+                                        </div>
+                                        <select
+                                            id="celula_id"
+                                            name="celula_id"
+                                            required
+                                            value={formData.celula_id}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            className={`w-full pl-10 pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
+                                                getFieldError('celula_id') 
+                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+                                                    : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
+                                            }`}
+                                            disabled={celulasOptions.length === 1} // Desabilita se houver apenas uma opção
+                                        >
+                                            {celulasOptions.length > 1 && <option value="">-- Selecione a Célula --</option>} {/* Opção padrão apenas se houver mais de 1 */}
+                                            {celulasOptions.map(celula => (
+                                                <option key={celula.id} value={celula.id}>{celula.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {getFieldError('celula_id') && (
+                                        <p className="text-red-600 text-sm flex items-center space-x-1">
+                                            <FaTimes className="w-3 h-3" />
+                                            <span>{getFieldError('celula_id')}</span>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             <InputField
                                 label="Endereço"
                                 name="endereco"
                                 icon={FaMapMarkerAlt}
                                 placeholder="Digite o endereço completo"
+                            />
+
+                            <InputField
+                                label="Data Último Contato"
+                                name="data_ultimo_contato"
+                                type="date"
+                                icon={FaCalendar}
                             />
 
                             <InputField
@@ -297,10 +405,10 @@ export default function NovoVisitantePage() {
                                 
                                 <button 
                                     type="submit" 
-                                    disabled={loading || hasErrors()}
+                                    disabled={submitting || loading || hasErrors()}
                                     className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-xl hover:from-emerald-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg hover:shadow-xl w-full sm:w-auto"
                                 >
-                                    {loading ? (
+                                    {submitting ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                             <span>Adicionando...</span>

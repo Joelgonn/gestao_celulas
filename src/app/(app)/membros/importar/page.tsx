@@ -4,41 +4,58 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+// Importa funções de data.ts
 import { importarMembrosCSV } from '@/lib/data';
+// Importa a interface ImportMembroResult de types.ts
+import { ImportMembroResult } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar ImportMembroResult de types.ts
 
+// --- REFATORAÇÃO: TOASTS ---
+// Remover a implementação local de Toast e usar o hook global.
+// REMOVER ESTE BLOCO:
 // Sistema de Toasts
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
+// interface Toast {
+//   id: string;
+//   type: 'success' | 'error' | 'warning' | 'info';
+//   title: string;
+//   message?: string;
+//   duration?: number;
+// }
+// FIM DO BLOCO A SER REMOVIDO
+
+// ADICIONAR ESTAS DUAS LINHAS:
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
 
 export default function ImportarMembrosPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  // REMOVER ESTA LINHA: const [toasts, setToasts] = useState<Toast[]>([]);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ rowIndex: number; data: any; error: string }[]>([]);
+  // CORREÇÃO: tipagem do estado 'errors' com a interface ImportMembroResult['errors'][number]
+  const [errors, setErrors] = useState<ImportMembroResult['errors']>([]); // <--- CORREÇÃO AQUI
   const [fileName, setFileName] = useState<string>('');
 
   const router = useRouter();
 
+  // ADICIONAR ESTA LINHA: Inicializar o hook de toast global
+  const { toasts, addToast, removeToast } = useToast();
+
+  // REMOVER ESTAS FUNÇÕES LOCAIS:
   // Função para adicionar toast
-  const addToast = (toast: Omit<Toast, 'id'>) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newToast = { ...toast, id };
-    setToasts(prev => [...prev, newToast]);
+  // const addToast = (toast: Omit<Toast, 'id'>) => {
+  //   const id = Math.random().toString(36).substring(2, 9);
+  //   const newToast = { ...toast, id };
+  //   setToasts(prev => [...prev, newToast]);
     
-    setTimeout(() => {
-      removeToast(id);
-    }, toast.duration || 5000);
-  };
+  //   setTimeout(() => {
+  //     removeToast(id);
+  //   }, toast.duration || 5000);
+  // };
 
   // Função para remover toast
-  const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
+  // const removeToast = (id: string) => {
+  //   setToasts(prev => prev.filter(toast => toast.id !== id));
+  // };
+  // FIM DAS FUNÇÕES LOCAIS A SEREM REMOVIDAS
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -47,12 +64,12 @@ export default function ImportarMembrosPage() {
       setFileName(file.name);
       setErrors([]);
       
-      addToast({
-        type: 'success',
-        title: 'Arquivo selecionado',
-        message: `${file.name} pronto para importação`,
-        duration: 3000
-      });
+      // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+      addToast(
+        `Arquivo selecionado: ${file.name} pronto para importação`,
+        'success',
+        3000
+      );
     }
   };
 
@@ -62,11 +79,11 @@ export default function ImportarMembrosPage() {
     setErrors([]);
 
     if (!csvFile) {
-      addToast({
-        type: 'error',
-        title: 'Arquivo necessário',
-        message: 'Por favor, selecione um arquivo CSV'
-      });
+      // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+      addToast(
+        'Por favor, selecione um arquivo CSV',
+        'error'
+      );
       setLoading(false);
       return;
     }
@@ -78,140 +95,70 @@ export default function ImportarMembrosPage() {
         const result = await importarMembrosCSV(csvString);
 
         if (result.success) {
-          addToast({
-            type: 'success',
-            title: 'Importação concluída!',
-            message: `${result.success} membros importados com sucesso`,
-            duration: 4000
-          });
+          // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+          addToast(
+            `${result.importedCount} membros importados com sucesso!`,
+            'success',
+            4000
+          );
 
-          // Redirecionar após mostrar o toast
           setTimeout(() => {
             router.push('/membros');
           }, 2000);
         } else {
-          addToast({
-            type: 'warning',
-            title: 'Importação parcial',
-            message: `${result.success} sucessos, ${result.errors.length} erros`
-          });
+          // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+          addToast(
+            `Importação parcial: ${result.importedCount} sucessos, ${result.errors.length} erros.`,
+            'warning'
+          );
           setErrors(result.errors);
         }
         setLoading(false);
       };
       
       fileReader.onerror = () => {
-        addToast({
-          type: 'error',
-          title: 'Erro de leitura',
-          message: 'Não foi possível ler o arquivo'
-        });
+        // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+        addToast(
+          'Não foi possível ler o arquivo.',
+          'error'
+        );
         setLoading(false);
       };
       
       fileReader.readAsText(csvFile);
     } catch (error: any) {
       console.error("Erro ao ler arquivo ou na importação:", error);
-      addToast({
-        type: 'error',
-        title: 'Erro inesperado',
-        message: error.message || "Erro desconhecido durante a importação"
-      });
+      // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+      addToast(
+        `Erro inesperado: ${error.message || "Erro desconhecido durante a importação"}`,
+        'error'
+      );
       setLoading(false);
     }
   };
 
+  // REMOVER ESTAS FUNÇÕES LOCAIS E SEUS USOS
   // Ícones para os toasts
-  const getToastIcon = (type: Toast['type']) => {
-    switch (type) {
-      case 'success':
-        return (
-          <div className="flex-shrink-0">
-            <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="flex-shrink-0">
-            <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-      case 'warning':
-        return (
-          <div className="flex-shrink-0">
-            <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-      case 'info':
-        return (
-          <div className="flex-shrink-0">
-            <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-    }
-  };
+  // const getToastIcon = (type: Toast['type']) => { ... };
+  // const getToastStyles = (type: Toast['type']) => { ... };
+  // FIM DAS FUNÇÕES LOCAIS A SEREM REMOVIDAS
 
-  const getToastStyles = (type: Toast['type']) => {
-    const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-    
-    switch (type) {
-      case 'success':
-        return `${baseStyles} border-l-4 border-green-500`;
-      case 'error':
-        return `${baseStyles} border-l-4 border-red-500`;
-      case 'warning':
-        return `${baseStyles} border-l-4 border-yellow-500`;
-      case 'info':
-        return `${baseStyles} border-l-4 border-blue-500`;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Container de Toasts */}
-      <div className="fixed top-4 right-4 z-50 space-y-3">
+      {/* NOVO: Container de Toasts global */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map((toast) => (
-          <div
+          <Toast
             key={toast.id}
-            className={getToastStyles(toast.type)}
-          >
-            <div className="p-4">
-              <div className="flex items-start">
-                {getToastIcon(toast.type)}
-                <div className="ml-3 w-0 flex-1 pt-0.5">
-                  <p className="text-sm font-medium text-gray-900">
-                    {toast.title}
-                  </p>
-                  {toast.message && (
-                    <p className="mt-1 text-sm text-gray-500">
-                      {toast.message}
-                    </p>
-                  )}
-                </div>
-                <div className="ml-4 flex-shrink-0 flex">
-                  <button
-                    onClick={() => removeToast(toast.id)}
-                    className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    <span className="sr-only">Fechar</span>
-                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+            duration={toast.duration}
+          />
         ))}
       </div>
+      {/* FIM NOVO: Container de Toasts */}
 
       {/* Conteúdo Principal */}
       <div className="max-w-2xl mx-auto">

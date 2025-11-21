@@ -33,9 +33,19 @@ export default function ActivateAccountPage() {
 
             if (profileError) {
                 console.error("ActivateAccountPage: Erro ao buscar perfil:", profileError);
+                // Se der erro ao buscar o perfil, pode ser que ele ainda não exista,
+                // então permite que a página de ativação continue.
             } else if (profile && profile.celula_id !== null) {
-                router.replace('/dashboard');
+                // Se o perfil já existe E tem celula_id (está ativado)
+                // OU se o perfil é admin (admins não precisam de celula_id para acessar)
+                if (profile.role === 'admin' || profile.celula_id !== null) {
+                    router.replace('/dashboard');
+                    return;
+                }
             }
+            // Se chegou aqui, o usuário está logado, mas ou o perfil não tem celula_id
+            // ou houve um erro ao buscar o perfil, então ele precisa ativar.
+            // Permite que a página de ativação seja renderizada.
         }
         checkUserSession();
     }, [router]);

@@ -12,17 +12,8 @@ import {
     fetchReportDataAniversariantes,
     fetchReportDataAlocacaoLideres,
     fetchReportDataChavesAtivacao,
-    listMembros,     
+    listMembros,
     listReunioes,
-    MembroOption,
-    ReuniaoOption,
-    ReportDataPresencaReuniao,
-    ReportDataPresencaMembro,
-    ReportDataFaltososPeriodo,
-    ReportDataVisitantesPeriodo,
-    ReportDataAniversariantes,
-    ReportDataAlocacaoLideres,
-    ReportDataChavesAtivacao,
     exportReportDataPresencaReuniaoCSV,
     exportReportDataPresencaMembroCSV,
     exportReportDataFaltososPeriodoCSV,
@@ -30,9 +21,28 @@ import {
     exportReportDataAniversariantesCSV,
     exportReportDataAlocacaoLideresCSV,
     exportReportDataChavesAtivacaoCSV,
-} from '@/lib/reports_data'; 
+} from '@/lib/reports_data';
 
-import { listarCelulasParaAdmin, CelulaOption } from '@/lib/data';
+import {
+    listarCelulasParaAdmin,
+    listarCelulasParaLider,
+} from '@/lib/data';
+
+// Importações de INTERFACES de types.ts <--- CORREÇÃO AQUI
+import {
+    CelulaOption,
+    MembroOption, 
+    ReuniaoOption, 
+    ReportDataPresencaReuniao, 
+    ReportDataPresencaMembro, 
+    ReportDataFaltososPeriodo, 
+    ReportDataVisitantesPeriodo, 
+    ReportDataAniversariantes, 
+    ReportDataAlocacaoLideres, 
+    ReportDataChavesAtivacao, 
+} from '@/lib/types'; // <--- Agora o MembroOption está completo aqui.
+
+
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
 import { ReportPresencaReuniaoDisplay } from '@/components/relatorios/ReportPresencaReuniaoDisplay';
@@ -43,62 +53,9 @@ import { ReportAniversariantesDisplay } from '@/components/relatorios/ReportAniv
 import { ReportAlocacaoLideresDisplay } from '@/components/relatorios/ReportAlocacaoLideresDisplay';
 import { ReportChavesAtivacaoDisplay } from '@/components/relatorios/ReportChavesAtivacaoDisplay';
 
-// Componente Toast moderno
-interface ToastProps {
-    message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    onClose: () => void;
-    duration?: number;
-}
-
-const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration = 5000 }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, duration);
-        return () => clearTimeout(timer);
-    }, [onClose, duration]);
-
-    const getIcon = () => {
-        switch (type) {
-            case 'success': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
-            case 'error': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>;
-            case 'warning': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
-            case 'info': return <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>;
-        }
-    };
-
-    const getStyles = () => {
-        const base = "flex items-center p-4 mb-2 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out animate-slide-in";
-        switch (type) {
-            case 'success': return `${base} bg-green-50 border border-green-200 text-green-800`;
-            case 'error': return `${base} bg-red-50 border border-red-200 text-red-800`;
-            case 'warning': return `${base} bg-yellow-50 border border-yellow-200 text-yellow-800`;
-            case 'info': return `${base} bg-blue-50 border border-blue-200 text-blue-800`;
-        }
-    };
-
-    return (
-        <div className={getStyles()}>
-            <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-500' : type === 'error' ? 'bg-red-100 text-red-500' : type === 'warning' ? 'bg-yellow-100 text-yellow-500' : 'bg-blue-100 text-blue-500'}`}>
-                {getIcon()}
-            </div>
-            <div className="ml-3 text-sm font-medium">{message}</div>
-            <button type="button" className="ml-auto -mx-1.5 -my-1.5 rounded-lg p-1.5 inline-flex h-8 w-8 hover:bg-gray-100 transition-colors duration-200" onClick={onClose}>
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-            </button>
-        </div>
-    );
-};
-
-const useToast = () => {
-    const [toasts, setToasts] = useState<Array<{ id: number; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
-    const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => { const id = Date.now(); setToasts(prev => [...prev, { id, message, type }]); };
-    const removeToast = (id: number) => { setToasts(prev => prev.filter(toast => toast.id !== id)); };
-    return { toasts, addToast, removeToast };
-};
-
-const LoadingSpinner: React.FC = () => (
-    <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>
-);
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type ReportContent = ReportDataPresencaReuniao | ReportDataPresencaMembro | ReportDataFaltososPeriodo | ReportDataVisitantesPeriodo | ReportDataAniversariantes | ReportDataAlocacaoLideres | ReportDataChavesAtivacao;
 
@@ -106,7 +63,7 @@ type UnifiedReportData = {
     type: ReportTypeEnum;
     title: string;
     content: ReportContent;
-    filename?: string; 
+    filename?: string;
 };
 
 type ReportTypeEnum = 'presenca_reuniao' | 'presenca_membro' | 'faltosos' | 'visitantes_periodo' | 'aniversariantes_mes' | 'alocacao_lideres' | 'chaves_ativacao';
@@ -115,8 +72,8 @@ export default function RelatoriosPage() {
     const [selectedReportType, setSelectedReportType] = useState<ReportTypeEnum | null>(null);
     const [reunioesOptions, setReunioesOptions] = useState<ReuniaoOption[]>([]);
     const [membrosOptions, setMembrosOptions] = useState<MembroOption[]>([]);
-    const [loadingOptions, setLoadingOptions] = useState(true); 
-    
+    const [loadingOptions, setLoadingOptions] = useState(true);
+
     const [selectedReuniaoId, setSelectedReuniaoId] = useState<string>('');
     const [selectedMembroId, setSelectedMembroId] = useState<string>('');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -127,10 +84,10 @@ export default function RelatoriosPage() {
     const [celulasFilterOptions, setCelulasFilterOptions] = useState<CelulaOption[]>([]);
     const [selectedFilterCelulaId, setSelectedFilterCelulaId] = useState<string>('');
 
-    const [reportDisplayData, setReportDisplayData] = useState<UnifiedReportData | null>(null); 
-    const [loadingReport, setLoadingReport] = useState(false); 
-    const [exportingPdf, setExportingPdf] = useState(false);   
-    const [exportingCsv, setExportingCsv] = useState(false);   
+    const [reportDisplayData, setReportDisplayData] = useState<UnifiedReportData | null>(null);
+    const [loadingReport, setLoadingReport] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportingCsv, setExportingCsv] = useState(false);
 
     const { toasts, addToast, removeToast } = useToast();
 
@@ -139,40 +96,10 @@ export default function RelatoriosPage() {
         label: new Date(0, i).toLocaleString('pt-BR', { month: 'long' }),
     }));
 
-    const loadDataAndOptions = useCallback(async (currentRole: 'admin' | 'líder' | null, currentFilterCelulaId: string | null) => {
-        setLoadingOptions(true);
-        try {
-            if (currentRole === 'admin') {
-                const celulasData = await listarCelulasParaAdmin();
-                setCelulasFilterOptions(celulasData);
-            } else {
-                setCelulasFilterOptions([]);
-                if (selectedFilterCelulaId !== '') setSelectedFilterCelulaId('');
-            }
-            
-            const membersAndReunionsCelulaId = (selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao') ? null : currentFilterCelulaId;
-
-            const [membrosData, reunioesData] = await Promise.all([
-                listMembros(membersAndReunionsCelulaId),
-                listReunioes(membersAndReunionsCelulaId)
-            ]);
-
-            setMembrosOptions(membrosData);
-            setReunioesOptions(reunioesData);
-
-            addToast('Dados carregados com sucesso!', 'success');
-
-        } catch (e: any) {
-            console.error("Erro ao carregar dados para os selects:", e);
-            addToast(`Erro ao carregar opções para relatórios: ${e.message || 'Erro desconhecido.'}`, 'error');
-        } finally {
-            setLoadingOptions(false);
-        }
-    }, [selectedFilterCelulaId, selectedReportType, addToast]);
-
+    // 1. Efeito para buscar o userRole UMA ÚNICA VEZ na montagem inicial
     useEffect(() => {
-        async function fetchUserAndInitialData() {
-            setLoadingOptions(true);
+        async function fetchUserRoleOnMount() {
+            setLoadingOptions(true); // Ativa o loading
             try {
                 const { data: { user }, error: userError } = await supabase.auth.getUser();
                 let fetchedRole: 'admin' | 'líder' | null = null;
@@ -183,31 +110,112 @@ export default function RelatoriosPage() {
                     }
                 }
                 setUserRole(fetchedRole);
-                loadDataAndOptions(fetchedRole, selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
-
             } catch (e: any) {
                 console.error("Erro inicial ao buscar usuário/perfil:", e);
-                addToast(`Erro inicial: ${e.message || 'Erro desconhecido.'}`, 'error');
-                setLoadingOptions(false);
+                addToast('Erro inicial: ' + (e.message || 'Erro desconhecido.'), 'error');
             }
+            // Não desativa setLoadingOptions aqui, será feito no final do loadDataAndOptions
         }
-        fetchUserAndInitialData();
-    }, [loadDataAndOptions, selectedFilterCelulaId, addToast]);
+        fetchUserRoleOnMount();
+    }, []); // Executa apenas na montagem
 
+    // 2. useCallback para carregar todas as opções (células, membros, reuniões) e ajustar o filtro
+    const loadAllDataAndAdjustFilter = useCallback(async () => {
+        if (userRole === null) return; // Aguarda userRole ser definido
+
+        setLoadingOptions(true);
+        try {
+            // -- Parte 1: Carregar opções de Célula e ajustar selectedFilterCelulaId --
+            let currentFetchedCelulasData: CelulaOption[] = [];
+            if (userRole === 'admin') {
+                currentFetchedCelulasData = await listarCelulasParaAdmin();
+            } else if (userRole === 'líder') {
+                currentFetchedCelulasData = await listarCelulasParaLider();
+            }
+            setCelulasFilterOptions(currentFetchedCelulasData); // Atualiza as opções disponíveis para o dropdown
+
+            let effectiveFilterCelulaId = selectedFilterCelulaId;
+            let filterUpdatedThisCycle = false;
+
+            if (userRole === 'líder') {
+                if (currentFetchedCelulasData.length === 1) {
+                    if (selectedFilterCelulaId !== currentFetchedCelulasData[0].id) {
+                        effectiveFilterCelulaId = currentFetchedCelulasData[0].id;
+                        filterUpdatedThisCycle = true;
+                    }
+                } else if (currentFetchedCelulasData.length === 0 && selectedFilterCelulaId !== "") {
+                    effectiveFilterCelulaId = "";
+                    filterUpdatedThisCycle = true;
+                }
+            } else if (userRole === 'admin') {
+                // Admin: Se o filtro atual é inválido para as opções carregadas, reseta.
+                if (selectedFilterCelulaId !== "" && !currentFetchedCelulasData.some(c => c.id === selectedFilterCelulaId)) {
+                    effectiveFilterCelulaId = "";
+                    filterUpdatedThisCycle = true;
+                }
+            }
+
+            // Se o filtro foi alterado programaticamente (e o valor é diferente), atualiza o estado
+            // e SAIA. O useEffect que depende de `selectedFilterCelulaId` chamará esta função novamente.
+            if (filterUpdatedThisCycle) {
+                setSelectedFilterCelulaId(effectiveFilterCelulaId);
+                addToast("Filtro de célula ajustado.", 'info');
+                return; // Impede o restante da execução neste ciclo
+            }
+
+            // -- Parte 2: Resetar tipo de relatório se o userRole não permite --
+            let reportTypeNeedsReset = false;
+            if (userRole !== 'admin' && (selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao')) {
+                reportTypeNeedsReset = true;
+            }
+
+            if (reportTypeNeedsReset) {
+                setSelectedReportType(null);
+                setReportDisplayData(null);
+                addToast("Tipo de relatório resetado devido à permissão.", 'warning');
+                return; // Impede o restante da execução neste ciclo
+            }
+
+            // -- Parte 3: Carregar opções de Membros e Reuniões --
+            let celulaIdToPassForMembrosAndReunioes: string | null = null;
+            if (userRole === 'admin') {
+                celulaIdToPassForMembrosAndReunioes = effectiveFilterCelulaId === "" ? null : effectiveFilterCelulaId;
+            } else if (userRole === 'líder' && currentFetchedCelulasData.length === 1) {
+                celulaIdToPassForMembrosAndReunioes = currentFetchedCelulasData[0].id;
+            }
+
+            const finalCelulaIdForMembrosAndReunioes =
+                (selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao')
+                    ? null
+                    : celulaIdToPassForMembrosAndReunioes;
+
+            const [membrosData, reunioesData] = await Promise.all([
+                listMembros(finalCelulaIdForMembrosAndReunioes),
+                listReunioes(finalCelulaIdForMembrosAndReunioes)
+            ]);
+
+            setMembrosOptions(membrosData);
+            setReunioesOptions(reunioesData);
+            addToast('Dados e opções carregados com sucesso!', 'success');
+
+        } catch (e: any) {
+            console.error("Erro ao carregar dados para os selects:", e);
+            addToast('Erro ao carregar opções para relatórios: ' + (e.message || 'Erro desconhecido.'), 'error');
+        } finally {
+            setLoadingOptions(false);
+        }
+    }, [userRole, selectedFilterCelulaId, selectedReportType, addToast]);
+
+    // 3. Efeito principal para orquestrar o carregamento baseado nas mudanças de estado
     useEffect(() => {
-        const currentReportType = selectedReportType;
-        let shouldReset = false;
-        if (userRole !== 'admin' && (currentReportType === 'alocacao_lideres' || currentReportType === 'chaves_ativacao')) {
-            shouldReset = true;
+        // userRole precisa ser definido (já tratado pelo useEffect inicial)
+        // selectedFilterCelulaId ou selectedReportType disparam o re-render
+        if (userRole !== null) {
+            loadAllDataAndAdjustFilter();
         }
-        if (shouldReset) {
-            setSelectedReportType(null);
-            setReportDisplayData(null);
-            addToast("Tipo de relatório resetado devido à mudança de permissão ou filtro de célula incompatível.", 'warning');
-        }
-        loadDataAndOptions(userRole, selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
-    }, [userRole, selectedFilterCelulaId, selectedReportType, loadDataAndOptions, addToast]);
-    
+    }, [userRole, selectedFilterCelulaId, selectedReportType, loadAllDataAndAdjustFilter]);
+
+
     const generateReportData = async (type: ReportTypeEnum, params: any) => {
         switch (type) {
             case 'presenca_reuniao': return fetchReportDataPresencaReuniao(params.reuniaoId, params.celulaId);
@@ -229,17 +237,26 @@ export default function RelatoriosPage() {
         }
 
         setLoadingReport(true);
-        setReportDisplayData(null); 
+        setReportDisplayData(null);
 
         try {
             let reportTitle = "";
             let celulaNameForTitle: string | null = null;
 
-            if (selectedFilterCelulaId) {
-                celulaNameForTitle = celulasFilterOptions.find(c => c.id === selectedFilterCelulaId)?.nome || null;
+            let celulaFilterParamForReport: string | null = null;
+            if (userRole === 'admin') {
+                celulaFilterParamForReport = selectedFilterCelulaId === "" ? null : selectedFilterCelulaId;
+            } else if (userRole === 'líder' && celulasFilterOptions.length === 1) {
+                celulaFilterParamForReport = celulasFilterOptions[0].id;
+            }
+            if (selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao') {
+                celulaFilterParamForReport = null;
             }
 
-            const celulaFilterParam = (selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao') ? null : (selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
+            if (celulaFilterParamForReport) {
+                celulaNameForTitle = celulasFilterOptions.find(c => c.id === celulaFilterParamForReport)?.nome || null;
+            }
+
             const anoAtual = new Date().getFullYear();
 
             const params = {
@@ -248,31 +265,30 @@ export default function RelatoriosPage() {
                 startDate: startDate,
                 endDate: endDate,
                 month: parseInt(selectedBirthdayMonth),
-                celulaId: celulaFilterParam
+                celulaId: celulaFilterParamForReport
             };
-            
+
             const result = await generateReportData(selectedReportType, params);
 
             if (!result) {
                 addToast("Nenhum dado encontrado para este relatório com os parâmetros selecionados.", 'info');
-                setReportDisplayData(null); 
+                setReportDisplayData(null);
                 return;
             }
-            
-            // Construção do título do relatório
+
             switch (selectedReportType) {
-                case 'presenca_reuniao': reportTitle = `Relatório de Presença - Reunião em ${formatDateForDisplay((result as ReportDataPresencaReuniao).reuniao_detalhes.data_reuniao)}`; break;
-                case 'presenca_membro': reportTitle = `Histórico de Presença - ${(result as ReportDataPresencaMembro).membro_data.nome}`; break;
-                case 'faltosos': reportTitle = `Membros Faltosos entre ${formatDateForDisplay(startDate)} e ${formatDateForDisplay(endDate)}`; break;
-                case 'visitantes_periodo': reportTitle = `Visitantes entre ${formatDateForDisplay(startDate)} e ${formatDateForDisplay(endDate)}`; break;
-                case 'aniversariantes_mes': reportTitle = `Aniversariantes de ${months.find(m => m.value === selectedBirthdayMonth)?.label} de ${anoAtual}`; break;
-                case 'alocacao_lideres': reportTitle = `Relatório de Alocação de Líderes (${formatDateForDisplay(new Date().toISOString().split('T')[0])})`; break;
-                case 'chaves_ativacao': reportTitle = `Relatório de Chaves de Ativação (${formatDateForDisplay(new Date().toISOString().split('T')[0])})`; break;
+                case 'presenca_reuniao': reportTitle = "Relatório de Presença - Reunião em " + formatDateForDisplay((result as ReportDataPresencaReuniao).reuniao_detalhes.data_reuniao); break;
+                case 'presenca_membro': reportTitle = "Histórico de Presença - " + (result as ReportDataPresencaMembro).membro_data.nome; break;
+                case 'faltosos': reportTitle = "Membros Faltosos entre " + formatDateForDisplay(startDate) + " e " + formatDateForDisplay(endDate); break;
+                case 'visitantes_periodo': reportTitle = "Visitantes entre " + formatDateForDisplay(startDate) + " e " + formatDateForDisplay(endDate); break;
+                case 'aniversariantes_mes': reportTitle = "Aniversariantes de " + months.find(m => m.value === selectedBirthdayMonth)?.label + " de " + anoAtual; break;
+                case 'alocacao_lideres': reportTitle = "Relatório de Alocação de Líderes (" + formatDateForDisplay(new Date().toISOString().split('T')[0]) + ")"; break;
+                case 'chaves_ativacao': reportTitle = "Relatório de Chaves de Ativação (" + formatDateForDisplay(new Date().toISOString().split('T')[0]) + ")"; break;
             }
-            if(celulaNameForTitle) reportTitle += ` (${celulaNameForTitle})`;
-            
+            if(celulaNameForTitle) reportTitle += " (" + celulaNameForTitle + ")";
+
             const baseFilename = reportTitle.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').toLowerCase();
-            const filenamePdf = `${baseFilename}.pdf`;
+            const filenamePdf = baseFilename + ".pdf";
 
             setReportDisplayData({
                 type: selectedReportType,
@@ -281,10 +297,10 @@ export default function RelatoriosPage() {
                 filename: filenamePdf,
             });
             addToast("Relatório gerado com sucesso!", 'success');
-            
+
         } catch (e: any) {
             console.error("Erro ao gerar relatório:", e);
-            addToast(`Erro ao gerar relatório: ${e.message || 'Erro desconhecido.'}`, 'error');
+            addToast('Erro ao gerar relatório: ' + (e.message || 'Erro desconhecido.'), 'error');
         } finally {
             setLoadingReport(false);
         }
@@ -299,31 +315,31 @@ export default function RelatoriosPage() {
         setExportingPdf(true);
 
         try {
-            const response = await fetch('/api/generate-pdf', { 
+            const response = await fetch('/api/generate-pdf', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(reportDisplayData), 
+                body: JSON.stringify(reportDisplayData),
             });
 
             if (!response.ok) {
                 const errorJson = await response.json();
-                throw new Error(errorJson.error || `Erro ${response.status}: Falha na API de PDF.`);
+                throw new Error(errorJson.error || 'Erro ' + response.status + ': Falha na API de PDF.');
             }
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = reportDisplayData.filename || 'relatorio.pdf'; 
+            a.download = reportDisplayData.filename || 'relatorio.pdf';
             document.body.appendChild(a);
             a.click();
             a.remove();
-            window.URL.revokeObjectURL(url); 
+            window.URL.revokeObjectURL(url);
             addToast("PDF gerado e download iniciado!", 'success');
 
         } catch (err: any) {
             console.error("Erro ao exportar PDF:", err);
-            addToast(`Erro ao exportar PDF: ${err.message || "Erro desconhecido."}`, 'error');
+            addToast('Erro ao exportar PDF: ' + (err.message || "Erro desconhecido."), 'error');
         } finally {
             setExportingPdf(false);
         }
@@ -341,16 +357,22 @@ export default function RelatoriosPage() {
             let csvData = "";
             let filename = (reportDisplayData.filename?.replace('.pdf', '.csv') || 'relatorio.csv');
 
-            const celulaFilterParam = (reportDisplayData.type === 'alocacao_lideres' || reportDisplayData.type === 'chaves_ativacao')
-                                        ? null
-                                        : (selectedFilterCelulaId === "" ? null : selectedFilterCelulaId);
+            let celulaFilterParamForExport: string | null = null;
+            if (userRole === 'admin') {
+                celulaFilterParamForExport = selectedFilterCelulaId === "" ? null : selectedFilterCelulaId;
+            } else if (userRole === 'líder' && celulasFilterOptions.length === 1) {
+                celulaFilterParamForExport = celulasFilterOptions[0].id;
+            }
+            if (reportDisplayData.type === 'alocacao_lideres' || reportDisplayData.type === 'chaves_ativacao') {
+                celulaFilterParamForExport = null;
+            }
 
             switch (reportDisplayData.type) {
-                case 'presenca_reuniao': csvData = await exportReportDataPresencaReuniaoCSV(selectedReuniaoId, celulaFilterParam); break;
-                case 'presenca_membro': csvData = await exportReportDataPresencaMembroCSV(selectedMembroId, celulaFilterParam); break;
-                case 'faltosos': csvData = await exportReportDataFaltososPeriodoCSV(startDate, endDate, celulaFilterParam); break;
-                case 'visitantes_periodo': csvData = await exportReportDataVisitantesPeriodoCSV(startDate, endDate, celulaFilterParam); break;
-                case 'aniversariantes_mes': csvData = await exportReportDataAniversariantesCSV(parseInt(selectedBirthdayMonth), celulaFilterParam); break;
+                case 'presenca_reuniao': csvData = await exportReportDataPresencaReuniaoCSV(selectedReuniaoId, celulaFilterParamForExport); break;
+                case 'presenca_membro': csvData = await exportReportDataPresencaMembroCSV(selectedMembroId, celulaFilterParamForExport); break;
+                case 'faltosos': csvData = await exportReportDataFaltososPeriodoCSV(startDate, endDate, celulaFilterParamForExport); break;
+                case 'visitantes_periodo': csvData = await exportReportDataVisitantesPeriodoCSV(startDate, endDate, celulaFilterParamForExport); break;
+                case 'aniversariantes_mes': csvData = await exportReportDataAniversariantesCSV(parseInt(selectedBirthdayMonth), celulaFilterParamForExport); break;
                 case 'alocacao_lideres': csvData = await exportReportDataAlocacaoLideresCSV(); break;
                 case 'chaves_ativacao': csvData = await exportReportDataChavesAtivacaoCSV(); break;
                 default: throw new Error("Tipo de relatório não suportado para exportação CSV.");
@@ -374,12 +396,26 @@ export default function RelatoriosPage() {
 
         } catch (err: any) {
             console.error("Erro ao exportar CSV:", err);
-            addToast(`Erro ao exportar CSV: ${err.message || "Erro desconhecido."}`, 'error');
+            addToast('Erro ao exportar CSV: ' + (err.message || "Erro desconhecido."), 'error');
         } finally {
             setExportingCsv(false);
         }
     };
 
+    if (userRole === null) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
+                <div className="max-w-6xl mx-auto px-4">
+                    <div className="bg-white rounded-xl shadow-lg p-8">
+                        <div className="animate-pulse"><div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div><div className="space-y-4"><div className="h-4 bg-gray-200 rounded w-3/4"></div><div className="h-4 bg-gray-200 rounded w-1/2"></div></div></div>
+                        <LoadingSpinner />
+                        <p className="mt-4 text-gray-600 text-center">Carregando informações do usuário...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
     if (loadingOptions) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
@@ -387,6 +423,7 @@ export default function RelatoriosPage() {
                     <div className="bg-white rounded-xl shadow-lg p-8">
                         <div className="animate-pulse"><div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div><div className="space-y-4"><div className="h-4 bg-gray-200 rounded w-3/4"></div><div className="h-4 bg-gray-200 rounded w-1/2"></div></div></div>
                         <LoadingSpinner />
+                        <p className="mt-4 text-gray-600 text-center">Carregando opções de relatórios...</p>
                     </div>
                 </div>
             </div>
@@ -406,24 +443,48 @@ export default function RelatoriosPage() {
                             <div className="flex items-center space-x-4 text-green-100"><div className="flex items-center space-x-2"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg><span>Gerencie e exporte relatórios do sistema</span></div></div>
                         </div>
                         {userRole === 'admin' && (<div className="bg-green-400 text-green-900 px-4 py-2 rounded-full font-semibold">Administrador</div>)}
+                        {userRole === 'líder' && (<div className="bg-blue-400 text-blue-900 px-4 py-2 rounded-full font-semibold">Líder</div>)}
                     </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                     <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center"><svg className="w-6 h-6 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Gerar Novo Relatório</h2>
                     <form onSubmit={handleGenerateReport} className="space-y-6">
-                        {userRole === 'admin' && (
+                        {/* Condicional para exibir o filtro de célula */}
+                        {userRole !== null && (userRole === 'admin' || (userRole === 'líder' && celulasFilterOptions.length === 1)) && (
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <label htmlFor="filterCelula" className="block text-sm font-medium text-gray-700 mb-2 flex items-center"><svg className="w-4 h-4 mr-2 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" /></svg>Filtrar por Célula</label>
-                                <select id="filterCelula" value={selectedFilterCelulaId} onChange={(e) => setSelectedFilterCelulaId(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" disabled={loadingOptions || loadingReport || selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao'}>
-                                    <option value="">Todas as Células</option>
+                                <select
+                                    id="filterCelula"
+                                    value={selectedFilterCelulaId}
+                                    onChange={(e) => setSelectedFilterCelulaId(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                                    disabled={loadingOptions || loadingReport || selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao' || userRole === 'líder'} // Desabilita se for líder
+                                >
+                                    {userRole === 'admin' && (<option value="">Todas as Células</option>)} {/* Apenas admin vê "Todas" */}
                                     {celulasFilterOptions.map((celula) => (<option key={celula.id} value={celula.id}>{celula.nome}</option>))}
                                 </select>
-                                {(selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao') && (<p className="mt-2 text-sm text-gray-500 flex items-center"><svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>Este relatório é global e não pode ser filtrado por célula.</p>)}
+                                {(selectedReportType === 'alocacao_lideres' || selectedReportType === 'chaves_ativacao') && (
+                                    <p className="mt-2 text-sm text-gray-500 flex items-center">
+                                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>Este relatório é global e não pode ser filtrado por célula.
+                                    </p>
+                                )}
+                                {userRole === 'líder' && celulasFilterOptions.length === 1 && (
+                                    <p className="mt-2 text-sm text-gray-500 flex items-center">
+                                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>Você está visualizando os relatórios da sua célula: {celulasFilterOptions[0].nome}.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                        {/* Se o líder não tem célula associada, pode mostrar uma mensagem ou desabilitar tudo */}
+                        {userRole === 'líder' && celulasFilterOptions.length === 0 && !loadingOptions && (
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4" role="alert">
+                                <p className="font-bold">Atenção:</p>
+                                <p>Seu perfil de líder não está associado a nenhuma célula. Por favor, entre em contato com um administrador para resolver isso.</p>
                             </div>
                         )}
                         <div>
                             <label htmlFor="reportType" className="block text-sm font-medium text-gray-700 mb-2 flex items-center"><svg className="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Tipo de Relatório</label>
-                            <select id="reportType" value={selectedReportType || ''} onChange={(e) => { setSelectedReportType(e.target.value as ReportTypeEnum); setSelectedReuniaoId(''); setSelectedMembroId(''); setStartDate(new Date().toISOString().split('T')[0]); setEndDate(new Date().toISOString().split('T')[0]); setSelectedBirthdayMonth(''); }} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" required disabled={loadingOptions || loadingReport}>
+                            <select id="reportType" value={selectedReportType || ''} onChange={(e) => { setSelectedReportType(e.target.value as ReportTypeEnum); setSelectedReuniaoId(''); setSelectedMembroId(''); setStartDate(new Date().toISOString().split('T')[0]); setEndDate(new Date().toISOString().split('T')[0]); setSelectedBirthdayMonth(''); }} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" required disabled={loadingOptions || loadingReport || (userRole === 'líder' && celulasFilterOptions.length === 0)}>
                                 <option value="">-- Selecione o Tipo de Relatório --</option>
                                 <option value="presenca_reuniao">Presença por Reunião</option>
                                 <option value="presenca_membro">Histórico de Presença de Membro</option>
@@ -472,7 +533,7 @@ export default function RelatoriosPage() {
                                 </select>
                             </div>
                         )}
-                        <button type="submit" disabled={loadingReport || loadingOptions || !selectedReportType || (selectedReportType === 'presenca_reuniao' && !selectedReuniaoId) || (selectedReportType === 'presenca_membro' && !selectedMembroId) || ((selectedReportType === 'faltosos' || selectedReportType === 'visitantes_periodo') && (!startDate || !endDate)) || (selectedReportType === 'aniversariantes_mes' && !selectedBirthdayMonth)} className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center">
+                        <button type="submit" disabled={loadingReport || loadingOptions || !selectedReportType || (selectedReportType === 'presenca_reuniao' && !selectedReuniaoId) || (selectedReportType === 'presenca_membro' && !selectedMembroId) || ((selectedReportType === 'faltosos' || selectedReportType === 'visitantes_periodo') && (!startDate || !endDate)) || (selectedReportType === 'aniversariantes_mes' && !selectedBirthdayMonth) || (userRole === 'líder' && celulasFilterOptions.length === 0)} className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center">
                             {loadingReport ? (<div className="flex items-center"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>Gerando Relatório...</div>) : (<div className="flex items-center"><svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Gerar Relatório</div>)}
                         </button>
                     </form>

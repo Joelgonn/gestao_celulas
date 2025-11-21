@@ -2,7 +2,8 @@
 'use client';
 
 import React from 'react';
-import { ReportDataPresencaMembro } from '@/lib/reports_data';
+// CORREÇÃO: Importar ReportDataPresencaMembro de '@/lib/types'
+import { ReportDataPresencaMembro } from '@/lib/types'; // <--- CORREÇÃO AQUI
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 import { 
   FaUser, 
@@ -94,7 +95,8 @@ export const ReportPresencaMembroDisplay = ({ data }: { data: ReportDataPresenca
     const ultimaPresenca = safeHistoricoPresenca.find(hist => hist.presente);
     const ausenciasConsecutivas = calcularAusenciasConsecutivas(safeHistoricoPresenca);
 
-    function calcularAusenciasConsecutivas(historico: any[]) {
+    // CORREÇÃO: Tipar o parâmetro 'historico' da função
+    function calcularAusenciasConsecutivas(historico: ReportDataPresencaMembro['historico_presenca']) { 
       let maxConsecutivas = 0;
       let currentConsecutivas = 0;
       

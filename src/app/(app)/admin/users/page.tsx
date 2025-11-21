@@ -18,7 +18,9 @@ import {
     FaCalendarAlt,
     FaUserTag
 } from 'react-icons/fa';
-import { useToastStore } from '@/lib/toast';
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+
 import {
     listAllProfiles,
     updateUserProfile,
@@ -26,8 +28,11 @@ import {
     deleteUserAndProfile,
     UserProfile,
 } from '@/app/api/admin/users/actions';
-import { listarCelulasParaAdmin, CelulaOption } from '@/lib/data';
+import { listarCelulasParaAdmin } from '@/lib/data'; // REMOVIDO CelulaOption daqui
+import { CelulaOption } from '@/lib/types'; // ADICIONADO: Importa CelulaOption do types.ts
+
 import { formatDateForDisplay } from '@/utils/formatters';
+
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function AdminUsersPage() {
@@ -44,7 +49,7 @@ export default function AdminUsersPage() {
     const [submitting, setSubmitting] = useState(false);
 
     const router = useRouter();
-    const { addToast } = useToastStore();
+    const { toasts, addToast, removeToast } = useToast();
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -167,6 +172,20 @@ export default function AdminUsersPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
+            {/* NOVO: Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+            {/* FIM NOVO: Container de Toasts */}
+
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
@@ -339,7 +358,7 @@ export default function AdminUsersPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => setEditingUserId(null)}
-                                                    className="flex items-center space-x-2 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400"
+                                                    className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400"
                                                     disabled={submitting}
                                                 >
                                                     <FaTimes className="text-sm" />

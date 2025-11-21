@@ -6,193 +6,21 @@ import { supabase } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Line, Pie, Bar } from 'react-chartjs-2';
-import { 
-    Chart as ChartJS, 
-    CategoryScale, 
-    LinearScale, 
-    PointElement, 
-    LineElement, 
-    Title, 
-    Tooltip, 
-    Legend, 
-    Filler, 
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
     ArcElement,
     BarElement
 } from 'chart.js';
-import { 
-    FaUserPlus, 
-    FaUsers, 
-    FaCalendarCheck, 
-    FaGlobe, 
-    FaHome, 
-    FaChartLine, 
-    FaExclamationTriangle, 
-    FaBirthdayCake, 
-    FaUserFriends, 
-    FaChartPie, 
-    FaArrowUp, 
-    FaArrowDown, 
-    FaEye, 
-    FaEdit,
-    FaFilter,
-    FaSync,
-    FaCheckCircle,
-    FaExclamationCircle,
-    FaInfoCircle,
-    FaChartBar,
-    FaHistory,
-    FaUserCheck,
-    FaSearch,
-    FaBookOpen,
-    FaFileDownload
-} from 'react-icons/fa';
-import { useToastStore } from '@/lib/toast';
 
-// --- IMPORTAÇÕES DE FUNÇÕES DE dashboard_data.ts ---
-import {
-    getTotalMembros,
-    getTotalVisitantesDistintos,
-    getPresenceCountsLastMeeting, 
-    getRecentesMembros, 
-    getRecentesVisitantes, 
-    getUltimasReunioes, 
-    getFaltososAlert, 
-    getUnconvertedVisitorsAlert, 
-    getBirthdaysThisWeek, 
-    getCelulasOptionsForAdmin,
-    getAveragePresenceRate, 
-    getCelulasSummary, 
-    getTopBottomPresence, 
-    getCelulaGrowth, 
-    getMembersByCelulaDistribution, 
-    getVisitorsByCelulaDistribution,
-    getGlobalRecentActivity, 
-    getVisitorsConversionAnalysis,
-    getNewVisitorsTrend,
-    detectDuplicateVisitors,
-} from '@/lib/dashboard_data';
-
-// --- IMPORTAÇÕES DE INTERFACES DO NOVO ARQUIVO types.ts ---
-import { 
-    LastMeetingPresence, 
-    MembroDashboard,     
-    VisitanteDashboard,  
-    ReuniaoComNomes,     
-    FaltososAlert, 
-    UnconvertedVisitorsAlert, 
-    BirthdayAlert, 
-    AveragePresenceRateData, 
-    CelulasSummary,
-    TopFlopPresence, 
-    CelulaGrowth, 
-    MembersByCelulaDistribution, 
-    VisitorsByCelulaDistribution,
-    ActivityLogItem,
-    VisitorsConversionAnalysis,
-    NewVisitorsTrendData,
-    DuplicateVisitorGroup,
-} from '@/lib/types'; 
-
-import { getPalavraDaSemana, PalavraDaSemana, CelulaOption } from '@/lib/data';
-
-import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
-import LoadingSpinner from '@/components/LoadingSpinner';
-
-// O restante dos componentes de Toast e ChartJS permanecem os mesmos...
-interface ToastProps {
-    id: string;
-    message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    duration?: number;
-    onClose: (id: string) => void;
-}
-
-const Toast = ({ id, message, type, duration = 5000, onClose }: ToastProps) => {
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            onClose(id);
-        }, duration);
-
-        return () => clearTimeout(timer);
-    }, [id, duration, onClose]);
-
-    const getToastStyles = () => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 transform transition-all duration-300 ease-in-out";
-        
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-emerald-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-            default:
-                return baseStyles;
-        }
-    };
-
-    const getIcon = () => {
-        const iconClass = "w-5 h-5";
-        switch (type) {
-            case 'success':
-                return <FaCheckCircle className={`${iconClass} text-emerald-500`} />;
-            case 'error':
-                return <FaExclamationCircle className={`${iconClass} text-red-500`} />;
-            case 'warning':
-                return <FaExclamationTriangle className={`${iconClass} text-yellow-500`} />;
-            case 'info':
-                return <FaInfoCircle className={`${iconClass} text-blue-500`} />;
-            default:
-                return null;
-        }
-    };
-
-    return (
-        <div className={getToastStyles()}>
-            <div className="flex-1 w-0 p-4">
-                <div className="flex items-start">
-                    <div className="flex-shrink-0 pt-0.5">
-                        {getIcon()}
-                    </div>
-                    <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                            {message}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div className="flex border-l border-gray-200">
-                <button
-                    onClick={() => onClose(id)}
-                    className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-gray-600 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                    ×
-                </button>
-            </div>
-        </div>
-    );
-};
-
-const ToastContainer = () => {
-    const { toasts, removeToast } = useToastStore();
-
-    return (
-        <div className="fixed top-4 right-4 z-50 space-y-3">
-            {toasts.map((toast) => (
-                <Toast
-                    key={toast.id}
-                    id={toast.id}
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={removeToast}
-                />
-            ))}
-        </div>
-    );
-};
-
+// ADICIONE O BLOCO DE REGISTRO DO CHART.JS AQUI, FORA DO COMPONENTE PRINCIPAL
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -205,7 +33,97 @@ ChartJS.register(
     ArcElement,
     BarElement
 );
-// --- FIM DOS COMPONENTES INTERNOS ---
+
+// ADICIONAR ESTAS DUAS LINHAS NOVAS para o sistema de toast:
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+
+
+// --- IMPORTAÇÕES DE FUNÇÕES DE dashboard_data.ts ---
+import {
+    getTotalMembros,
+    getTotalVisitantesDistintos,
+    getPresenceCountsLastMeeting,
+    getRecentesMembros,
+    getRecentesVisitantes,
+    getUltimasReunioes,
+    getFaltososAlert,
+    getUnconvertedVisitorsAlert,
+    getBirthdaysThisWeek,
+    getCelulasOptionsForAdmin,
+    getAveragePresenceRate,
+    getCelulasSummary,
+    getTopBottomPresence,
+    getCelulaGrowth,
+    getMembersByCelulaDistribution,
+    getVisitorsByCelulaDistribution,
+    getGlobalRecentActivity,
+    getVisitorsConversionAnalysis,
+    getNewVisitorsTrend,
+    detectDuplicateVisitors,
+} from '@/lib/dashboard_data';
+
+// --- IMPORTAÇÕES DE FUNÇÕES DE data.ts (APENAS FUNÇÕES, TIPOS VÊM DE types.ts) ---
+import { getPalavraDaSemana } from '@/lib/data'; // Apenas a função, o tipo PalavraDaSemana vem de types.ts
+
+// --- IMPORTAÇÕES DE INTERFACES DO NOVO ARQUIVO types.ts ---
+import {
+    LastMeetingPresence,
+    MembroDashboard,
+    VisitanteDashboard,
+    ReuniaoComNomes,
+    FaltososAlert,
+    UnconvertedVisitorsAlert,
+    BirthdayAlert,
+    AveragePresenceRateData,
+    CelulasSummary,
+    TopFlopPresence,
+    CelulaGrowth,
+    MembersByCelulaDistribution,
+    VisitorsByCelulaDistribution,
+    ActivityLogItem,
+    VisitorsConversionAnalysis,
+    NewVisitorsTrendData,
+    DuplicateVisitorGroup,
+    PalavraDaSemana, // <--- Importado de types.ts
+    CelulaOption,     // <--- Importado de types.ts
+} from '@/lib/types'; // <--- Todas as interfaces de tipos agora vêm de '@/lib/types'
+
+
+import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+// CORREÇÃO AQUI: As importações de Fa são necessárias e não devem ser removidas
+// Eu tinha pedido para remover o bloco de toast, e isso erroneamente levou a remoção dessas importações
+// que estavam AGREGADAS no bloco que você tinha.
+// O ideal é que as importações de Fa estejam SEPARADAS.
+import {
+    FaUserPlus,
+    FaUsers,
+    FaCalendarCheck,
+    FaGlobe,
+    FaHome,
+    FaChartLine, // ESTE ÍCONE ESTAVA FALTANDO
+    FaExclamationTriangle,
+    FaBirthdayCake,
+    FaUserFriends,
+    FaChartPie,
+    FaArrowUp,
+    FaArrowDown,
+    FaEye,
+    FaEdit,
+    FaFilter,
+    FaSync,
+    FaCheckCircle,
+    FaExclamationCircle,
+    FaInfoCircle,
+    FaChartBar,
+    FaHistory,
+    FaUserCheck,
+    FaSearch,
+    FaBookOpen,
+    FaFileDownload
+} from 'react-icons/fa'; // GARANTIR QUE ESTE BLOCO ESTÁ PRESENTE E COMPLETO
 
 export default function DashboardPage() {
     const [totalMembros, setTotalMembros] = useState(0);
@@ -218,7 +136,7 @@ export default function DashboardPage() {
     const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    
+
     // Estados para dados admin
     const [faltososAlert, setFaltososAlert] = useState<FaltososAlert | null>(null);
     const [unconvertedVisitorsAlert, setUnconvertedVisitorsAlert] = useState<UnconvertedVisitorsAlert | null>(null);
@@ -239,14 +157,14 @@ export default function DashboardPage() {
     const [palavraDaSemana, setPalavraDaSemana] = useState<PalavraDaSemana | null>(null);
 
     const router = useRouter();
-    const { addToast } = useToastStore();
+    const { toasts, addToast, removeToast } = useToast();
 
     const fetchDashboardData = useCallback(async (showRefreshToast = false) => {
         setLoadingStats(true);
         if (showRefreshToast) setRefreshing(true);
-        
+
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError || !user) {
             router.replace('/login');
             setLoadingStats(false);
@@ -273,20 +191,22 @@ export default function DashboardPage() {
         setUserRole(currentUserRole);
 
         let celulaIdToFetch: string | null = null;
+        const currentFilterValue = selectedFilterCelulaId;
+        celulaIdToFetch = currentFilterValue || (currentUserRole === 'líder' ? currentUserCelulaId : null);
 
         if (currentUserRole === 'admin') {
             try {
-                const celulasData = await getCelulasOptionsForAdmin(); 
+                const celulasData = await getCelulasOptionsForAdmin();
                 setCelulasFilterOptions(celulasData);
-                celulaIdToFetch = selectedFilterCelulaId || null;
             } catch (error: any) {
                 addToast('Erro ao carregar lista de células', 'error');
             }
-        } else if (currentUserRole === 'líder') {
-            celulaIdToFetch = currentUserCelulaId || null;
-            setSelectedFilterCelulaId(currentUserCelulaId || '');
         }
-        
+
+        if (currentUserRole === 'líder' && !selectedFilterCelulaId && currentUserCelulaId) {
+             setSelectedFilterCelulaId(currentUserCelulaId);
+        }
+
         try {
             const commonDataPromises = [
                 getTotalMembros(celulaIdToFetch),
@@ -297,31 +217,22 @@ export default function DashboardPage() {
                 getUltimasReunioes(5, celulaIdToFetch),
                 getPalavraDaSemana(),
             ];
-            
+
             let specificRoleDataPromises: Promise<any>[] = [];
 
-            if (currentUserRole === 'admin') {
-                if (!celulaIdToFetch) {
-                    specificRoleDataPromises = [
-                        getCelulasSummary(),
-                        getTopBottomPresence(),
-                        getCelulaGrowth(),
-                        getMembersByCelulaDistribution(),
-                        getVisitorsByCelulaDistribution(),
-                        getGlobalRecentActivity(10),
-                        getVisitorsConversionAnalysis(),
-                        getNewVisitorsTrend(),
-                        detectDuplicateVisitors(),
-                    ];
-                } else {
-                    specificRoleDataPromises = [
-                        getFaltososAlert(celulaIdToFetch),
-                        getUnconvertedVisitorsAlert(celulaIdToFetch),
-                        getBirthdaysThisWeek(celulaIdToFetch),
-                        getAveragePresenceRate(celulaIdToFetch),
-                    ];
-                }
-            } else if (currentUserRole === 'líder') {
+            if (currentUserRole === 'admin' && !celulaIdToFetch) {
+                specificRoleDataPromises = [
+                    getCelulasSummary(),
+                    getTopBottomPresence(),
+                    getCelulaGrowth(),
+                    getMembersByCelulaDistribution(),
+                    getVisitorsByCelulaDistribution(),
+                    getGlobalRecentActivity(10),
+                    getVisitorsConversionAnalysis(),
+                    getNewVisitorsTrend(),
+                    detectDuplicateVisitors(),
+                ];
+            } else if (currentUserRole === 'líder' || (currentUserRole === 'admin' && celulaIdToFetch)) {
                 specificRoleDataPromises = [
                     getFaltososAlert(celulaIdToFetch),
                     getUnconvertedVisitorsAlert(celulaIdToFetch),
@@ -362,7 +273,7 @@ export default function DashboardPage() {
                 setVisitorsConversionAnalysis(specificRoleData[6]);
                 setNewVisitorsTrendData(specificRoleData[7]);
                 setDuplicateVisitorGroups(specificRoleData[8]);
-                
+
                 setFaltososAlert(null);
                 setUnconvertedVisitorsAlert(null);
                 setBirthdayAlert(null);
@@ -372,7 +283,7 @@ export default function DashboardPage() {
                 setUnconvertedVisitorsAlert(specificRoleData[1]);
                 setBirthdayAlert(specificRoleData[2]);
                 setAveragePresenceRateData(specificRoleData[3]);
-                
+
                 setCelulasSummary(null);
                 setTopBottomPresence(null);
                 setCelulaGrowth(null);
@@ -383,6 +294,7 @@ export default function DashboardPage() {
                 setNewVisitorsTrendData(null);
                 setDuplicateVisitorGroups(null);
             }
+
 
             if (showRefreshToast) {
                 addToast('Dashboard atualizado com sucesso!', 'success');
@@ -400,9 +312,13 @@ export default function DashboardPage() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
+
     const handleRefresh = () => { fetchDashboardData(true); };
-    const handleFilterChange = (value: string) => { setSelectedFilterCelulaId(value); addToast(`Filtro aplicado: ${celulasFilterOptions.find(c => c.id === value)?.nome || 'Todas as células'}`, 'info'); };
-    
+    const handleFilterChange = (value: string) => {
+        setSelectedFilterCelulaId(value);
+    };
+
+    // --- Configurações de ChartJS ---
     const chartData = { labels: averagePresenceRateData?.labels || [], datasets: [{ label: 'Presença Média (%)', data: averagePresenceRateData?.data || [], fill: true, backgroundColor: 'rgba(79, 70, 229, 0.2)', borderColor: 'rgba(79, 70, 229, 1)', tension: 0.3, pointBackgroundColor: 'rgba(79, 70, 229, 1)', pointBorderColor: '#fff', pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgba(79, 70, 229, 1)', pointRadius: 5, pointHoverRadius: 8, },], };
     const chartOptions = { responsive: true, plugins: { legend: { position: 'top' as const, labels: { font: { size: 14, weight: 700, }, color: '#333', }, }, title: { display: true, text: 'Média de Presença da Célula (Últimas 8 Semanas)', font: { size: 16, weight: 700, }, color: '#333', }, tooltip: { callbacks: { label: function(context: any) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += context.parsed.y + '%'; } return label; } } } }, scales: { x: { title: { display: true, text: 'Semana', font: { size: 12, weight: 700, }, color: '#555', }, grid: { display: false, }, }, y: { title: { display: true, text: 'Percentual (%)', font: { size: 12, weight: 700, }, beginAtZero: true, max: 100, ticks: { callback: function(value: any) { return value + '%'; } } }, }, }, };
     const membersPieData = { labels: membersDistribution.map(d => d.celula_nome), datasets: [{ label: 'Membros', data: membersDistribution.map(d => d.count), backgroundColor: ['#4F46E5', '#34D399', '#FCD34D', '#F87171', '#A78BFA', '#2DD4BF', '#FB923C', '#E879F9', '#60A5FA', '#F472B6'], hoverOffset: 4, },], };
@@ -422,11 +338,23 @@ export default function DashboardPage() {
             </div>
         );
     }
-    
+
     return (
         <>
-            <ToastContainer />
-            
+            {/* NOVO: Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+            {/* FIM NOVO: Container de Toasts */}
+
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
@@ -439,14 +367,14 @@ export default function DashboardPage() {
                                     </div>
                                     <div>
                                         <h1 className="text-3xl font-bold">
-                                            Dashboard 
+                                            Dashboard
                                             {userRole === 'admin' && (<span className="text-emerald-200 text-lg ml-2">(Administrador)</span>)}
                                         </h1>
                                         <p className="text-emerald-100 mt-2">Visão geral do sistema de células</p>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
                                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                                     {userRole === 'admin' && (
@@ -467,7 +395,7 @@ export default function DashboardPage() {
                                             </select>
                                         </div>
                                     )}
-                                    
+
                                     <button
                                         onClick={handleRefresh}
                                         disabled={refreshing}
@@ -477,7 +405,7 @@ export default function DashboardPage() {
                                         <span>{refreshing ? 'Atualizando...' : 'Atualizar'}</span>
                                     </button>
                                 </div>
-                                
+
                                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">
                                     <span className="text-sm font-medium text-white">
                                         {userEmail}
@@ -540,8 +468,8 @@ export default function DashboardPage() {
                                                 {lastMeetingPresence.tema}
                                             </p>
                                             {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && lastMeetingPresence.id && (
-                                                <Link 
-                                                    href={`/reunioes/presenca/${lastMeetingPresence.id}`} 
+                                                <Link
+                                                    href={`/reunioes/presenca/${lastMeetingPresence.id}`}
                                                     className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mt-2 inline-flex items-center space-x-1 transition-colors duration-200"
                                                 >
                                                     <FaEye className="text-sm" />
@@ -557,7 +485,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Admin Global Views */}
+                    {/* Admin Global Views (apenas quando Admin e "Todas as Células" selecionado) */}
                     {userRole === 'admin' && !selectedFilterCelulaId && (
                         <>
                             {celulasSummary && (
@@ -569,8 +497,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             )}
-                            
-                            {/* --- INÍCIO DA CORREÇÃO JSX --- */}
+
                             {topBottomPresence && (
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-emerald-100 rounded-lg"><FaChartLine className="text-emerald-600" /></div><span>Top/Flop de Presença</span></h2>
@@ -600,13 +527,122 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             )}
-                            {/* --- FIM DA CORREÇÃO JSX --- */}
 
-                            {/* Restante das seções de admin... */}
+                            {celulaGrowth && growthBarData.labels.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-blue-100 rounded-lg"><FaChartBar className="text-blue-600" /></div><span>Crescimento nas Células</span></h2>
+                                    <div className="h-72">
+                                        <Bar data={growthBarData} options={growthBarOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {membersDistribution.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-purple-100 rounded-lg"><FaChartPie className="text-purple-600" /></div><span>Distribuição de Membros por Célula</span></h2>
+                                    <div className="h-64 flex items-center justify-center">
+                                        <Pie data={membersPieData} options={pieOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {visitorsDistribution.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-green-100 rounded-lg"><FaChartPie className="text-green-600" /></div><span>Distribuição de Visitantes por Célula</span></h2>
+                                    <div className="h-64 flex items-center justify-center">
+                                        <Pie data={visitorsPieData} options={pieOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {globalRecentActivity.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-gray-100 rounded-lg"><FaHistory className="text-gray-600" /></div><span>Atividade Recente Global</span></h2>
+                                    <ul className="space-y-3">
+                                        {globalRecentActivity.map(activity => (
+                                            <li key={activity.id} className={`flex items-center space-x-3 p-3 rounded-lg border ${getActivityColor(activity.type)}`}>
+                                                <div className="flex-shrink-0">{getActivityIcon(activity.type)}</div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-gray-800">{activity.description}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {formatDateForDisplay(activity.created_at)} {activity.celula_nome && `(${activity.celula_nome})`}
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {newVisitorsTrendData && newVisitorsTrendData.labels.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-teal-100 rounded-lg"><FaChartLine className="text-teal-600" /></div><span>Tendência de Novos Visitantes</span></h2>
+                                    <div className="h-64">
+                                        <Line data={newVisitorsTrendChartData} options={newVisitorsTrendChartOptions} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {visitorsConversionAnalysis && visitorsConversionAnalysis.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-yellow-100 rounded-lg"><FaUserCheck className="text-yellow-600" /></div><span>Análise de Conversão de Visitantes</span></h2>
+                                    <div className="space-y-4">
+                                        {visitorsConversionAnalysis.map(analysis => (
+                                            <div key={analysis.celula_id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                                <h3 className="text-lg font-semibold text-yellow-800 flex items-center space-x-2">
+                                                    <FaHome className="text-yellow-600" />
+                                                    <span>{analysis.celula_nome}</span>
+                                                    <span className="ml-auto text-yellow-700 font-bold">{analysis.total_unconverted_with_presences} visitantes</span>
+                                                </h3>
+                                                <ul className="mt-3 space-y-2">
+                                                    {analysis.visitors.map(visitor => (
+                                                        <li key={visitor.id} className="flex justify-between items-center text-sm p-2 bg-white rounded-md shadow-sm">
+                                                            <span className="font-medium text-gray-800">{visitor.nome}</span>
+                                                            <span className="text-gray-600">{formatPhoneNumberDisplay(visitor.telefone)}</span>
+                                                            {/* CORREÇÃO AQUI: REMOVER ESTA LINHA DUPLICADA */}
+                                                            {/* <span className="text-gray-500">{formatPhoneNumberDisplay(visitor.telefone)}</span> */} 
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                <Link href={`/relatorios?type=visitantes&celula=${analysis.celula_id}`} className="text-yellow-700 hover:text-yellow-900 font-medium text-sm mt-3 inline-flex items-center space-x-1 transition-colors duration-200">
+                                                    <FaSearch className="text-sm" />
+                                                    <span>Ver detalhes</span>
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {duplicateVisitorGroups && duplicateVisitorGroups.length > 0 && (
+                                <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-red-100 rounded-lg"><FaExclamationTriangle className="text-red-600" /></div><span>Visitantes Duplicados Detectados</span></h2>
+                                    <div className="space-y-4">
+                                        {duplicateVisitorGroups.map(group => (
+                                            <div key={group.group_id} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                <h3 className="text-lg font-semibold text-red-800 flex items-center space-x-2">
+                                                    <FaInfoCircle className="text-red-600" />
+                                                    <span>{group.type === 'nome' ? 'Nome Comum' : 'Telefone Comum'}: <span className="font-bold">{group.common_value}</span></span>
+                                                </h3>
+                                                <ul className="mt-3 space-y-2">
+                                                    {group.visitors.map(visitor => (
+                                                        <li key={visitor.id} className="flex justify-between items-center text-sm p-2 bg-white rounded-md shadow-sm">
+                                                            <span className="font-medium text-gray-800">{visitor.nome}</span>
+                                                            <span className="text-gray-600">{formatPhoneNumberDisplay(visitor.telefone)}</span>
+                                                            <span className="text-gray-500">{visitor.celula_nome}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                <p className="text-red-700 text-sm mt-3">Recomendado revisar e mesclar manualmente.</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
 
-                    {/* Leader Alerts */}
+                    {/* Leader Alerts / Admin with Celula Filter (visível para Líder OU Admin com filtro) */}
                     {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && (
                         <div className="mb-8">
                             <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2">
@@ -633,10 +669,10 @@ export default function DashboardPage() {
                                             <p className="text-xs text-gray-500 mt-1 truncate" title={palavraDaSemana.descricao || undefined}>
                                                 {palavraDaSemana.descricao || 'Nenhuma descrição.'}
                                             </p>
-                                            <a 
-                                                href={palavraDaSemana.url_arquivo} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
+                                            <a
+                                                href={palavraDaSemana.url_arquivo}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                                 className="inline-flex items-center space-x-1 text-indigo-600 hover:text-indigo-800 font-medium text-sm mt-3 transition-colors duration-200"
                                             >
                                                 <FaFileDownload className="text-sm" />
@@ -680,14 +716,14 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* Engagement Chart */}
+                    {/* Engagement Chart (visível para Líder OU Admin com filtro) */}
                     {(userRole === 'líder' || (userRole === 'admin' && selectedFilterCelulaId)) && averagePresenceRateData && averagePresenceRateData.labels.length > 0 && (
                         <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center space-x-2"><div className="p-2 bg-indigo-100 rounded-lg"><FaChartLine className="text-indigo-600" /></div><span>Engajamento da Célula</span></h2><div className="h-64"><Line data={chartData} options={chartOptions} /></div>
                         </div>
                     )}
-                    
-                    {/* Recent Lists */}
+
+                    {/* Recent Lists (Visível para ambos, ajustado pelo filtro) */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
                             <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center space-x-2"><div className="p-2 bg-yellow-100 rounded-lg"><FaCalendarCheck className="text-yellow-600" /></div><span>Últimas Reuniões</span></h2>

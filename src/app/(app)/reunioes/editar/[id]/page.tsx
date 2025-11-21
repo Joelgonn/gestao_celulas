@@ -4,30 +4,44 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+// Importa funções de data.ts
 import {
     getReuniao,
     atualizarReuniao,
-    listarMembros, 
+    listarMembros,
     verificarDuplicidadeReuniao,
     uploadMaterialReuniao,
-    Membro, 
-    Reuniao, 
-    ReuniaoFormData 
-} from '@/lib/data'; 
-import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters'; 
+} from '@/lib/data';
+// Importa interfaces de types.ts <--- CORREÇÃO AQUI
+import {
+    Membro,
+    ReuniaoFormData,
+    ReuniaoParaEdicao,
+} from '@/lib/types';
 
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
+import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
+
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+import LoadingSpinner from '@/components/LoadingSpinner'; // Usando o LoadingSpinner principal
+// --- NOVO: Ícones para a página (para o layout moderno) ---
+import {
+    FaCalendarAlt, // Para data
+    FaBookOpen,    // Para tema
+    FaUser,        // Para ministradores
+    FaChild,       // Para responsável kids
+    FaFilePdf,     // Para material
+    FaArrowLeft,   // Para voltar
+    FaSave,        // Para salvar
+    FaUpload       // Para upload
+} from 'react-icons/fa';
+// --- FIM NOVO: Ícones ---
+
 
 export default function EditReuniaoPage() {
     const params = useParams();
     const reuniaoId = params.id as string;
-    
+
     const [formData, setFormData] = useState<ReuniaoFormData>({
         data_reuniao: '',
         tema: '',
@@ -37,73 +51,48 @@ export default function EditReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const [loading, setLoading] = useState(true); 
-    const [submitting, setSubmitting] = useState(false); 
+    const { toasts, addToast, removeToast } = useToast();
+
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
     const router = useRouter();
 
-    const addToast = (toast: Omit<Toast, 'id'>) => {
-        const id = Math.random().toString(36).substring(2, 9);
-        const newToast = { ...toast, id };
-        setToasts(prev => [...prev, newToast]);
-        
-        setTimeout(() => {
-            removeToast(id);
-        }, toast.duration || 5000);
-    };
-
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    };
-
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [membrosData, reuniaoData] = await Promise.all([
+                const [membrosData, reuniaoDataFromLib] = await Promise.all([
                     listarMembros(),
                     getReuniao(reuniaoId),
                 ]);
 
                 setMembros(membrosData);
 
-                if (!reuniaoData) {
-                    addToast({
-                        type: 'error',
-                        title: 'Reunião não encontrada',
-                        message: 'A reunião solicitada não existe ou você não tem permissão para acessá-la'
-                    });
+                if (!reuniaoDataFromLib) {
+                    addToast('A reunião solicitada não existe ou você não tem permissão para acessá-la', 'error');
                     setTimeout(() => router.replace('/reunioes'), 2000);
                     return;
                 }
 
                 setFormData({
-                    data_reuniao: formatDateForInput(reuniaoData.data_reuniao),
-                    tema: reuniaoData.tema || '',
-                    ministrador_principal: reuniaoData.ministrador_principal || null,
-                    ministrador_secundario: reuniaoData.ministrador_secundario || null,
-                    responsavel_kids: reuniaoData.responsavel_kids || null,
-                    caminho_pdf: reuniaoData.caminho_pdf || null,
+                    data_reuniao: formatDateForInput(reuniaoDataFromLib.data_reuniao),
+                    tema: reuniaoDataFromLib.tema || '',
+                    ministrador_principal: reuniaoDataFromLib.ministrador_principal || null,
+                    ministrador_secundario: reuniaoDataFromLib.ministrador_secundario || null,
+                    responsavel_kids: reuniaoDataFromLib.responsavel_kids || null,
+                    caminho_pdf: reuniaoDataFromLib.caminho_pdf || null,
+                    celula_id: reuniaoDataFromLib.celula_id, // Incluir celula_id aqui
                 });
 
-                addToast({
-                    type: 'success',
-                    title: 'Dados carregados',
-                    message: 'Informações da reunião carregadas com sucesso',
-                    duration: 3000
-                });
+                addToast('Informações da reunião carregadas com sucesso', 'success', 3000);
 
             } catch (e: any) {
                 console.error("Erro ao buscar dados para edição da reunião:", e);
-                addToast({
-                    type: 'error',
-                    title: 'Erro ao carregar',
-                    message: e.message || 'Erro desconhecido ao carregar dados da reunião'
-                });
+                addToast(e.message || 'Erro desconhecido ao carregar dados da reunião', 'error');
                 setTimeout(() => router.replace('/reunioes'), 2000);
             } finally {
                 setLoading(false);
@@ -113,10 +102,11 @@ export default function EditReuniaoPage() {
         if (reuniaoId) {
             fetchData();
         }
-    }, [reuniaoId, router]);
+    }, [reuniaoId, router, addToast]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        // CORREÇÃO: Garante que strings vazias de campos opcionais são convertidas para null.
         setFormData({ ...formData, [name]: value === '' ? null : value });
     };
 
@@ -125,17 +115,17 @@ export default function EditReuniaoPage() {
         setSubmitting(true);
 
         if (!formData.tema.trim()) {
-            addToast({ type: 'error', title: 'Campo obrigatório', message: 'O campo "Tema / Palavra" é obrigatório' });
+            addToast('O campo "Tema / Palavra" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.ministrador_principal) {
-            addToast({ type: 'error', title: 'Campo obrigatório', message: 'O campo "Ministrador Principal" é obrigatório' });
+            addToast('O campo "Ministrador Principal" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.data_reuniao) {
-            addToast({ type: 'error', title: 'Campo obrigatório', message: 'O campo "Data da Reunião" é obrigatório' });
+            addToast('O campo "Data da Reunião" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
@@ -143,21 +133,22 @@ export default function EditReuniaoPage() {
         try {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema, reuniaoId);
             if (isDuplicate) {
-                addToast({ type: 'error', title: 'Reunião duplicada', message: `Já existe outra reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}` });
+                // CORREÇÃO: Usar concatenação de string simples para evitar o erro de parsing
+                addToast(`Já existe outra reunião com o tema '${formData.tema}' na data ${formatDateForDisplay(formData.data_reuniao)}`, 'warning');
                 setSubmitting(false);
                 return;
             }
         } catch (e: any) {
             console.error("Erro ao verificar duplicidade:", e);
-            addToast({ type: 'error', title: 'Erro de validação', message: e.message || 'Erro ao verificar duplicidade da reunião' });
+            addToast(e.message || 'Erro ao verificar duplicidade da reunião', 'error');
             setSubmitting(false);
             return;
         }
 
         try {
             await atualizarReuniao(reuniaoId, formData);
-            
-            addToast({ type: 'success', title: 'Sucesso!', message: 'Reunião atualizada com sucesso', duration: 3000 });
+
+            addToast('Reunião atualizada com sucesso', 'success', 3000);
 
             setTimeout(() => {
                 router.push('/reunioes');
@@ -165,7 +156,7 @@ export default function EditReuniaoPage() {
 
         } catch (e: any) {
             console.error("Erro ao atualizar reunião:", e);
-            addToast({ type: 'error', title: 'Erro ao atualizar', message: e.message || 'Erro desconhecido ao atualizar reunião' });
+            addToast(e.message || 'Erro desconhecido ao atualizar reunião', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -179,11 +170,11 @@ export default function EditReuniaoPage() {
 
     const handleFileUpload = async () => {
         if (!selectedFile) {
-            addToast({ type: 'error', title: 'Nenhum arquivo', message: 'Por favor, selecione um arquivo para upload' });
+            addToast('Por favor, selecione um arquivo para upload', 'error');
             return;
         }
         if (!reuniaoId) {
-            addToast({ type: 'error', title: 'ID não disponível', message: 'ID da reunião não disponível para upload' });
+            addToast('ID da reunião não disponível para upload', 'error');
             return;
         }
 
@@ -204,97 +195,29 @@ export default function EditReuniaoPage() {
             setFormData(prev => ({ ...prev, caminho_pdf: publicUrl }));
             setSelectedFile(null);
 
-            addToast({ type: 'success', title: 'Upload concluído!', message: 'Material da reunião enviado e vinculado com sucesso', duration: 4000 });
+            addToast('Material da reunião enviado e vinculado com sucesso', 'success', 4000);
 
         } catch (e: any) {
             console.error("Erro ao fazer upload do material:", e);
-            addToast({ type: 'error', title: 'Erro no upload', message: e.message || 'Erro desconhecido ao fazer upload do material' });
+            addToast(e.message || 'Erro desconhecido ao fazer upload do material', 'error');
             setUploadProgress(0);
         } finally {
             setUploading(false);
         }
     };
 
-    // --- INÍCIO DA CORREÇÃO ---
-    const getToastIcon = (type: Toast['type']) => {
-        switch (type) {
-            case 'success':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'error':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'warning':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'info':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
-    const getToastStyles = (type: Toast['type']) => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-        
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-green-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-            default:
-                return baseStyles;
-        }
-    };
-    // --- FIM DA CORREÇÃO ---
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 space-y-3">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
-                    <div key={toast.id} className={getToastStyles(toast.type)}>
-                        <div className="p-4">
-                            <div className="flex items-start">
-                                {getToastIcon(toast.type)}
-                                <div className="ml-3 w-0 flex-1 pt-0.5">
-                                    <p className="text-sm font-medium text-gray-900">{toast.title}</p>
-                                    {toast.message && (<p className="mt-1 text-sm text-gray-500">{toast.message}</p>)}
-                                </div>
-                                <div className="ml-4 flex-shrink-0 flex">
-                                    <button onClick={() => removeToast(toast.id)} className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        <span className="sr-only">Fechar</span>
-                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
                 ))}
             </div>
 
@@ -312,7 +235,7 @@ export default function EditReuniaoPage() {
                                 <p className="text-teal-100 mt-2">Atualize as informações e o material da reunião</p>
                             </div>
                             <Link href="/reunioes" className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                <FaArrowLeft className="w-4 h-4 mr-2" /> {/* Ícone de voltar */}
                                 Voltar
                             </Link>
                         </div>
@@ -330,14 +253,14 @@ export default function EditReuniaoPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="data_reuniao" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                            <FaCalendarAlt className="w-4 h-4 text-teal-500" /> {/* Ícone de calendário */}
                                             Data da Reunião *
                                         </label>
                                         <input type="date" id="data_reuniao" name="data_reuniao" value={formData.data_reuniao} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200"/>
                                     </div>
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="tema" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                                            <FaBookOpen className="w-4 h-4 text-teal-500" /> {/* Ícone de livro aberto */}
                                             Tema / Palavra *
                                         </label>
                                         <input type="text" id="tema" name="tema" value={formData.tema} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200" placeholder="Digite o tema ou palavra da reunião"/>
@@ -346,7 +269,7 @@ export default function EditReuniaoPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="ministrador_principal" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                            <FaUser className="w-4 h-4 text-teal-500" /> {/* Ícone de usuário */}
                                             Ministrador Principal *
                                         </label>
                                         <select id="ministrador_principal" name="ministrador_principal" value={formData.ministrador_principal || ''} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white">
@@ -356,7 +279,7 @@ export default function EditReuniaoPage() {
                                     </div>
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="ministrador_secundario" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                            <FaUser className="w-4 h-4 text-teal-500" /> {/* Ícone de usuário */}
                                             Ministrador Secundário
                                         </label>
                                         <select id="ministrador_secundario" name="ministrador_secundario" value={formData.ministrador_secundario || ''} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white">
@@ -366,7 +289,7 @@ export default function EditReuniaoPage() {
                                     </div>
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="responsavel_kids" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" /></svg>
+                                            <FaChild className="w-4 h-4 text-teal-500" /> {/* Ícone de criança */}
                                             Responsável Kids
                                         </label>
                                         <select id="responsavel_kids" name="responsavel_kids" value={formData.responsavel_kids || ''} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white">
@@ -377,10 +300,10 @@ export default function EditReuniaoPage() {
                                 </div>
                                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                                     <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        <FaFilePdf className="w-5 h-5" /> {/* Ícone de PDF */}
                                         Material da Reunião
                                     </h3>
-                                    {formData.caminho_pdf && (<div className="flex items-center justify-between p-4 bg-white rounded-lg border border-blue-200 mb-4"><div className="flex items-center space-x-3"><svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg><div><p className="text-sm font-medium text-gray-900">Material atual disponível</p><p className="text-sm text-gray-500">Clique para visualizar ou baixar</p></div></div><a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>Abrir</a></div>)}
+                                    {formData.caminho_pdf && (<div className="flex items-center justify-between p-4 bg-white rounded-lg border border-blue-200 mb-4"><div className="flex items-center space-x-3"><FaFilePdf className="w-8 h-8 text-red-500" /><div><p className="text-sm font-medium text-gray-900">Material atual disponível</p><p className="text-sm text-gray-500">Clique para visualizar ou baixar</p></div></div><a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>Abrir</a></div>)}
                                     <div className="space-y-4">
                                         <div>
                                             <label htmlFor="material_file" className="block text-sm font-semibold text-gray-700 mb-2">Upload novo material (PDF/PPT)</label>
@@ -389,12 +312,12 @@ export default function EditReuniaoPage() {
                                         </div>
                                         {uploading && (<div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}
                                         <button type="button" onClick={handleFileUpload} disabled={uploading || !selectedFile} className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2">
-                                            {uploading ? (<><svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span>Enviando {uploadProgress}%...</span></>) : (<><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" /></svg><span>Enviar Material</span></>)}
+                                            {uploading ? (<><svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span>Enviando {uploadProgress}%...</span></>) : (<><FaUpload className="w-5 h-5" /><span>Enviar Material</span></>)} {/* Ícone de upload */}
                                         </button>
                                     </div>
                                 </div>
                                 <button type="submit" disabled={submitting || uploading} className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-teal-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2">
-                                    {submitting ? (<><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>Atualizando...</>) : (<><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>Atualizar Reunião</>)}
+                                    {submitting ? (<><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>Atualizando...</>) : (<><FaSave className="w-5 h-5" />Atualizar Reunião</>)} {/* Ícone de salvar */}
                                 </button>
                             </form>
                         )}

@@ -4,62 +4,55 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+// Importa funções de data.ts
 import {
     getVisitante,
     converterVisitanteEmMembro,
-    Visitante
 } from '@/lib/data';
+// Importa interfaces de types.ts <--- CORREÇÃO AQUI
+import {
+    Visitante, // Importar Visitante para tipagem
+    Membro,    // Importar Membro para tipagem de status
+} from '@/lib/types';
+
 import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 
-// Sistema de Toasts
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
+// --- REFATORAÇÃO: TOASTS ---
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial
+// --- FIM REFATORAÇÃO TOASTS ---
 
-interface MembroFormData {
-    nome: string;
-    telefone: string;
-    data_ingresso: string;
-    data_nascimento: string; 
-    endereco: string;
+// --- CORREÇÃO: Interface MembroConversionFormData atualizada e correta ---
+// Renomeada para evitar confusão com MembroFormData de reuniões,
+// e omitindo 'id', 'created_at', 'celula_nome' (que não são passados no formulário)
+interface MembroConversionFormData extends Omit<Membro, 'id' | 'created_at' | 'celula_nome'> {
+    // 'celula_id' e 'status' agora fazem parte de Membro, mas vamos garantir que são preenchidos
+    // e o `celula_id` é essencial.
 }
+// --- FIM CORREÇÃO ---
 
 export default function ConverterVisitantePage() {
     const params = useParams();
     const visitanteId = params.id as string;
     
-    const [formData, setFormData] = useState<MembroFormData>({
+    const [formData, setFormData] = useState<MembroConversionFormData>({
         nome: '',
-        telefone: '',
-        data_ingresso: formatDateForInput(new Date().toISOString()),
-        data_nascimento: '',
-        endereco: ''
+        telefone: null,
+        data_ingresso: formatDateForInput(new Date().toISOString()), // Data padrão de ingresso
+        data_nascimento: null,
+        endereco: null,
+        status: 'Ativo', // Status padrão para novo membro
+        celula_id: '', // Será preenchido do visitante original
     });
     
-    const [toasts, setToasts] = useState<Toast[]>([]);
+    // --- REFATORAÇÃO: TOASTS ---
+    const { toasts, addToast, removeToast } = useToast();
+    // --- FIM REFATORAÇÃO TOASTS ---
+
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
-
-    // Função para adicionar toast
-    const addToast = (toast: Omit<Toast, 'id'>) => {
-        const id = Math.random().toString(36).substring(2, 9);
-        const newToast = { ...toast, id };
-        setToasts(prev => [...prev, newToast]);
-        
-        setTimeout(() => {
-            removeToast(id);
-        }, toast.duration || 5000);
-    };
-
-    // Função para remover toast
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    };
 
     useEffect(() => {
         const fetchVisitanteData = async () => {
@@ -68,37 +61,26 @@ export default function ConverterVisitantePage() {
                 const data = await getVisitante(visitanteId);
 
                 if (!data) {
-                    addToast({
-                        type: 'error',
-                        title: 'Visitante não encontrado',
-                        message: 'O visitante solicitado não existe ou você não tem permissão para acessá-lo'
-                    });
+                    addToast('O visitante solicitado não existe ou você não tem permissão para acessá-lo', 'error'); // Usando addToast do hook
                     setTimeout(() => router.replace('/visitantes'), 2000);
                     return;
                 }
 
                 setFormData({
                     nome: data.nome || '',
-                    telefone: normalizePhoneNumber(data.telefone),
-                    data_ingresso: formatDateForInput(new Date().toISOString()),
-                    data_nascimento: '',
-                    endereco: data.endereco || ''
+                    telefone: normalizePhoneNumber(data.telefone) || null,
+                    data_ingresso: formatDateForInput(new Date().toISOString()), // Manter como data atual para o membro
+                    data_nascimento: data.data_nascimento || null, // Usar a data de nascimento do visitante
+                    endereco: data.endereco || null,
+                    status: 'Ativo', // Status padrão para o novo membro
+                    celula_id: data.celula_id, // Usar a celula_id do visitante original
                 });
 
-                addToast({
-                    type: 'success',
-                    title: 'Dados carregados',
-                    message: 'Informações do visitante carregadas para conversão',
-                    duration: 3000
-                });
+                addToast('Informações do visitante carregadas para conversão', 'success', 3000); // Usando addToast do hook
 
             } catch (e: any) {
                 console.error("Erro ao buscar visitante para conversão:", e);
-                addToast({
-                    type: 'error',
-                    title: 'Erro ao carregar',
-                    message: e.message || 'Erro desconhecido ao carregar dados do visitante'
-                });
+                addToast(e.message || 'Erro desconhecido ao carregar dados do visitante', 'error'); // Usando addToast do hook
                 setTimeout(() => router.replace('/visitantes'), 2000);
             } finally {
                 setLoading(false);
@@ -108,14 +90,15 @@ export default function ConverterVisitantePage() {
         if (visitanteId) {
             fetchVisitanteData();
         }
-    }, [visitanteId, router]);
+    }, [visitanteId, router, addToast]); // Adicionar addToast às dependências
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => { // Adicionar HTMLSelectElement
         const { name, value } = e.target;
         if (name === 'telefone') {
-            setFormData({ ...formData, [name]: normalizePhoneNumber(value) });
+            setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            setFormData({ ...formData, [name]: value });
+            // CORREÇÃO: Lidar com campos que podem ser nulos corretamente (string vazia vira null)
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); 
         }
     };
 
@@ -125,164 +108,75 @@ export default function ConverterVisitantePage() {
 
         // Validações
         if (!formData.nome.trim()) {
-            addToast({
-                type: 'error',
-                title: 'Campo obrigatório',
-                message: 'O campo "Nome Completo" é obrigatório'
-            });
+            addToast('O campo "Nome Completo" é obrigatório', 'error'); // Usando addToast do hook
             setSubmitting(false);
             return;
         }
         if (!formData.data_ingresso) {
-            addToast({
-                type: 'error',
-                title: 'Campo obrigatório',
-                message: 'O campo "Data de Ingresso" é obrigatório'
-            });
+            addToast('O campo "Data de Ingresso" é obrigatório', 'error'); // Usando addToast do hook
+            setSubmitting(false);
+            return;
+        }
+        if (!formData.celula_id) { // Adicionar validação para celula_id
+            addToast('O ID da célula não está disponível para conversão.', 'error');
             setSubmitting(false);
             return;
         }
 
         const normalizedPhone = normalizePhoneNumber(formData.telefone);
         if (normalizedPhone && (normalizedPhone.length < 10 || normalizedPhone.length > 11)) {
-            addToast({
-                type: 'error',
-                title: 'Telefone inválido',
-                message: 'O número deve ter 10 ou 11 dígitos (incluindo DDD)'
-            });
+            addToast('O número de telefone deve ter 10 ou 11 dígitos (incluindo DDD).', 'error'); // Usando addToast do hook
             setSubmitting(false);
             return;
         }
 
         try {
-            const { success, message } = await converterVisitanteEmMembro(visitanteId, {
+            // Inverter a ordem dos argumentos e incluir celula_id e status
+            const { success, message } = await converterVisitanteEmMembro(visitanteId, { // Primeiro o visitanteId
                 nome: formData.nome,
                 telefone: normalizedPhone || null,
                 data_ingresso: formData.data_ingresso,
                 data_nascimento: formData.data_nascimento || null,
                 endereco: formData.endereco || null,
+                status: formData.status, // Incluir status
+                celula_id: formData.celula_id, // Incluir celula_id
             });
+            // --- FIM CORREÇÃO ---
 
             if (success) {
-                addToast({
-                    type: 'success',
-                    title: 'Conversão realizada!',
-                    message: 'Visitante convertido em membro com sucesso',
-                    duration: 4000
-                });
+                addToast('Visitante convertido em membro com sucesso!', 'success', 4000); // Usando addToast do hook
 
                 // Redirecionar após mostrar o toast
                 setTimeout(() => {
                     router.push('/membros');
                 }, 2000);
             } else {
-                addToast({
-                    type: 'error',
-                    title: 'Erro na conversão',
-                    message: message || 'Erro desconhecido ao converter visitante'
-                });
+                addToast(message || 'Erro desconhecido ao converter visitante', 'error'); // Usando addToast do hook
             }
         } catch (e: any) {
             console.error("Erro na conversão de visitante:", e);
-            addToast({
-                type: 'error',
-                title: 'Erro inesperado',
-                message: e.message || 'Erro desconhecido durante a conversão'
-            });
+            addToast(e.message || 'Erro desconhecido durante a conversão', 'error'); // Usando addToast do hook
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Ícones para os toasts
-    const getToastIcon = (type: Toast['type']) => {
-        switch (type) {
-            case 'success':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'error':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'warning':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-            case 'info':
-                return (
-                    <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                );
-        }
-    };
-
-    const getToastStyles = (type: Toast['type']) => {
-        const baseStyles = "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden";
-        
-        switch (type) {
-            case 'success':
-                return `${baseStyles} border-l-4 border-green-500`;
-            case 'error':
-                return `${baseStyles} border-l-4 border-red-500`;
-            case 'warning':
-                return `${baseStyles} border-l-4 border-yellow-500`;
-            case 'info':
-                return `${baseStyles} border-l-4 border-blue-500`;
-        }
-    };
+    if (loading) {
+        return <LoadingSpinner text="Carregando dados do visitante..." />; // Ajusta o fullScreen para false se o container já o gerencia
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 space-y-3">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
                 {toasts.map((toast) => (
-                    <div
+                    <Toast
                         key={toast.id}
-                        className={getToastStyles(toast.type)}
-                    >
-                        <div className="p-4">
-                            <div className="flex items-start">
-                                {getToastIcon(toast.type)}
-                                <div className="ml-3 w-0 flex-1 pt-0.5">
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {toast.title}
-                                    </p>
-                                    {toast.message && (
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            {toast.message}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="ml-4 flex-shrink-0 flex">
-                                    <button
-                                        onClick={() => removeToast(toast.id)}
-                                        className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        <span className="sr-only">Fechar</span>
-                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
                 ))}
             </div>
 
@@ -316,10 +210,7 @@ export default function ConverterVisitantePage() {
                     {/* Formulário */}
                     <div className="p-6 sm:p-8">
                         {loading ? (
-                            <div className="text-center py-12">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-                                <p className="mt-4 text-gray-600 font-medium">Carregando dados do visitante...</p>
-                            </div>
+                            <LoadingSpinner text="Carregando dados do visitante..." /> // Usar LoadingSpinner global
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 {/* Informações Básicas */}
@@ -368,7 +259,7 @@ export default function ConverterVisitantePage() {
                                         type="text" 
                                         id="telefone" 
                                         name="telefone" 
-                                        value={formData.telefone} 
+                                        value={formData.telefone || ''} 
                                         onChange={handleChange} 
                                         placeholder="(XX) XXXXX-XXXX" 
                                         maxLength={11} 
@@ -389,7 +280,7 @@ export default function ConverterVisitantePage() {
                                         type="text" 
                                         id="endereco" 
                                         name="endereco" 
-                                        value={formData.endereco} 
+                                        value={formData.endereco || ''} 
                                         onChange={handleChange} 
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         placeholder="Endereço completo do novo membro"
@@ -429,11 +320,33 @@ export default function ConverterVisitantePage() {
                                             type="date" 
                                             id="data_nascimento" 
                                             name="data_nascimento" 
-                                            value={formData.data_nascimento} 
+                                            value={formData.data_nascimento || ''} 
                                             onChange={handleChange} 
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Campo Status */}
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.279A8.958 8.958 0 0112 3a8.998 8.998 0 017.708 4.717m-1.956 0h.001M12 21a9 9 0 01-8.618-4.279m1.956 0h-.001" />
+                                        </svg>
+                                        Status *
+                                    </label>
+                                    <select 
+                                        id="status" 
+                                        name="status" 
+                                        value={formData.status} 
+                                        onChange={handleChange} 
+                                        required 
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
+                                    >
+                                        <option value="Ativo">Ativo</option>
+                                        <option value="Inativo">Inativo</option>
+                                        <option value="Em transição">Em transição</option>
+                                    </select>
                                 </div>
 
                                 {/* Botão Submit */}

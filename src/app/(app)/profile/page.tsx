@@ -4,12 +4,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+// Importa funções de data.ts
 import {
     getUserProfile,
     updateUserProfileData,
     updateUserPassword,
-    Profile
 } from '@/lib/data';
+// Importa a interface Profile de types.ts
+import { Profile } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Profile de types.ts
+
 import { normalizePhoneNumber, formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
@@ -28,89 +31,12 @@ import {
   FaArrowLeft
 } from 'react-icons/fa';
 
-// Sistema de Toast integrado (mesmo do componente anterior)
-interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  duration?: number;
-}
+// --- REFATORAÇÃO: TOASTS ---
+// CORREÇÃO: Vamos importar o useToast E o ToastComponent de UI
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast'; // Importar o componente Toast UI diretamente
+// --- FIM REFATORAÇÃO TOASTS ---
 
-const useToast = () => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const addToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 5000) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newToast: Toast = { id, message, type, duration };
-    
-    setToasts(prev => [...prev, newToast]);
-
-    if (duration > 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
-    }
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
-
-  const ToastContainer = () => (
-    <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={`p-4 rounded-xl shadow-lg border-l-4 transform transition-all duration-300 ease-in-out ${
-            toast.type === 'success' 
-              ? 'bg-green-50 border-green-500 text-green-800' 
-              : toast.type === 'error'
-              ? 'bg-red-50 border-red-500 text-red-800'
-              : toast.type === 'warning'
-              ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
-              : 'bg-blue-50 border-blue-500 text-blue-800'
-          }`}
-        >
-          <div className="flex items-start space-x-3">
-            <div className={`flex-shrink-0 mt-0.5 ${
-              toast.type === 'success' 
-                ? 'text-green-500' 
-                : toast.type === 'error'
-                ? 'text-red-500'
-                : toast.type === 'warning'
-                ? 'text-yellow-500'
-                : 'text-blue-500'
-            }`}>
-              {toast.type === 'success' && <FaCheckCircle className="text-lg" />}
-              {toast.type === 'error' && <FaExclamationTriangle className="text-lg" />}
-              {toast.type === 'warning' && <FaExclamationTriangle className="text-lg" />}
-              {toast.type === 'info' && <FaInfoCircle className="text-lg" />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{toast.message}</p>
-            </div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className={`flex-shrink-0 ml-2 hover:bg-opacity-20 hover:bg-black rounded-full p-1 transition-colors ${
-                toast.type === 'success' 
-                  ? 'text-green-500 hover:text-green-700' 
-                  : toast.type === 'error'
-                  ? 'text-red-500 hover:text-red-700'
-                  : toast.type === 'warning'
-                  ? 'text-yellow-500 hover:text-yellow-700'
-                  : 'text-blue-500 hover:text-blue-700'
-              }`}
-            >
-              <FaTimes className="text-sm" />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  return { addToast, removeToast, ToastContainer };
-};
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -129,7 +55,11 @@ export default function ProfilePage() {
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const router = useRouter();
-    const { addToast, ToastContainer } = useToast();
+    // CORREÇÃO AQUI: Chamar o hook useToast e obter 'toasts', 'addToast', 'removeToast'.
+    // O ToastContainer NÃO é retornado por este useToast do hooks/.
+    // A renderização do ToastContainer será feita manualmente no JSX, como nas outras páginas.
+    const { toasts, addToast, removeToast } = useToast();
+
 
     const fetchUserProfile = useCallback(async () => {
         setLoading(true);
@@ -141,7 +71,8 @@ export default function ProfilePage() {
                     nome_completo: userProfileData.nome_completo || '',
                     telefone: normalizePhoneNumber(userProfileData.telefone),
                 });
-                addToast('Perfil carregado com sucesso', 'success');
+                // CORREÇÃO: Adicionando toast ao carregar perfil.
+                addToast('Perfil carregado com sucesso', 'success', 3000);
             } else {
                 addToast("Perfil não encontrado ou acesso negado.", 'error');
             }
@@ -151,7 +82,7 @@ export default function ProfilePage() {
         } finally {
             setLoading(false);
         }
-    }, [addToast]);
+    }, [addToast]); // `addToast` é uma dependência estável do hook `useToast`
 
     useEffect(() => {
         fetchUserProfile();
@@ -193,6 +124,7 @@ export default function ProfilePage() {
                 telefone: normalizedPhone || null,
             });
             addToast("Perfil atualizado com sucesso!", 'success');
+            // Re-fetch para atualizar os dados exibidos no perfil e na sidebar
             fetchUserProfile();
         } catch (err: any) {
             console.error("Erro ao atualizar perfil:", err);
@@ -223,7 +155,7 @@ export default function ProfilePage() {
                 addToast(message, 'success');
                 setNewPassword('');
                 setConfirmPassword('');
-                setActiveTab('profile');
+                setActiveTab('profile'); // Volta para a aba de perfil após sucesso
             } else {
                 addToast(message, 'error');
             }
@@ -520,7 +452,17 @@ export default function ProfilePage() {
             </div>
 
             {/* Container de Toasts */}
-            <ToastContainer />
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2"> {/* CORREÇÃO: Adicionar o container manualmente aqui */}
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
         </div>
     );
 }

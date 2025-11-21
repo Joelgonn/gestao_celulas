@@ -18,21 +18,27 @@ import {
     FaCheckCircle,
     FaExclamationTriangle,
     FaCopy,
-    FaMapMarkerAlt
+    FaMapMarkerAlt,
+    FaUserCog // Ícone para Gerenciar Usuários
 } from 'react-icons/fa';
-import { useToastStore } from '@/lib/toast';
-import {
-    fetchCelulasAdmin,
-    createCelulaAdmin,
-    updateCelulaAdmin,
-    deleteCelulaAdmin,
-    Celula
-} from '@/app/api/admin/celulas/actions';
 
-// --- IMPORTAÇÃO DE CHAVEATIVACAO DO NOVO ARQUIVO types.ts (ALTERADO AQUI) ---
-import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions';
-import { ChaveAtivacao } from '@/lib/types'; // Importado de types.ts
-// --- FIM DA ALTERAÇÃO ---
+// Importações do novo sistema de toasts
+import useToast from '@/hooks/useToast';
+import Toast from '@/components/ui/Toast';
+
+// Importações das Server Actions para gerenciamento de células
+import { 
+    fetchCelulasAdmin, 
+    createCelulaAdmin, 
+    updateCelulaAdmin, 
+    deleteCelulaAdmin, 
+} from '@/app/api/admin/celulas/actions'; 
+
+// Importações das Server Actions para gerenciamento de chaves de ativação
+import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions'; 
+
+// Importações de interfaces de types.ts <--- CORREÇÃO AQUI
+import { Celula, ChaveAtivacao } from '@/lib/types'; 
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 
@@ -53,9 +59,31 @@ export default function AdminCelulasPage() {
     const [submitting, setSubmitting] = useState(false);
     const [chavesAtivacao, setChavesAtivacao] = useState<ChaveAtivacao[]>([]);
     const [loadingChaves, setLoadingChaves] = useState(false);
+    
+    // Estado para armazenar o userRole, necessário para renderizar o botão "Gerenciar Usuários"
+    const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
 
     const router = useRouter();
-    const { addToast } = useToastStore();
+    const { toasts, addToast, removeToast } = useToast();
+
+    // Efeito para buscar a role do usuário no carregamento inicial
+    useEffect(() => {
+        async function fetchUserRole() {
+            const { supabase } = await import('@/utils/supabase/client'); // Importação dinâmica do cliente de browser
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (user && !error) {
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+                if (!profileError && profile) {
+                    setUserRole(profile.role as 'admin' | 'líder');
+                }
+            }
+        }
+        fetchUserRole();
+    }, []);
 
     const loadCelulas = useCallback(async () => {
         setLoading(true);
@@ -73,7 +101,7 @@ export default function AdminCelulasPage() {
         } finally {
             setLoading(false);
         }
-    }, [router, addToast]);
+    }, [router, addToast]); 
 
     const loadChavesAtivacao = useCallback(async () => {
         setLoadingChaves(true);
@@ -117,7 +145,7 @@ export default function AdminCelulasPage() {
             setNewCelulaLider('');
             setNewCelulaEndereco('');
             await loadCelulas();
-            await loadChavesAtivacao(); // Recarrega chaves após criar nova célula e chave
+            await loadChavesAtivacao(); 
             addToast('Célula e chave de ativação criadas com sucesso!', 'success');
         } catch (err: any) {
             console.error("Erro ao criar célula (Admin):", err);
@@ -176,7 +204,7 @@ export default function AdminCelulasPage() {
         try {
             await deleteCelulaAdmin(celulaId);
             await loadCelulas();
-            await loadChavesAtivacao(); // Recarrega chaves após excluir célula
+            await loadChavesAtivacao(); 
             addToast(`Célula "${celulaName}" excluída com sucesso!`, 'success');
         } catch (err: any) {
             console.error("Erro ao excluir célula (Admin):", err);
@@ -195,7 +223,7 @@ export default function AdminCelulasPage() {
         setError(null);
         try {
             const newKey = await createChaveAtivacaoAdmin(celulaId);
-            await loadChavesAtivacao(); // Recarrega chaves para mostrar a nova
+            await loadChavesAtivacao(); 
             addToast(`Chave gerada para ${celulaName}: ${newKey.chave}`, 'success');
         } catch (err: any) {
             console.error("Erro ao gerar chave de ativação:", err);
@@ -221,6 +249,19 @@ export default function AdminCelulasPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
+            {/* Container de Toasts global */}
+            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
+                {toasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => removeToast(toast.id)}
+                        duration={toast.duration}
+                    />
+                ))}
+            </div>
+
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
@@ -234,13 +275,25 @@ export default function AdminCelulasPage() {
                                 <p className="text-emerald-100 mt-2">Administre as células e chaves de ativação do sistema</p>
                             </div>
                         </div>
-                        <Link 
-                            href="/dashboard"
-                            className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
-                        >
-                            <FaArrowLeft className="text-sm" />
-                            <span>Voltar ao Dashboard</span>
-                        </Link>
+                        {/* BOTÕES DE NAVEGAÇÃO NO HEADER */}
+                        <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                            {userRole === 'admin' && ( // Mostra o botão apenas para administradores
+                                <Link 
+                                    href="/admin/users"
+                                    className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
+                                >
+                                    <FaUserCog className="text-sm" /> 
+                                    <span>Gerenciar Usuários</span>
+                                </Link>
+                            )}
+                            <Link 
+                                href="/dashboard"
+                                className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
+                            >
+                                <FaArrowLeft className="text-sm" />
+                                <span>Voltar ao Dashboard</span>
+                            </Link>
+                        </div>
                     </div>
                 </div>
 
@@ -537,7 +590,10 @@ export default function AdminCelulasPage() {
                                         <div className="mb-3">
                                             <p className="text-xs text-gray-600 mb-1">Chave de Ativação</p>
                                             <div className="flex items-center space-x-2">
-                                                <code className="font-mono text-sm bg-white/80 p-2 rounded border flex-1 truncate">
+                                                <code 
+                                                    className="font-mono text-sm bg-white/80 p-2 rounded border flex-1 truncate 
+                                                                dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" 
+                                                >
                                                     {chave.chave}
                                                 </code>
                                                 <button
