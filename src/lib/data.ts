@@ -78,6 +78,7 @@ export interface ReuniaoFormData {
 
 export interface MembroComPresenca extends Membro {
     presente: boolean;
+    presenca_registrada: boolean; // <--- ADICIONADO: Sinaliza se o dado veio do DB ou é default
 }
 
 export interface VisitanteComPresenca {
@@ -957,6 +958,8 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) return [];
     let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : null;
+    
+    // Lógica de validação do Admin (mantida)
     if (role === 'admin') {
         const clientToUse = adminSupabase || supabase;
         const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
@@ -964,16 +967,42 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
         targetCelulaIdForQuery = reuniaoDataCheck.celula_id;
     }
     if (!targetCelulaIdForQuery) { return []; }
+    
     try {
         const clientToUse = adminSupabase || supabase;
-        const { data: members, error: membersError } = await clientToUse.from('membros').select('id, celula_id, nome, telefone, data_ingresso, data_nascimento, endereco, status, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
+        const { data: members, error: membersError } = await clientToUse
+            .from('membros')
+            .select('id, celula_id, nome, telefone, data_ingresso, data_nascimento, endereco, status, created_at')
+            .eq('celula_id', targetCelulaIdForQuery)
+            .order('nome', { ascending: true });
+        
         if (membersError) { console.error("Erro ao listar membros com presença:", membersError); throw membersError; }
+        
         const memberIds = (members || []).map((m: Membro) => m.id);
-        const { data: presences, error: presencesError } = await clientToUse.from('presencas_membros').select('membro_id, presente').eq('reuniao_id', reuniaoId).in('membro_id', Array.from(memberIds)); 
+        
+        // Busca as presenças existentes
+        const { data: presences, error: presencesError } = await clientToUse
+            .from('presencas_membros')
+            .select('membro_id, presente')
+            .eq('reuniao_id', reuniaoId)
+            .in('membro_id', Array.from(memberIds)); 
+            
         if (presencesError) { console.error("Erro ao listar presenças de membros:", presencesError); throw presencesError; }
+        
+        // Mapeia para saber o status (true/false) e se o registro existe (has)
         const presenceMap = new Map((presences || []).map(p => [p.membro_id, p.presente]));
-        return (members || []).map(membro => ({ ...membro, presente: presenceMap.get(membro.id) || false }));
-    } catch (e: any) { console.error("Falha ao carregar membros para presença:", e); throw new Error("Falha ao carregar membros para presença: " + e.message); }
+        
+        return (members || []).map(membro => ({ 
+            ...membro, 
+            presente: presenceMap.get(membro.id) || false,
+            // AQUI: presenca_registrada é TRUE se o ID existe no mapa de presenças
+            presenca_registrada: presenceMap.has(membro.id) 
+        }));
+        
+    } catch (e: any) { 
+        console.error("Falha ao carregar membros para presença:", e); 
+        throw new Error("Falha ao carregar membros para presença: " + e.message); 
+    }
 }
 
 export async function registrarPresencaMembro(reuniaoId: string, membroId: string, presente: boolean): Promise<void> {

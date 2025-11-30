@@ -12,25 +12,21 @@ import {
     registrarPresencaVisitante,
     getNumCriancasReuniao,
     setNumCriancasReuniao,
-    // Importe ReuniaoDB ou ReuniaoParaEdicao, já que 'Reuniao' foi renomeada/reestruturada
-    ReuniaoDB, // Para a estrutura do DB, se precisar dos IDs brutos
-    ReuniaoParaEdicao, // Se precisar dos IDs e nomes para pré-preenchimento
+    ReuniaoParaEdicao, // Para a estrutura da reunião que contém os IDs de função
     MembroComPresenca,
     VisitanteComPresenca
 } from '@/lib/data';
 import { formatDateForDisplay } from '@/utils/formatters';
 
-// IMPORTS DOS COMPONENTES E HOOKS AGORA SEPARADOS
-import Toast from '@/components/ui/Toast'; // Importa o componente Toast
-import useToast from '@/hooks/useToast';   // Importa o hook useToast
-import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Importa o componente LoadingSpinner
+// IMPORTS DOS COMPONENTES E HOOKS
+import Toast from '@/components/ui/Toast'; 
+import useToast from '@/hooks/useToast';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function GerenciarPresencaPage() {
     const params = useParams();
     const reuniaoId = params.id as string;
     
-    // CORREÇÃO: Tipar o estado 'reuniao' com ReuniaoParaEdicao,
-    // pois 'getReuniao' agora retorna esta interface.
     const [reuniao, setReuniao] = useState<ReuniaoParaEdicao | null>(null);
     const [membrosPresenca, setMembrosPresenca] = useState<MembroComPresenca[]>([]);
     const [visitantesPresenca, setVisitantesPresenca] = useState<VisitanteComPresenca[]>([]);
@@ -39,11 +35,11 @@ export default function GerenciarPresencaPage() {
     const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
 
+    // IDs das funções (não usados diretamente nos inputs, mas úteis para lógica)
     const [ministradorPrincipalId, setMinistradorPrincipalId] = useState<string | null>(null);
     const [ministradorSecundarioId, setMinistradorSecundarioId] = useState<string | null>(null);
     const [responsavelKidsId, setResponsavelKidsId] = useState<string | null>(null);
 
-    // Usar o hook de toast real
     const { toasts, addToast, removeToast } = useToast();
 
     // Contadores para feedback visual
@@ -54,30 +50,49 @@ export default function GerenciarPresencaPage() {
         const fetchPresencaData = async () => {
             setLoading(true);
             try {
-                // CORREÇÃO: getReuniao agora retorna ReuniaoParaEdicao
-                const fetchedReuniao = await getReuniao(reuniaoId);
-                if (!fetchedReuniao) {
-                    addToast('Reunião não encontrada!', 'error');
-                    setTimeout(() => router.replace('/reunioes'), 2000);
-                    return;
-                }
-                setReuniao(fetchedReuniao);
-                // CORREÇÃO: Acessar os IDs diretamente da propriedade, não de um array aninhado.
-                // ministrador_principal em fetchedReuniao já é o UUID ou null.
-                setMinistradorPrincipalId(fetchedReuniao.ministrador_principal || null);
-                setMinistradorSecundarioId(fetchedReuniao.ministrador_secundario || null);
-                setResponsavelKidsId(fetchedReuniao.responsavel_kids || null);
-                // FIM CORREÇÃO
-
-                const [membrosData, visitantesData, criancasCount] = await Promise.all([
+                const [fetchedReuniao, membrosRawData, visitantesData, criancasCount] = await Promise.all([
+                    getReuniao(reuniaoId),
                     listarTodosMembrosComPresenca(reuniaoId),
                     listarTodosVisitantesComPresenca(reuniaoId),
                     getNumCriancasReuniao(reuniaoId),
                 ]);
 
-                setMembrosPresenca(membrosData);
+                if (!fetchedReuniao) {
+                    addToast('Reunião não encontrada!', 'error');
+                    setTimeout(() => router.replace('/reunioes'), 2000);
+                    return;
+                }
+                
+                // --- EXTRAÇÃO DOS IDs DE FUNÇÃO ---
+                const mpId = fetchedReuniao.ministrador_principal || null;
+                const msId = fetchedReuniao.ministrador_secundario || null;
+                const rkId = fetchedReuniao.responsavel_kids || null;
+
+                setReuniao(fetchedReuniao);
+                setMinistradorPrincipalId(mpId);
+                setMinistradorSecundarioId(msId);
+                setResponsavelKidsId(rkId);
                 setVisitantesPresenca(visitantesData);
                 setNumCriancas(criancasCount);
+
+                // --- LÓGICA DE PRÉ-MARCAÇÃO ---
+                const idsComFuncao = [mpId, msId, rkId].filter((id): id is string => id !== null);
+
+                const membrosComPreMarcacao = membrosRawData.map(m => {
+                    const isDesignado = idsComFuncao.includes(m.id);
+                    
+                    // Se o membro tiver uma função NA FICHA DA REUNIÃO,
+                    // e ele AINDA NÃO tiver presença registrada (m.presente é false/nulo),
+                    // marcamos como presente. Se já tiver registro, mantemos o registro do DB.
+                    if (isDesignado && !m.presenca_registrada) {
+                        return { ...m, presente: true };
+                    }
+                    
+                    return m;
+                });
+
+                setMembrosPresenca(membrosComPreMarcacao);
+                // --- FIM LÓGICA DE PRÉ-MARCAÇÃO ---
 
                 addToast('Dados carregados com sucesso!', 'success');
 
@@ -119,10 +134,8 @@ export default function GerenciarPresencaPage() {
         try {
             // Salvar presenças de membros
             await Promise.all(membrosPresenca.map(async (membro) => {
-                const isSpecialRole = [ministradorPrincipalId, ministradorSecundarioId, responsavelKidsId].includes(membro.id);
-                // A presença de membros com funções especiais deve ser considerada 'presente' se forem marcados como tal
-                // A sua lógica atual desabilita o checkbox, então 'membro.presente' já deve refletir a intenção.
-                // A linha abaixo já está correta, usando membro.presente.
+                // Não precisamos da lógica isSpecialRole aqui, pois o estado já foi atualizado
+                // pelo usuário ou pré-marcado na inicialização.
                 return registrarPresencaMembro(reuniaoId, membro.id, membro.presente);
             }));
 
@@ -136,7 +149,6 @@ export default function GerenciarPresencaPage() {
 
             addToast('Presenças salvas com sucesso! Redirecionando...', 'success');
             
-            // Redirecionar após breve delay para mostrar o toast
             setTimeout(() => {
                 router.push('/reunioes');
             }, 1500);
@@ -267,7 +279,7 @@ export default function GerenciarPresencaPage() {
                                                     id={`membro-${membro.id}`}
                                                     checked={membro.presente}
                                                     onChange={(e) => handleMembroChange(membro.id, e.target.checked)}
-                                                    disabled={isSpecialRole}
+                                                    disabled={isSpecialRole} // MANTÉM DESABILITADO SE FOR FUNÇÃO
                                                     className="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
                                                 />
                                                 <label htmlFor={`membro-${membro.id}`} className={`ml-3 flex-1 text-sm font-medium ${isSpecialRole ? 'text-green-800 font-bold' : 'text-gray-700'}`}>
@@ -285,7 +297,7 @@ export default function GerenciarPresencaPage() {
                             </div>
                         </div>
 
-                        {/* Seção de Visitantes */}
+                        {/* Seção de Visitantes (sem mudanças) */}
                         <div className="bg-white rounded-xl shadow-lg p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-xl font-semibold text-gray-800 flex items-center">
