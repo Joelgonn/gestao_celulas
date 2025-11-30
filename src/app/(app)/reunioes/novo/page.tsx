@@ -4,6 +4,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import {     
+    FaPlus,
+    FaArrowLeft,
+    FaCalendarAlt,
+    FaBookOpen,
+    FaUser,
+    FaChild,
+    FaFilePdf,
+    FaCheckCircle,
+    FaSave
+} from 'react-icons/fa';
 // Importa funções de data.ts
 import {
     adicionarReuniao,

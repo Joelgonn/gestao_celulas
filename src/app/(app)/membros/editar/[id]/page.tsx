@@ -7,7 +7,7 @@ import Link from 'next/link';
 // Importa funções de data.ts, mas os tipos vêm de types.ts
 import { atualizarMembro, getMembro } from '@/lib/data';
 // Importa a interface Membro de types.ts
-import { Membro } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Membro de types.ts
+import { Membro, MembroEditFormData } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Membro de types.ts
 import { normalizePhoneNumber } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS ---
@@ -41,13 +41,15 @@ interface FormData {
 export default function EditMembroPage() {
     const params = useParams();
     const membroId = params.id as string;
-    const [formData, setFormData] = useState<MembroEditFormData>({ // <--- Usar a nova interface
+    const [formData, setFormData] = useState<MembroEditFormData>({
         nome: '',
         telefone: '',
         data_nascimento: '',
         endereco: '',
         data_ingresso: '',
-        status: 'Ativo',
+        status: 'ativo', // ou '' se preferir
+        cargo: '',       // <--- ADICIONE ESTA LINHA
+        email: ''        // <--- ADICIONE ESTA LINHA
     });
 
     const { toasts, addToast, removeToast } = useToast();
@@ -71,6 +73,8 @@ export default function EditMembroPage() {
                         endereco: membro.endereco || '',
                         data_ingresso: membro.data_ingresso || '',
                         status: membro.status || 'Ativo', 
+                        cargo: (membro as any).cargo || 'Membro',
+                        email: (membro as any).email || ''
                     });
                 } else {
                     addToast('Membro não encontrado.', 'error');
@@ -111,7 +115,7 @@ export default function EditMembroPage() {
                 data_nascimento: formData.data_nascimento,
                 endereco: formData.endereco,
                 data_ingresso: formData.data_ingresso,
-                status: formData.status,
+                status: formData.status as any,
             });
             addToast('Membro atualizado com sucesso!', 'success');
             setTimeout(() => router.push('/membros'), 2000);

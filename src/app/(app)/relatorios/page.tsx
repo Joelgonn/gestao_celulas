@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 import {
+    // --- Funções ---
     fetchReportDataPresencaReuniao,
     fetchReportDataPresencaMembro,
     fetchReportDataFaltososPeriodo,
@@ -21,6 +22,17 @@ import {
     exportReportDataAniversariantesCSV,
     exportReportDataAlocacaoLideresCSV,
     exportReportDataChavesAtivacaoCSV,
+    // --- Tipos de Relatórios ---
+    ReportDataPresencaReuniao,
+    ReportDataPresencaMembro,
+    ReportDataFaltososPeriodo,
+    ReportDataVisitantesPeriodo,
+    ReportDataAniversariantes,
+    ReportDataAlocacaoLideres,
+    ReportDataChavesAtivacao,
+    // --- Tipos de Opções (ADICIONADOS AGORA) ---
+    ReuniaoOption,
+    MembroOption
 } from '@/lib/reports_data';
 
 import {

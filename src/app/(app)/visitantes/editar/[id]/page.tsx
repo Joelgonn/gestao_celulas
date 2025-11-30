@@ -10,7 +10,9 @@ import {
     atualizarVisitante,
 } from '@/lib/data';
 // Importa a interface Visitante de types.ts <--- CORREÇÃO AQUI
-import { Visitante } from '@/lib/types';
+import { Visitante,
+    VisitanteEditFormData,
+ } from '@/lib/types';
 
 import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 
@@ -44,7 +46,8 @@ export default function EditVisitantePage() {
         data_nascimento: null, // Inicializar
         endereco: null,
         data_ultimo_contato: null,
-        observacoes: null
+        observacoes: null,
+        status_conversao: 'Em Contato',
     });
     
     // --- REFATORAÇÃO: TOASTS ---
@@ -76,7 +79,8 @@ export default function EditVisitantePage() {
                     data_nascimento: data.data_nascimento ? formatDateForInput(data.data_nascimento) : null, // Preencher data_nascimento
                     endereco: data.endereco || null,
                     data_ultimo_contato: data.data_ultimo_contato ? formatDateForInput(data.data_ultimo_contato) : null,
-                    observacoes: data.observacoes || null
+                    observacoes: data.observacoes || null,
+                    status_conversao: 'Em Contato',
                 });
 
                 addToast('Informações do visitante carregadas com sucesso', 'success', 3000);

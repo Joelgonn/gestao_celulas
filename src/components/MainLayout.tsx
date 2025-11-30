@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; 
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import LoadingSpinner from './LoadingSpinner';
@@ -17,29 +18,21 @@ import {
   FaBars,
   FaTimes,
   FaChevronDown,
-  FaChurch,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaTimes as FaClose,
   FaBookOpen,
   FaUserCog 
 } from 'react-icons/fa';
 
-// NOVO: Importar a interface Toast de onde ela está definida
-import type { ToastProps } from '@/components/ui/Toast'; // Importamos 'type' para garantir que é apenas o tipo
-// E o nome da interface para o hook é 'Toast'
-interface Toast extends Omit<ToastProps, 'onClose'> { // Reutiliza a base da ToastProps
+import type { ToastProps } from '@/components/ui/Toast';
+
+interface Toast extends Omit<ToastProps, 'onClose'> {
   id: number;
 }
 
-
 const useToast = () => {
-  // A interface Toast usada aqui deve ser a definida logo acima
   const [toasts, setToasts] = useState<Toast[]>([]); 
 
   const addToast = useCallback((message: string, type: Toast['type'] = 'info', duration: number = 5000) => {
-    const id = Math.random(); // ID numérico para o hook, mais simples
+    const id = Math.random();
     const newToast: Toast = { id, message, type, duration };
     
     setToasts(prev => [...prev, newToast]);
@@ -51,19 +44,16 @@ const useToast = () => {
     }
   }, []);
 
-  const removeToast = useCallback((id: number) => { // 'id' agora é number
+  const removeToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
-  // O componente ToastContainer aqui é uma função dentro do hook
-  // Ele também precisa importar o componente Toast
   const ToastContainer = () => {
-    // Importar o componente Toast aqui dentro, para evitar circular dependencies se useToast importasse Toast
     const ToastComponent = require('@/components/ui/Toast').default; 
     return (
       <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
         {toasts.map((toast) => (
-          <ToastComponent // Usar o componente importado
+          <ToastComponent
             key={toast.id}
             message={toast.message}
             type={toast.type}
@@ -78,8 +68,7 @@ const useToast = () => {
   return { addToast, removeToast, ToastContainer };
 };
 
-
-// --- Componente NavItem (permanece o mesmo) ---
+// --- Componente NavItem ---
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
@@ -93,8 +82,8 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   if (isHidden) return null;
   
   const activeClass = isActive 
-    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' 
-    : 'text-indigo-100 hover:bg-indigo-700 hover:text-white hover:shadow-md';
+    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg' 
+    : 'text-orange-100 hover:bg-orange-700 hover:text-white hover:shadow-md';
   
   return (
     <Link 
@@ -102,7 +91,7 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
       onClick={onClick}
       className={`flex items-center space-x-3 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 transform hover:translate-x-1 ${activeClass}`}
     >
-      <div className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-indigo-300'}`}>
+      <div className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-orange-200'}`}>
         {icon}
       </div>
       <span className="flex-1">{children}</span>
@@ -113,7 +102,7 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   );
 };
 
-// --- Componente LogoutButton (permanece o mesmo) ---
+// --- Componente LogoutButton ---
 const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const router = useRouter();
   
@@ -138,7 +127,7 @@ const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   );
 };
 
-// --- Componente MainLayout (o resto permanece o mesmo) ---
+// --- Componente MainLayout ---
 interface MainLayoutProps {
   children: React.ReactNode;
 }
@@ -152,7 +141,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const { addToast, ToastContainer } = useToast(); // ToastContainer é um componente retornado pelo hook
+  const { addToast, ToastContainer } = useToast(); 
 
 
   useEffect(() => {
@@ -188,7 +177,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     fetchUserRole();
   }, [addToast]);
 
-  // Fechar sidebar ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
@@ -200,7 +188,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userDropdownOpen) {
@@ -212,7 +199,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [userDropdownOpen]);
 
-  // Definição dos itens da navegação
   const navItems = [
     {
       href: '/dashboard',
@@ -230,7 +216,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     },
     {
       href: '/admin/celulas', 
-      icon: <FaChurch className="text-lg" />,
+      icon: <FaHome className="text-lg" />, 
       label: 'Gerenciar Células',
       forAdmin: true,
       forLider: false,
@@ -272,7 +258,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     },
   ];
 
-  // Renderiza o spinner se a role do usuário ainda estiver carregando
   if (loadingRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -294,19 +279,26 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden">
           <div 
             ref={sidebarRef}
-            className="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-indigo-800 to-purple-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50"
+            className="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-orange-600 to-orange-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50"
           >
-            {/* Sidebar Header */}
-            <div className="flex items-center justify-between h-16 px-4 bg-gradient-to-r from-indigo-900 to-purple-800 border-b border-indigo-700">
+            {/* Sidebar Header Mobile */}
+            <div className="flex items-center justify-between h-16 px-4 bg-gradient-to-r from-orange-700 to-orange-900 border-b border-orange-700">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                  <FaChurch className="text-indigo-600 text-lg" />
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1">
+                  <Image 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    width={32} 
+                    height={32} 
+                    className="object-contain" 
+                  />
                 </div>
-                <h1 className="text-white text-xl font-bold">Sistema Células</h1>
+                {/* NOME ALTERADO AQUI */}
+                <h1 className="text-white text-lg font-bold truncate">Apascentar Células</h1>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="text-indigo-200 hover:text-white transition-colors duration-200"
+                className="text-orange-200 hover:text-white transition-colors duration-200"
               >
                 <FaTimes className="text-lg" />
               </button>
@@ -334,8 +326,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 })}
               </nav>
               
-              {/* Logout Button */}
-              <div className="px-4 py-4 border-t border-indigo-700 mt-auto">
+              <div className="px-4 py-4 border-t border-orange-700 mt-auto">
                 <LogoutButton onLogout={() => setSidebarOpen(false)} />
               </div>
             </div>
@@ -345,28 +336,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* Desktop Sidebar */}
       <div className="hidden md:flex md:flex-shrink-0">
-        <div className="flex flex-col w-64 bg-gradient-to-b from-indigo-800 to-purple-900 shadow-2xl">
-          {/* Logo */}
-          <div className="flex items-center justify-center h-16 flex-shrink-0 px-4 bg-gradient-to-r from-indigo-900 to-purple-800 border-b border-indigo-700">
+        <div className="flex flex-col w-64 bg-gradient-to-b from-orange-600 to-orange-900 shadow-2xl">
+          {/* Sidebar Header Desktop */}
+          <div className="flex items-center justify-center h-16 flex-shrink-0 px-4 bg-gradient-to-r from-orange-700 to-orange-900 border-b border-orange-700">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                <FaChurch className="text-indigo-600 text-lg" />
+              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1">
+                <Image 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  width={32} 
+                  height={32} 
+                  className="object-contain" 
+                />
               </div>
-              <h1 className="text-white text-xl font-bold">Sistema Células</h1>
+              {/* NOME ALTERADO AQUI */}
+              <h1 className="text-white text-lg font-bold">Apascentar Células</h1>
             </div>
           </div>
           
           {/* User Info */}
-          <div className="px-4 py-4 border-b border-indigo-700">
+          <div className="px-4 py-4 border-b border-orange-700">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
                 <FaUser className="text-white text-sm" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-medium text-sm truncate">
                   {userProfile?.nome_completo || 'Usuário'}
                 </p>
-                <p className="text-indigo-200 text-xs truncate">
+                <p className="text-orange-200 text-xs truncate">
                   {userRole === 'admin' ? 'Administrador' : 'Líder'}
                 </p>
               </div>
@@ -394,7 +392,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               })}
             </nav>
             
-            {/* Profile Link */}
             <div className="px-4 py-2">
               <NavItem
                 href="/profile"
@@ -405,8 +402,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </NavItem>
             </div>
 
-            {/* Logout Button */}
-            <div className="flex-shrink-0 px-4 py-4 border-t border-indigo-700 mt-auto">
+            <div className="flex-shrink-0 px-4 py-4 border-t border-orange-700 mt-auto">
               <LogoutButton />
             </div>
           </div>
@@ -442,7 +438,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 }}
                 className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
                   <FaUser className="text-white text-xs" />
                 </div>
                 <div className="hidden md:block text-left">
@@ -489,7 +485,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </main>
       </div>
 
-      {/* Toast Container */}
       <ToastContainer />
     </div>
   );

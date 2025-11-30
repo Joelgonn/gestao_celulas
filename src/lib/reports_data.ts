@@ -1,35 +1,33 @@
 // src/lib/reports_data.ts
 'use server';
 
-import { createServerClient, createAdminClient } from '@/utils/supabase/server'; 
-import { format, isSameMonth, parseISO, subDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-// ============================================================================
-//                                DEFINIÇÕES DE TIPOS (Importadas ou Locais)
-// ============================================================================
+import { createServerClient, createAdminClient } from '@/utils/supabase/server';
+import { parseISO } from 'date-fns';
+import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 
 import {
-    Membro, 
-    Visitante, 
-    ReuniaoDB, // CORREÇÃO: Importar ReuniaoDB (a interface que representa a tabela do DB)
-    CelulaOption as BaseCelulaOption // Renomeado para evitar conflito com CelulaOption local
+    Membro,
+    Visitante,
+    CelulaOption as BaseCelulaOption
 } from '@/lib/data';
+
+// ============================================================================
+//                                DEFINIÇÕES DE TIPOS
+// ============================================================================
 
 export interface MembroOption {
     id: string;
     nome: string;
 }
 
-// CORREÇÃO: Atualizar ReuniaoOption para refletir o SELECT em listReunioes
 export type ReuniaoOption = {
     id: string;
     data_reuniao: string;
     tema: string;
-    ministrador_principal_nome: string | null; 
+    ministrador_principal_nome: string | null;
 };
 
-export type CelulaOption = BaseCelulaOption; // Reusa a CelulaOption base de data.ts
+export type CelulaOption = BaseCelulaOption;
 
 interface MembroNomeTelefoneId {
     id: string;
@@ -48,21 +46,19 @@ interface CelulaNomeId {
     nome: string;
 }
 
-// CORREÇÃO: Ajustar ReportDataPresencaReuniao para os nomes de alias usados no select
 export interface ReportDataPresencaReuniao {
     reuniao_detalhes: {
         id: string;
         data_reuniao: string;
         tema: string;
         caminho_pdf: string | null;
-        // As propriedades devem corresponder aos nomes dos aliases no SELECT
-        ministrador_principal_nome: string | null; 
-        ministrador_principal_telefone: string | null; // Acessível do alias
+        ministrador_principal_nome: string | null;
+        ministrador_principal_telefone: string | null;
         ministrador_secundario_nome: string | null;
         ministrador_secundario_telefone: string | null;
         responsavel_kids_nome: string | null;
         responsavel_kids_telefone: string | null;
-        num_criancas: number; 
+        num_criancas: number;
         celula_nome?: string | null;
     };
     membros_presentes: { id: string; nome: string; telefone: string | null }[];
@@ -87,13 +83,16 @@ export interface MembroFaltoso {
     telefone: string | null;
     total_presencas: number;
     total_reunioes_no_periodo: number;
-    celula_nome?: string | null;
+    celula_nome: string | null;
 }
 
 export interface ReportDataFaltososPeriodo {
     faltosos: MembroFaltoso[];
-    start_date: string;
-    end_date: string;
+    periodo: {
+        start_date: string;
+        end_date: string;
+        total_reunioes: number;
+    }
 }
 
 export interface VisitantePorPeriodo {
@@ -101,53 +100,58 @@ export interface VisitantePorPeriodo {
     nome: string;
     telefone: string | null;
     data_primeira_visita: string;
-    celula_nome?: string | null;
+    celula_nome: string | null;
 }
 
 export interface ReportDataVisitantesPeriodo {
     visitantes: VisitantePorPeriodo[];
-    start_date: string;
-    end_date: string;
+    periodo: {
+        start_date: string;
+        end_date: string;
+        total_visitantes: number;
+    }
 }
 
 export interface MembroAniversariante {
     id: string;
     nome: string;
-    data_nascimento: string; // YYYY-MM-DD
+    data_nascimento: string;
     telefone: string | null;
-    celula_nome?: string | null;
+    celula_nome: string | null;
+    celula_id?: string | null;
 }
 
 export interface VisitanteAniversariante {
     id: string;
     nome: string;
-    data_primeira_visita: string; // YYYY-MM-DD
-    data_nascimento: string; // YYYY-MM-DD
+    data_primeira_visita: string;
+    data_nascimento: string;
     telefone: string | null;
-    celula_nome?: string | null;
+    celula_nome: string | null;
+    celula_id?: string | null;
 }
 
 export interface ReportDataAniversariantes {
-    mes: number; // 1-12
-    ano_referencia: number; // Ano atual para exibição
+    mes: number;
+    ano_referencia: number;
     membros: MembroAniversariante[];
     visitantes: VisitanteAniversariante[];
 }
 
 export interface LiderAlocacaoItem {
-    id: string; // user_id do perfil
+    id: string;
     email: string;
     role: 'admin' | 'líder';
     celula_id: string | null;
-    celula_nome: string | null; // Nome da célula se alocado
+    celula_nome: string | null;
     data_criacao_perfil: string;
     ultimo_login: string | null;
 }
 
 export interface CelulaSemLiderItem {
-    id: string; // celula_id
-    nome: string; // nome da célula
-    lider_principal_cadastrado_na_celula: string | null; // Nome do líder principal registrado na tabela 'celulas'
+    id: string;
+    nome: string;
+    lider_principal_cadastrado_na_celula: string | null;
 }
 
 export interface ReportDataAlocacaoLideres {
@@ -161,11 +165,11 @@ export interface ReportDataAlocacaoLideres {
 export interface ChaveAtivacaoItem {
     chave: string;
     celula_id: string;
-    celula_nome: string | null; // Nome da célula
+    celula_nome: string | null;
     usada: boolean;
-    data_uso: string | null; // Quando foi usada (se usada)
-    usada_por_email: string | null; // Email do usuário que usou (se usada)
-    usada_por_id: string | null; // ID do perfil do usuário que usou (se usada)
+    data_uso: string | null;
+    usada_por_email: string | null;
+    usada_por_id: string | null;
 }
 
 export interface ReportDataChavesAtivacao {
@@ -176,172 +180,85 @@ export interface ReportDataChavesAtivacao {
 
 
 // ============================================================================
-//                          FUNÇÕES AUXILIARES DE SUPABASE (Server Actions)
+//                          FUNÇÕES AUXILIARES DE SUPABASE
 // ============================================================================
 
-async function checkUserAuthorizationReports(): Promise<{
-    supabase: ReturnType<typeof createServerClient>; // Sempre um cliente com RLS
-    role: 'admin' | 'líder' | null;
-    celulaId: string | null;
-    adminSupabase: ReturnType<typeof createAdminClient> | null; 
-}> {
+async function checkUserAuthorizationReports() {
     const supabaseClient = createServerClient();
-    const adminSupabaseClient = createAdminClient(); 
+    const adminSupabaseClient = createAdminClient();
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-        console.warn('checkUserAuthorizationReports: Usuário não autenticado. Retornando null.');
         return { supabase: supabaseClient, role: null, celulaId: null, adminSupabase: null };
     }
 
-    const { data: profileData, error: profileError } = await supabaseClient
+    const { data: profileData } = await supabaseClient
         .from('profiles')
         .select('celula_id, role')
         .eq('id', user.id)
         .single();
 
-    if (profileError || !profileData) {
-        console.error('checkUserAuthorizationReports: Erro ao buscar perfil do usuário:', profileError?.message || 'Perfil não encontrado.');
+    if (!profileData) {
         return { supabase: supabaseClient, role: null, celulaId: null, adminSupabase: null };
     }
 
     const role = profileData.role as 'admin' | 'líder';
-    const celulaId = profileData.celula_id;
-
-    return { 
-        supabase: supabaseClient, 
-        role: role, 
-        celulaId: celulaId, 
-        adminSupabase: role === 'admin' ? adminSupabaseClient : null 
+    
+    return {
+        supabase: supabaseClient,
+        role: role,
+        celulaId: profileData.celula_id,
+        adminSupabase: role === 'admin' ? adminSupabaseClient : null
     };
 }
 
-async function getMemberNamesMapWithPhone(memberIds: Set<string>, celulaId: string | null, supabaseInstance: ReturnType<typeof createServerClient>): Promise<Map<string, { nome: string; telefone: string | null }>> {
-    let namesMap = new Map<string, { nome: string; telefone: string | null }>();
-
-    if (memberIds.size === 0) return namesMap;
-
-    let query = supabaseInstance
-        .from('membros')
-        .select('id, nome, telefone')
-        .in('id', Array.from(memberIds));
-    
-    if (celulaId !== null) { 
-        query = query.eq('celula_id', celulaId);
-    }
-
-    const { data: membersData, error: membersError } = await query;
-
-    if (membersError) {
-        console.error("Erro ao buscar nomes e telefones de membros (getMemberNamesMapWithPhone):", membersError);
-    } else {
-        membersData?.forEach((m: MembroNomeTelefoneId) => namesMap.set(m.id, { nome: m.nome, telefone: m.telefone }));
-    }
-    return namesMap;
-}
-
-async function getVisitorNamesMap(visitorIds: Set<string>, celulaId: string | null, supabaseInstance: ReturnType<typeof createServerClient>): Promise<Map<string, { nome: string; telefone: string | null }>> {
-    let namesMap = new Map<string, { nome: string; telefone: string | null }>();
-
-    if (visitorIds.size === 0) return namesMap;
-
-    let query = supabaseInstance
-        .from('visitantes')
-        .select('id, nome, telefone')
-        .in('id', Array.from(visitorIds));
-    
-    if (celulaId !== null) {
-        query = query.eq('celula_id', celulaId);
-    }
-
-    const { data: visitorsData, error: visitorsError } = await query;
-
-    if (visitorsError) {
-        console.error("Erro ao buscar nomes e telefones de visitantes:", visitorsError);
-    } else {
-        visitorsData?.forEach((v: VisitanteNomeTelefoneId) => namesMap.set(v.id, { nome: v.nome, telefone: v.telefone }));
-    }
-    return namesMap;
-}
-
-async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: ReturnType<typeof createServerClient>, adminSupabase: ReturnType<typeof createAdminClient> | null): Promise<Map<string, string>> {
+async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any, adminSupabase: any): Promise<Map<string, string>> {
     let namesMap = new Map<string, string>();
     if (celulaIds.size === 0) return namesMap;
 
-    const clientToUse = adminSupabase ?? supabaseInstance; 
+    const clientToUse = adminSupabase ?? supabaseInstance;
 
     const { data, error } = await clientToUse
         .from('celulas')
         .select('id, nome')
         .in('id', Array.from(celulaIds));
 
-    if (error) {
-        console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error);
-    } else {
+    if (!error) {
         data?.forEach((c: CelulaNomeId) => namesMap.set(c.id, c.nome));
     }
     return namesMap;
 }
 
 // ============================================================================
-//                          FUNÇÕES DE DADOS PARA RELATÓRIOS (SERVER ACTIONS)
+//                          FUNÇÕES DE DADOS PARA RELATÓRIOS
 // ============================================================================
 
-/**
- * Lista membros para os selects de filtro, com base no role do usuário e filtros de célula.
- */
 export async function listMembros(celulaIdParaFiltrar?: string | null): Promise<MembroOption[]> {
-    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports(); 
-    console.log(`listMembros: Chamada. Role: ${role}, celulaIdLogado: ${celulaId}, celulaIdParaFiltrar: ${celulaIdParaFiltrar}`); // NOVO LOG
+    const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
-    if (!role) { 
-        console.warn("listMembros (reports_data): Usuário não autenticado. Retornando lista vazia.");
-        return [];
-    }
+    if (!role) return [];
 
-    const clientToUse = adminSupabase || supabase; // Admin pode precisar do cliente admin para ignorar RLS
-
-    let query = clientToUse.from('membros').select('id, nome'); // Usando clientToUse aqui
+    const clientToUse = adminSupabase || supabase;
+    let query = clientToUse.from('membros').select('id, nome');
 
     if (role === 'líder') {
-        if (!celulaId) {
-            console.warn("listMembros (reports_data): Líder sem ID de célula. Retornando lista vazia.");
-            return [];
-        }
+        if (!celulaId) return [];
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
-    } else if (role === 'admin' && !celulaIdParaFiltrar) {
-        // Admin sem filtro, deve ver TODOS os membros (se RLS permitir)
-        console.log("listMembros: Admin sem filtro de célula, buscando todos os membros.");
     }
-    
-    const { data, error } = await query.order('nome', { ascending: true });
 
-    if (error) {
-        console.error("listMembros (reports_data): Erro ao listar membros:", error);
-        throw new Error("Falha ao carregar membros: " + error.message); 
-    }
-    console.log(`listMembros: Retornando ${data?.length} membros.`); // NOVO LOG
+    const { data } = await query.order('nome', { ascending: true });
     return data || [];
 }
 
-/**
- * Lista reuniões para os selects de filtro, com base no role do usuário e filtros de célula.
- */
 export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise<ReuniaoOption[]> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
 
-    if (!role) {
-        console.warn("listReunioes (reports_data): Usuário não autenticado. Retornando lista vazia.");
-        return [];
-    }
+    if (!role) return [];
 
     const clientToUse = (role === 'admin' && adminSupabase) ? adminSupabase : supabase;
-    if (!clientToUse) {
-        console.error("listReunioes (reports_data): Cliente Supabase não disponível. Erro interno.");
-        throw new Error("Erro interno: Cliente Supabase não disponível.");
-    }
+    if (!clientToUse) throw new Error("Erro interno: Cliente Supabase não disponível.");
 
     let query = clientToUse
         .from('reunioes')
@@ -351,662 +268,386 @@ export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise
         `);
 
     if (role === 'líder') {
-        if (!celulaId) {
-            console.warn("listReunioes (reports_data): Líder sem ID de célula. Retornando lista vazia.");
-            return [];
-        }
+        if (!celulaId) return [];
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
-    } 
-
-
-    const { data, error } = await query.order('data_reuniao', { ascending: false });
-
-    if (error) {
-        console.error("Erro ao listar reuniões (reports_data):", error);
-        throw new Error("Falha ao carregar reuniões: " + error.message); 
     }
 
-    // Mapeamento para ReuniaoOption
-    return data?.map((r: any) => ({ 
+    const { data } = await query.order('data_reuniao', { ascending: false });
+
+    return data?.map((r: any) => ({
         id: r.id,
         data_reuniao: r.data_reuniao,
         tema: r.tema,
-        ministrador_principal_nome: r.ministrador_principal_ref?.nome || null 
+        ministrador_principal_nome: r.ministrador_principal_ref?.nome || null
     })) || [];
 }
 
-/**
- * Lista todas as células disponíveis para o admin.
- */
 export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
     const { supabase, role, adminSupabase } = await checkUserAuthorizationReports();
-    if (role !== 'admin') {
-        throw new Error("Acesso negado. Apenas administradores podem listar todas as células.");
-    }
-    
+    if (role !== 'admin') throw new Error("Acesso negado.");
+
     const clientToUse = adminSupabase || supabase;
-    if (!clientToUse) {
-        console.error("listarCelulasParaAdmin (reports_data): Cliente Supabase não disponível. Erro interno.");
-        throw new Error("Erro interno: Cliente Supabase não disponível.");
-    }
+    const { data, error } = await clientToUse.from('celulas').select('id, nome').order('nome');
 
-    const { data, error } = await clientToUse
-        .from('celulas')
-        .select('id, nome')
-        .order('nome');
-  
-    if (error) {
-      throw new Error("Falha ao carregar células para admin: " + error.message); 
-    }
+    if (error) throw new Error("Falha ao carregar células: " + error.message);
     return data || [];
-  }
+}
 
-
-/**
- * Gera um relatório detalhado de presença para uma reunião específica.
- * Inclui membros presentes/ausentes, visitantes presentes e detalhes da reunião.
- */
 export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataPresencaReuniao | null> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
+    if (!role) return null;
 
-    if (!role) {
-        console.warn("fetchReportDataPresencaReuniao: Usuário não autenticado. Retornando null.");
-        return null;
-    }
-
+    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase;
     let targetCelulaIdForQuery: string | null = null;
-    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
 
     if (role === 'líder') {
-        if (!celulaId) {
-            console.warn("fetchReportDataPresencaReuniao: Líder sem ID de célula. Retornando null.");
-            return null;
-        }
+        if (!celulaId) return null;
         targetCelulaIdForQuery = celulaId;
-    } else { // Admin
-        const { data: reuniaoDataCheck, error: reuniaoCheckError } = await clientToUse
-            .from('reunioes')
-            .select('celula_id')
-            .eq('id', reuniaoId)
-            .single();
-
-        if (reuniaoCheckError || !reuniaoDataCheck?.celula_id) {
-            console.warn("fetchReportDataPresencaReuniao: Reunião não encontrada ou inacessível para o admin. Erro:", reuniaoCheckError?.message);
-            return null;
-        }
-        
-        if (celulaIdParaFiltrar && celulaIdParaFiltrar !== reuniaoDataCheck.celula_id) {
-             console.warn("fetchReportDataPresencaReuniao: Admin tentou filtrar por célula diferente da reunião selecionada.");
-             return null;
-        }
-        targetCelulaIdForQuery = reuniaoDataCheck.celula_id; 
-    }
-
-    if (!targetCelulaIdForQuery) {
-        console.warn("fetchReportDataPresencaReuniao: Nenhum celula_id para buscar detalhes. Retornando null.");
-        return null;
+    } else {
+        const { data } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
+        if (!data?.celula_id) return null;
+        if (celulaIdParaFiltrar && celulaIdParaFiltrar !== data.celula_id) return null;
+        targetCelulaIdForQuery = data.celula_id;
     }
 
     try {
-        const [reuniaoDetailsResult, criancasResult] = await Promise.all([
-            clientToUse 
-                .from('reunioes')
-                .select(`
+        const [reuniaoResult, criancasResult] = await Promise.all([
+            clientToUse.from('reunioes').select(`
                     id, data_reuniao, tema, caminho_pdf, created_at, celula_id,
                     ministrador_principal_alias:membros!ministrador_principal(nome, telefone),
                     ministrador_secundario_alias:membros!ministrador_secundario(nome, telefone),
                     responsavel_kids_alias:membros!responsavel_kids(nome, telefone)
-                `)
-                .eq('id', reuniaoId)
-                .eq('celula_id', targetCelulaIdForQuery) 
-                .single(),
-            clientToUse 
-                .from('criancas_reuniao')
-                .select('numero_criancas')
-                .eq('reuniao_id', reuniaoId)
-                .maybeSingle()
+                `).eq('id', reuniaoId).eq('celula_id', targetCelulaIdForQuery).single(),
+            clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle()
         ]);
-        
-        const { data: reuniaoData, error: reuniaoError } = reuniaoDetailsResult;
-        if (reuniaoError || !reuniaoData) {
-            console.error("fetchReportDataPresencaReuniao: Erro ao buscar detalhes da reunião:", reuniaoError);
-            throw new Error("Falha ao carregar detalhes da reunião: " + (reuniaoError?.message || 'Reunião não encontrada')); 
-        }
-        
-        const { data: criancasData, error: criancasError } = criancasResult;
-        if (criancasError) {
-            console.warn("fetchReportDataPresencaReuniao: Erro ao buscar contagem de crianças:", criancasError.message);
-        }
-        const numCriancas = criancasData?.numero_criancas ?? 0;
 
-        const [
-            presentesMembrosRaw,
-            allMembersData,
-            visitantesPresentesRaw,
-            celulasNamesMap
-        ] = await Promise.all([
+        if (!reuniaoResult.data) throw new Error('Reunião não encontrada');
+
+        const [presentesMembrosRaw, allMembersData, visitantesPresentesRaw, celulasNamesMap] = await Promise.all([
             clientToUse.from('presencas_membros').select('membro_id, membros(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
             clientToUse.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
             clientToUse.from('presencas_visitantes').select('visitante_id, visitantes(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            getCelulasNamesMap(new Set([reuniaoData.celula_id]), clientToUse, adminSupabase) 
+            getCelulasNamesMap(new Set([reuniaoResult.data.celula_id]), clientToUse, adminSupabase)
         ]);
 
-        if (presentesMembrosRaw.error) throw presentesMembrosRaw.error;
-        const membrosPresentes = (presentesMembrosRaw.data || []).map((p: any) => ({ 
-            id: p.membro_id, 
-            nome: p.membros?.nome || 'N/A', 
-            telefone: p.membros?.telefone || null 
+        const membrosPresentes = (presentesMembrosRaw.data || []).map((p: any) => ({
+            id: p.membro_id,
+            nome: p.membros?.nome || 'N/A',
+            telefone: p.membros?.telefone || null
         }));
 
-        if (allMembersData.error) throw allMembersData.error;
         const presentMemberIds = new Set(membrosPresentes.map(m => m.id));
-        const membrosAusentes = (allMembersData.data || []).filter(m => !presentMemberIds.has(m.id)).map(m => ({ id: m.id, nome: m.nome, telefone: m.telefone }));
-
-        if (visitantesPresentesRaw.error) throw visitantesPresentesRaw.error;
-        const visitantesPresentes = (visitantesPresentesRaw.data || []).map((p: any) => ({ 
-            id: p.visitante_id, 
-            nome: p.visitantes?.nome || 'N/A', 
-            telefone: p.visitantes?.telefone || null 
+        const membrosAusentes = (allMembersData.data || []).filter(m => !presentMemberIds.has(m.id)).map(m => ({
+            id: m.id, nome: m.nome, telefone: m.telefone
         }));
-        
-        const celulaNome = celulasNamesMap.get(reuniaoData.celula_id) || null;
 
-        const reuniaoDetalhesFormatted: ReportDataPresencaReuniao['reuniao_detalhes'] = {
-            id: reuniaoData.id,
-            data_reuniao: reuniaoData.data_reuniao,
-            tema: reuniaoData.tema,
-            caminho_pdf: reuniaoData.caminho_pdf,
-            ministrador_principal_nome: (reuniaoData as any).ministrador_principal_alias?.nome || 'Não Definido',
-            ministrador_principal_telefone: (reuniaoData as any).ministrador_principal_alias?.telefone || null,
-            ministrador_secundario_nome: (reuniaoData as any).ministrador_secundario_alias?.nome || null,
-            ministrador_secundario_telefone: (reuniaoData as any).ministrador_secundario_alias?.telefone || null,
-            responsavel_kids_nome: (reuniaoData as any).responsavel_kids_alias?.nome || null,
-            responsavel_kids_telefone: (reuniaoData as any).responsavel_kids_alias?.telefone || null,
-            num_criancas: numCriancas,
-            celula_nome: celulaNome,
-        };
+        const visitantesPresentes = (visitantesPresentesRaw.data || []).map((p: any) => ({
+            id: p.visitante_id,
+            nome: p.visitantes?.nome || 'N/A',
+            telefone: p.visitantes?.telefone || null
+        }));
 
         return {
-            reuniao_detalhes: reuniaoDetalhesFormatted,
+            reuniao_detalhes: {
+                id: reuniaoResult.data.id,
+                data_reuniao: reuniaoResult.data.data_reuniao,
+                tema: reuniaoResult.data.tema,
+                caminho_pdf: reuniaoResult.data.caminho_pdf,
+                ministrador_principal_nome: (reuniaoResult.data as any).ministrador_principal_alias?.nome || 'Não Definido',
+                ministrador_principal_telefone: (reuniaoResult.data as any).ministrador_principal_alias?.telefone || null,
+                ministrador_secundario_nome: (reuniaoResult.data as any).ministrador_secundario_alias?.nome || null,
+                ministrador_secundario_telefone: (reuniaoResult.data as any).ministrador_secundario_alias?.telefone || null,
+                responsavel_kids_nome: (reuniaoResult.data as any).responsavel_kids_alias?.nome || null,
+                responsavel_kids_telefone: (reuniaoResult.data as any).responsavel_kids_alias?.telefone || null,
+                num_criancas: criancasResult.data?.numero_criancas ?? 0,
+                celula_nome: celulasNamesMap.get(reuniaoResult.data.celula_id) || null,
+            },
             membros_presentes: membrosPresentes,
             membros_ausentes: membrosAusentes,
             visitantes_presentes: visitantesPresentes,
         };
-    } catch (error: any) {
-        console.error('Erro ao gerar relatório de presença da reunião:', error);
+    } catch (error) {
+        console.error('Erro ao gerar relatório reunião:', error);
         throw error;
     }
 }
 
-/**
- * Gera um relatório de histórico de presença para um membro específico.
- */
 export async function fetchReportDataPresencaMembro(membroId: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataPresencaMembro | null> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
+    if (!role) return null;
 
-    if (!role) {
-        console.warn("fetchReportDataPresencaMembro: Usuário não autenticado. Retornando null.");
-        return null;
-    }
-
+    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase;
     let targetCelulaIdForQuery: string | null = null;
-    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
 
     if (role === 'líder') {
-        if (!celulaId) {
-            console.warn("fetchReportDataPresencaMembro: Líder sem ID de célula. Retornando null.");
-            return null;
-        }
+        if (!celulaId) return null;
         targetCelulaIdForQuery = celulaId;
-    } else { // Admin
-        const { data: membroDataCheck, error: membroCheckError } = await clientToUse
-            .from('membros')
-            .select('celula_id')
-            .eq('id', membroId)
-            .single();
-        if (membroCheckError || !membroDataCheck?.celula_id) {
-            console.warn("fetchReportDataPresencaMembro: Membro não encontrado ou inacessível para o admin. Erro:", membroCheckError?.message);
-            return null;
-        }
-        if (celulaIdParaFiltrar && celulaIdParaFiltrar !== membroDataCheck.celula_id) {
-            console.warn("fetchReportDataPresencaMembro: Admin tentou filtrar por célula diferente do membro selecionado.");
-            return null;
-        }
-        targetCelulaIdForQuery = membroDataCheck.celula_id;
-    }
-    
-    if (!targetCelulaIdForQuery) {
-        console.warn("fetchReportDataPresencaMembro: Nenhum ID de célula disponível para filtrar membro. Retornando null.");
-        return null;
+    } else {
+        const { data } = await clientToUse.from('membros').select('celula_id').eq('id', membroId).single();
+        if (!data?.celula_id) return null;
+        if (celulaIdParaFiltrar && celulaIdParaFiltrar !== data.celula_id) return null;
+        targetCelulaIdForQuery = data.celula_id;
     }
 
     try {
-        const { data: membroData, error: membroError } = await clientToUse
+        const { data: membroData } = await clientToUse
             .from('membros')
-            .select('id, nome, telefone, data_ingresso, data_nascimento, endereco, celula_id, status, created_at') 
+            .select('*')
             .eq('id', membroId)
             .eq('celula_id', targetCelulaIdForQuery)
             .single();
 
-        if (membroError) {
-            console.error("fetchReportDataPresencaMembro: Erro ao buscar detalhes do membro:", membroError);
-            throw new Error("Falha ao carregar detalhes do membro: " + membroError.message); 
-        }
         if (!membroData) return null;
 
-        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
         const celulasNamesMap = await getCelulasNamesMap(new Set([membroData.celula_id]), clientToUse, adminSupabase);
-        const celulaNome = celulasNamesMap.get(membroData.celula_id) || null;
-        
-        const membroDataWithCelularName = { ...membroData, celula_nome: celulaNome } as Membro & { celula_nome?: string | null };
+        const membroDataWithCelularName = { ...membroData, celula_nome: celulasNamesMap.get(membroData.celula_id) || null };
 
-
-        const { data: allReunioesData, error: allReunioesError } = await clientToUse
+        const { data: allReunioes } = await clientToUse
             .from('reunioes')
             .select('id, data_reuniao, tema')
             .eq('celula_id', targetCelulaIdForQuery)
             .order('data_reuniao', { ascending: false });
 
-        if (allReunioesError) { 
-            console.error("fetchReportDataPresencaMembro: Erro ao buscar todas as reuniões da célula:", allReunioesError); 
-            throw new Error("Falha ao carregar reuniões da célula: " + allReunioesError.message);
-        }
-        const allReunioes = allReunioesData || [];
-
-        const { data: memberPresencesData, error: memberPresencesError } = await clientToUse
+        const { data: memberPresences } = await clientToUse
             .from('presencas_membros')
             .select('reuniao_id, presente')
             .eq('membro_id', membroId);
 
-        if (memberPresencesError) { 
-            console.error("fetchReportDataPresencaMembro: Erro ao buscar presenças do membro:", memberPresencesError); 
-            throw new Error("Falha ao carregar presenças do membro: " + memberPresencesError.message);
-        }
-        const memberPresencesMap = new Map((memberPresencesData || []).map(p => [p.reuniao_id, p.presente]));
+        const memberPresencesMap = new Map((memberPresences || []).map(p => [p.reuniao_id, p.presente]));
 
-        const historicoPresenca: RelatorioPresencaMembroItem[] = allReunioes.map(reuniao => ({
-            data_reuniao: reuniao.data_reuniao,
-            tema: reuniao.tema,
-            presente: memberPresencesMap.get(reuniao.id) || false,
-        }));
-
-        return { membro_data: membroDataWithCelularName, historico_presenca: historicoPresenca };
-
-    } catch (error: any) {
-        console.error('Erro ao gerar relatório de presença de membro:', error);
+        return {
+            membro_data: membroDataWithCelularName,
+            historico_presenca: (allReunioes || []).map(r => ({
+                data_reuniao: r.data_reuniao,
+                tema: r.tema,
+                presente: memberPresencesMap.get(r.id) || false,
+            }))
+        };
+    } catch (error) {
+        console.error('Erro ao gerar relatório membro:', error);
         throw error;
     }
 }
 
-/**
- * Gera um relatório de membros faltosos em um período específico.
- */
 export async function fetchReportDataFaltososPeriodo(startDate: string, endDate: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataFaltososPeriodo> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
+    // Retorno padrão vazio corrigido
+    const emptyReturn = { 
+        faltosos: [], 
+        periodo: { start_date: startDate, end_date: endDate, total_reunioes: 0 } 
+    };
 
-    if (!role) {
-        console.warn("fetchReportDataFaltososPeriodo: Usuário não autenticado. Retornando relatório vazio.");
-        // CORREÇÃO: Estrutura o retorno para o tipo ReportDataFaltososPeriodo
-        return { faltosos: [], periodo: { start_date: startDate, end_date: endDate, total_reunioes: 0 } }; 
-    }
+    if (!role) return emptyReturn;
 
-    let targetCelulaIdForQuery: string | null = null;
-    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
+    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase;
+    let targetCelulaIdForQuery: string | null = (role === 'líder') ? celulaId : (celulaIdParaFiltrar ?? null);
 
-    if (role === 'líder') {
-        if (!celulaId) {
-            console.warn("fetchReportDataFaltososPeriodo: Líder sem ID de célula. Retornando relatório vazio.");
-            // CORREÇÃO: Estrutura o retorno para o tipo ReportDataFaltososPeriodo
-            return { faltosos: [], periodo: { start_date: startDate, end_date: endDate, total_reunioes: 0 } }; 
-        }
-        targetCelulaIdForQuery = celulaId;
-    } else { // Admin
-        targetCelulaIdForQuery = celulaIdParaFiltrar ?? null; 
-    }
+    if (role === 'líder' && !celulaId) return emptyReturn;
 
     try {
         let reunioesQuery = clientToUse.from('reunioes').select('id, celula_id');
-        if (targetCelulaIdForQuery) { 
-            reunioesQuery = reunioesQuery.eq('celula_id', targetCelulaIdForQuery);
-        }
-        
-        const { data: reunioesNoPeriodo, error: reunioesError } = await reunioesQuery
-            .gte('data_reuniao', startDate)
-            .lte('data_reuniao', endDate);
-        
-        if (reunioesError) {
-            console.error("fetchReportDataFaltososPeriodo: Erro ao buscar reuniões no período:", reunioesError);
-            throw new Error("Falha ao carregar reuniões do período: " + reunioesError.message); 
-        }
-        
+        if (targetCelulaIdForQuery) reunioesQuery = reunioesQuery.eq('celula_id', targetCelulaIdForQuery);
+
+        const { data: reunioesNoPeriodo } = await reunioesQuery.gte('data_reuniao', startDate).lte('data_reuniao', endDate);
+
         const reunioesPorCelula = (reunioesNoPeriodo || []).reduce((acc, r) => {
             if (!acc.has(r.celula_id)) acc.set(r.celula_id, []);
             acc.get(r.celula_id)!.push(r.id);
             return acc;
         }, new Map<string, string[]>());
 
-        if (reunioesPorCelula.size === 0) {
-            // CORREÇÃO: Estrutura o retorno para o tipo ReportDataFaltososPeriodo
-            return { faltosos: [], periodo: { start_date: startDate, end_date: endDate, total_reunioes: 0 } }; 
-        }
+        if (reunioesPorCelula.size === 0) return emptyReturn;
 
         let membersQuery = clientToUse.from('membros').select('id, nome, telefone, celula_id');
-        if (targetCelulaIdForQuery) { 
-            membersQuery = membersQuery.eq('celula_id', targetCelulaIdForQuery);
-        }
-        
-        const { data: allMembers, error: allMembersError } = await membersQuery;
-        
-        if (allMembersError) {
-            console.error("fetchReportDataFaltososPeriodo: Erro ao buscar todos os membros:", allMembersError);
-            throw new Error("Falha ao carregar todos os membros: " + allMembersError.message); 
-        }
+        if (targetCelulaIdForQuery) membersQuery = membersQuery.eq('celula_id', targetCelulaIdForQuery);
+
+        const { data: allMembers } = await membersQuery;
+        const celulasNamesMap = await getCelulasNamesMap(new Set((allMembers || []).map(m => m.celula_id)), clientToUse, adminSupabase);
 
         const faltososList: MembroFaltoso[] = [];
-        const celulaIds = new Set((allMembers || []).map(m => m.celula_id)); 
-        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, clientToUse, adminSupabase); 
 
         for (const membro of allMembers || []) {
-            const reunioesDaCelulaDoMembro = reunioesPorCelula.get(membro.celula_id) || [];
-            const totalReunioesNoPeriodoParaMembro = reunioesDaCelulaDoMembro.length;
+            const reunioesDaCelula = reunioesPorCelula.get(membro.celula_id) || [];
+            const totalReunioes = reunioesDaCelula.length;
+            if (totalReunioes === 0) continue;
 
-            if (totalReunioesNoPeriodoParaMembro === 0) continue; 
-
-            const { count: totalPresencasMembro, error: presencasCountError } = await clientToUse
+            const { count: totalPresencas } = await clientToUse
                 .from('presencas_membros')
                 .select('id', { count: 'exact' })
                 .eq('membro_id', membro.id)
                 .eq('presente', true)
-                .in('reuniao_id', reunioesDaCelulaDoMembro);
+                .in('reuniao_id', reunioesDaCelula);
 
-            if (presencasCountError) {
-                console.error("fetchReportDataFaltososPeriodo: Erro ao contar presenças para o membro " + membro.nome + ": " + presencasCountError.message);
-                continue; 
-            }
-            
-            if ((totalPresencasMembro ?? 0) < totalReunioesNoPeriodoParaMembro) {
+            if ((totalPresencas ?? 0) < totalReunioes) {
                 faltososList.push({
                     id: membro.id,
                     nome: membro.nome,
                     telefone: membro.telefone,
-                    total_presencas: totalPresencasMembro ?? 0,
-                    total_reunioes_no_periodo: totalReunioesNoPeriodoParaMembro,
+                    total_presencas: totalPresencas ?? 0,
+                    total_reunioes_no_periodo: totalReunioes,
                     celula_nome: celulasNamesMap.get(membro.celula_id) || null,
                 });
             }
         }
 
-        faltososList.sort((a, b) => a.nome.localeCompare(b.nome)); 
-        return { faltosos: faltososList, start_date: startDate, end_date: endDate };
-    } catch (error: any) {
-        console.error('Erro ao gerar relatório de faltosos:', error);
+        faltososList.sort((a, b) => a.nome.localeCompare(b.nome));
+        
+        return { 
+            faltosos: faltososList, 
+            periodo: {
+                start_date: startDate, 
+                end_date: endDate,
+                total_reunioes: reunioesNoPeriodo?.length || 0 
+            } 
+        };
+    } catch (error) {
+        console.error('Erro faltosos:', error);
         throw error;
     }
 }
 
-/**
- * Gera um relatório de visitantes que fizeram a primeira visita em um período específico.
- */
 export async function fetchReportDataVisitantesPeriodo(startDate: string, endDate: string, celulaIdParaFiltrar?: string | null): Promise<ReportDataVisitantesPeriodo> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
+    const emptyReturn = { visitantes: [], periodo: { start_date: startDate, end_date: endDate, total_visitantes: 0 } };
 
-    if (!role) {
-        console.warn("fetchReportDataVisitantesPeriodo: Usuário não autenticado. Retornando relatório vazio.");
-        // CORREÇÃO: Estrutura o retorno para o tipo ReportDataVisitantesPeriodo
-        return { visitantes: [], periodo: { start_date: startDate, end_date: endDate, total_visitantes: 0 } }; 
-    }
+    if (!role) return emptyReturn;
 
-    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
-    if (!clientToUse) {
-        console.error("fetchReportDataVisitantesPeriodo (reports_data): Cliente Supabase não disponível. Erro interno.");
-        throw new Error("Erro interno: Cliente Supabase não disponível.");
-    }
+    // CORRIGIDO: Definição única do cliente
+    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase;
+    if (!clientToUse) throw new Error("Erro interno: Cliente indisponível");
 
-    let query = clientToUse
-            .from('visitantes')
-            .select('id, nome, telefone, data_primeira_visita, celula_id');
-    
-    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
+    // CORRIGIDO: Construção da query após ter o cliente
+    let query = clientToUse.from('visitantes').select('id, nome, telefone, data_primeira_visita, celula_id');
 
     if (role === 'líder') {
-        if (!celulaId) {
-             // CORREÇÃO: Estrutura o retorno para o tipo ReportDataVisitantesPeriodo
-            return { visitantes: [], periodo: { start_date: startDate, end_date: endDate, total_visitantes: 0 } }; 
-        }
+        if (!celulaId) return emptyReturn;
         query = query.eq('celula_id', celulaId);
     } else if (role === 'admin' && celulaIdParaFiltrar) {
         query = query.eq('celula_id', celulaIdParaFiltrar);
-    } 
+    }
 
     try {
         const { data, error } = await query
             .gte('data_primeira_visita', startDate)
             .lte('data_primeira_visita', endDate)
             .order('data_primeira_visita', { ascending: true });
-        
-        if (error) {
-            console.error('fetchReportDataVisitantesPeriodo: Erro ao buscar visitantes por período:', error);
-            throw new Error("Falha ao carregar visitantes por período: " + error.message); 
-        }
+
+        if (error) throw error;
 
         const visitantes = data || [];
-        if (visitantes.length === 0) {
-            // CORREÇÃO: Estrutura o retorno para o tipo ReportDataVisitantesPeriodo
-            return { visitantes: [], periodo: { start_date: startDate, end_date: endDate, total_visitantes: 0 } }; 
-        }
+        if (visitantes.length === 0) return emptyReturn;
 
-        const celulaIds = new Set(visitantes.map(v => v.celula_id));
-        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, clientToUse, adminSupabase); 
+        const celulasNamesMap = await getCelulasNamesMap(new Set(visitantes.map(v => v.celula_id)), clientToUse, adminSupabase);
 
         const visitantesWithCelularName = visitantes.map(v => ({
             ...v,
             celula_nome: celulasNamesMap.get(v.celula_id) || null,
         }));
 
-        return { 
-            visitantes: visitantesWithCelularName, 
-            periodo: { // CORREÇÃO: Adicionar o objeto 'periodo'
+        return {
+            visitantes: visitantesWithCelularName,
+            periodo: {
                 start_date: startDate,
                 end_date: endDate,
                 total_visitantes: visitantes.length
             }
         };
-
-    } catch (error: any) {
-        console.error('Erro ao gerar relatório de visitantes por período:', error);
+    } catch (error) {
+        console.error('Erro visitantes periodo:', error);
         throw error;
     }
 }
 
-/**
- * Gera um relatório de membros e visitantes aniversariantes em um mês específico.
- */
 export async function fetchReportDataAniversariantes(mes: number, celulaIdParaFiltrar?: string | null): Promise<ReportDataAniversariantes | null> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorizationReports();
+    if (!role) return null;
 
-    if (!role) {
-        console.warn("fetchReportDataAniversariantes: Usuário não autenticado. Retornando null.");
-        return null;
-    }
-    if (mes < 1 || mes > 12) {
-        throw new Error("Mês inválido. Deve ser entre 1 e 12.");
-    }
-
-    let targetCelulaIdForQuery: string | null = null;
-    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase; 
-
-    if (role === 'líder') {
-        if (!celulaId) {
-            console.warn("fetchReportDataAniversariantes: Líder sem ID de célula. Retornando null.");
-            return null;
-        }
-        targetCelulaIdForQuery = celulaId;
-    } else { // Admin
-        targetCelulaIdForQuery = celulaIdParaFiltrar ?? null; 
-    }
-
-    if (!targetCelulaIdForQuery && role !== 'admin') { 
-        console.warn("fetchReportDataAniversariantes: ID da célula não definido para líder.");
-        return null;
-    }
+    const clientToUse = role === 'admin' && adminSupabase ? adminSupabase : supabase;
+    let targetCelulaId = (role === 'líder') ? celulaId : (celulaIdParaFiltrar ?? null);
+    if (!targetCelulaId && role !== 'admin') return null;
 
     try {
-        const anoAtual = new Date().getFullYear();
-
-        let membrosRaw: Membro[] = []; 
-        let visitantesRaw: Visitante[] = []; 
-
-        // --- BUSCA DE MEMBROS (usando RPC para filtrar por mês de aniversário eficientemente com RLS) ---
-        let membroIds: string[] = [];
-        const { data: membroIdsRaw, error: rpcMembrosError } = await clientToUse.rpc('get_members_birthday_ids_in_month', { 
-            p_month: mes, 
-            p_celula_id: targetCelulaIdForQuery 
+        // RPC Membros
+        const { data: membroIds } = await clientToUse.rpc('get_members_birthday_ids_in_month', {
+            p_month: mes,
+            p_celula_id: targetCelulaId
         });
-        if (rpcMembrosError) {
-            console.error("RPC Error get_members_birthday_ids_in_month:", rpcMembrosError);
-            throw rpcMembrosError;
-        }
-        membroIds = membroIdsRaw || [];
-        
-        if (membroIds.length > 0) {
-            const { data, error } = await clientToUse
-                .from('membros')
-                .select('id, nome, telefone, data_nascimento, celula_id')
-                .in('id', membroIds); 
-            if (error) {
-                console.error("Erro ao buscar detalhes dos membros aniversariantes:", error);
-                throw new Error("Erro ao buscar detalhes dos membros aniversariantes: " + error.message); 
-            }
-            membrosRaw = data as Membro[]; 
+
+        let membrosRaw: Membro[] = [];
+        if (membroIds && membroIds.length > 0) {
+            const res = await clientToUse.from('membros').select('id, nome, telefone, data_nascimento, celula_id').in('id', membroIds);
+            membrosRaw = res.data as Membro[] || [];
         }
 
-
-        // --- BUSCA DE VISITANTES (usando RPC) ---
-        let visitanteIds: string[] = [];
-        const { data: visitanteIdsRaw, error: rpcVisitantesError } = await clientToUse.rpc('get_visitors_birthday_ids_in_month', { 
-            p_month: mes, 
-            p_celula_id: targetCelulaIdForQuery 
+        // RPC Visitantes
+        const { data: visitanteIds } = await clientToUse.rpc('get_visitors_birthday_ids_in_month', {
+            p_month: mes,
+            p_celula_id: targetCelulaId
         });
-        if (rpcVisitantesError) {
-            console.error("RPC Error get_visitors_birthday_ids_in_month:", rpcVisitantesError);
-            throw rpcVisitantesError;
-        }
-        visitanteIds = visitanteIdsRaw || [];
 
-        if (visitanteIds.length > 0) {
-            const { data, error } = await clientToUse
-                .from('visitantes')
-                .select('id, nome, telefone, data_primeira_visita, data_nascimento, celula_id')
-                .in('id', visitanteIds); 
-            if (error) {
-                console.error("Erro ao buscar detalhes dos visitantes aniversariantes:", error);
-                throw new Error("Erro ao buscar detalhes dos visitantes aniversariantes: " + error.message); 
-            }
-            visitantesRaw = data as Visitante[]; 
+        let visitantesRaw: Visitante[] = [];
+        if (visitanteIds && visitanteIds.length > 0) {
+            const res = await clientToUse.from('visitantes').select('id, nome, telefone, data_primeira_visita, data_nascimento, celula_id').in('id', visitanteIds);
+            visitantesRaw = res.data as Visitante[] || [];
         }
 
         const allCelulaIds = new Set<string>();
-        membrosRaw?.forEach(m => m.celula_id && allCelulaIds.add(m.celula_id));
-        visitantesRaw?.forEach(v => v.celula_id && allCelulaIds.add(v.celula_id));
-        
-        // CORREÇÃO: Usar o terceiro parâmetro para getCelulasNamesMap
+        membrosRaw.forEach(m => m.celula_id && allCelulaIds.add(m.celula_id));
+        visitantesRaw.forEach(v => v.celula_id && allCelulaIds.add(v.celula_id));
+
         const celulasNamesMap = await getCelulasNamesMap(allCelulaIds, clientToUse, adminSupabase);
 
-        const membrosAniversariantes: MembroAniversariante[] = (membrosRaw || []).map(m => ({
-            id: m.id,
-            nome: m.nome,
-            data_nascimento: m.data_nascimento!,
-            telefone: m.telefone,
-            celula_id: m.celula_id, 
-            celula_nome: celulasNamesMap.get(m.celula_id) || null,
-        }));
-
-        const visitantesAniversariantes: VisitanteAniversariante[] = (visitantesRaw || []).map(v => ({
-            id: v.id,
-            nome: v.nome,
-            data_primeira_visita: v.data_primeira_visita,
-            data_nascimento: v.data_nascimento!, 
-            telefone: v.telefone,
-            celula_id: v.celula_id, 
-            celula_nome: celulasNamesMap.get(v.celula_id) || null,
-        }));
-
-        membrosAniversariantes.sort((a, b) => {
-            const dateA = parseISO(a.data_nascimento);
-            const dateB = parseISO(b.data_nascimento);
-            return dateA.getDate() - dateB.getDate();
+        const mapMembro = (m: Membro): MembroAniversariante => ({
+            id: m.id, nome: m.nome, data_nascimento: m.data_nascimento!, telefone: m.telefone,
+            celula_id: m.celula_id, celula_nome: celulasNamesMap.get(m.celula_id!) || null
         });
 
-        visitantesAniversariantes.sort((a, b) => {
-            const dateA = parseISO(a.data_nascimento);
-            const dateB = parseISO(b.data_nascimento);
-            return dateA.getDate() - dateB.getDate();
+        const mapVisitante = (v: Visitante): VisitanteAniversariante => ({
+            id: v.id, nome: v.nome, data_primeira_visita: v.data_primeira_visita, data_nascimento: v.data_nascimento!, telefone: v.telefone,
+            celula_id: v.celula_id, celula_nome: celulasNamesMap.get(v.celula_id!) || null
         });
 
+        const sortDate = (a: any, b: any) => parseISO(a.data_nascimento).getDate() - parseISO(b.data_nascimento).getDate();
 
         return {
-            mes: mes,
-            ano_referencia: anoAtual,
-            membros: membrosAniversariantes,
-            visitantes: visitantesAniversariantes,
+            mes,
+            ano_referencia: new Date().getFullYear(),
+            membros: membrosRaw.map(mapMembro).sort(sortDate),
+            visitantes: visitantesRaw.map(mapVisitante).sort(sortDate),
         };
-
-    } catch (error: any) {
-        console.error("Erro ao gerar relatório de aniversariantes:", error);
+    } catch (error) {
+        console.error("Erro aniversariantes:", error);
         throw error;
     }
 }
 
-/**
- * Gera um relatório de alocação de líderes, mostrando quem está alocado, quem não está e células sem líder.
- * Apenas acessível por administradores.
- */
 export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocacaoLideres | null> {
     const { role, adminSupabase } = await checkUserAuthorizationReports();
-
-    if (role !== 'admin' || !adminSupabase) {
-        console.warn("fetchReportDataAlocacaoLideres: Apenas administradores podem acessar este relatório. Retornando null.");
-        return null;
-    }
+    if (role !== 'admin' || !adminSupabase) return null;
 
     try {
-        const [
-            allProfilesResult, 
-            allCelulasResult,  
-            authUsersResult    
-        ] = await Promise.all([
+        const [allProfiles, allCelulas, authUsers] = await Promise.all([
             adminSupabase.from('profiles').select('id, email, role, celula_id, created_at, nome_completo'),
             adminSupabase.from('celulas').select('id, nome, lider_principal'),
-            adminSupabase.auth.admin.listUsers() 
+            adminSupabase.auth.admin.listUsers()
         ]);
 
-        if (allProfilesResult.error) throw allProfilesResult.error;
-        const profiles = allProfilesResult.data || [];
-
-        if (allCelulasResult.error) throw allCelulasResult.error;
-        const celulas = allCelulasResult.data || [];
-        // CORREÇÃO: Passar adminSupabase explicitamente para getCelulasNamesMap
+        const profiles = allProfiles.data || [];
+        const celulas = allCelulas.data || [];
         const celulasNamesMap = await getCelulasNamesMap(new Set(celulas.map(c => c.id)), adminSupabase, adminSupabase);
-
-        const authUsersMap = new Map((authUsersResult.data?.users || []).map(u => [u.id, u.last_sign_in_at]));
+        const authUsersMap = new Map((authUsers.data?.users || []).map(u => [u.id, u.last_sign_in_at]));
 
         const lideresAlocados: LiderAlocacaoItem[] = [];
         const lideresNaoAlocados: LiderAlocacaoItem[] = [];
-        
-        const celulasComLiderAtribuidoEmPerfil = new Set<string>();
-
-        const totalPerfisLider = profiles.filter(p => p.role === 'líder' || p.role === 'admin').length;
-        const totalCelulas = celulas.length;
+        const celulasComLider = new Set<string>();
 
         for (const profile of profiles) {
             if (profile.role === 'líder' || profile.role === 'admin') {
-                const liderItem: LiderAlocacaoItem = {
+                const item: LiderAlocacaoItem = {
                     id: profile.id,
-                    email: profile.email || profile.nome_completo || 'N/A', 
+                    email: profile.email || profile.nome_completo || 'N/A',
                     role: profile.role,
                     celula_id: profile.celula_id,
                     celula_nome: profile.celula_id ? celulasNamesMap.get(profile.celula_id) || null : null,
@@ -1015,116 +656,74 @@ export async function fetchReportDataAlocacaoLideres(): Promise<ReportDataAlocac
                 };
 
                 if (profile.celula_id) {
-                    lideresAlocados.push(liderItem);
-                    celulasComLiderAtribuidoEmPerfil.add(profile.celula_id);
+                    lideresAlocados.push(item);
+                    celulasComLider.add(profile.celula_id);
                 } else {
-                    lideresNaoAlocados.push(liderItem);
+                    lideresNaoAlocados.push(item);
                 }
             }
         }
 
-        const celulasSemLiderAtribuido: CelulaSemLiderItem[] = celulas
-            .filter(celula => !celulasComLiderAtribuidoEmPerfil.has(celula.id))
-            .map(celula => ({
-                id: celula.id,
-                nome: celula.nome,
-                lider_principal_cadastrado_na_celula: celula.lider_principal || null,
-            }));
-        
-        lideresAlocados.sort((a,b) => (a.celula_nome || '').localeCompare(b.celula_nome || 'N/A') || a.email.localeCompare(b.email));
-        lideresNaoAlocados.sort((a,b) => a.email.localeCompare(b.email));
-        celulasSemLiderAtribuido.sort((a,b) => a.nome.localeCompare(b.nome));
+        const celulasSemLider = celulas
+            .filter(c => !celulasComLider.has(c.id))
+            .map(c => ({ id: c.id, nome: c.nome, lider_principal_cadastrado_na_celula: c.lider_principal || null }));
 
         return {
             lideres_alocados: lideresAlocados,
             lideres_nao_alocados: lideresNaoAlocados,
-            celulas_sem_lider_atribuido: celulasSemLiderAtribuido,
-            total_perfis_lider: totalPerfisLider,
-            total_celulas: totalCelulas,
+            celulas_sem_lider_atribuido: celulasSemLider,
+            total_perfis_lider: profiles.filter(p => p.role === 'líder' || p.role === 'admin').length,
+            total_celulas: celulas.length,
         };
-
-    } catch (error: any) {
-        console.error("fetchReportDataAlocacaoLideres: Erro ao buscar dados de alocação de líderes:", error);
-        throw new Error("Falha ao carregar relatório de alocação de líderes: " + error.message); // CORREÇÃO
+    } catch (error) {
+        console.error("Erro alocação lideres:", error);
+        throw error;
     }
 }
 
-/**
- * Gera um relatório de chaves de ativação, mostrando chaves ativas e usadas.
- * Apenas acessível por administradores.
- */
 export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesAtivacao | null> {
     const { role, adminSupabase } = await checkUserAuthorizationReports();
-
-    if (role !== 'admin' || !adminSupabase) {
-        console.warn("fetchReportDataChavesAtivacao: Apenas administradores podem acessar este relatório. Retornando null.");
-        return null;
-    }
+    if (role !== 'admin' || !adminSupabase) return null;
 
     try {
-        const { data: chavesData, error: chavesError } = await adminSupabase
-            .from('chaves_ativacao')
-            .select(`
-                chave,
-                celula_id,
-                usada,
-                created_at,
-                data_uso,
-                usada_por_id,
-                profiles(email) 
-            `);
+        const { data: chaves } = await adminSupabase.from('chaves_ativacao').select(`
+            chave, celula_id, usada, created_at, data_uso, usada_por_id, profiles(email)
+        `);
 
-        if (chavesError) throw chavesError;
-        const allChaves = chavesData || [];
-
-        const total_chaves = allChaves.length;
-
-        const celulaIds = new Set(allChaves.map(c => c.celula_id));
-        // CORREÇÃO: Passar adminSupabase explicitamente para getCelulasNamesMap
-        const celulasNamesMap = await getCelulasNamesMap(celulaIds, adminSupabase, adminSupabase);
+        const allChaves = chaves || [];
+        const celulasNamesMap = await getCelulasNamesMap(new Set(allChaves.map(c => c.celula_id)), adminSupabase, adminSupabase);
 
         const chavesAtivas: ChaveAtivacaoItem[] = [];
         const chavesUsadas: ChaveAtivacaoItem[] = [];
 
         for (const chave of allChaves) {
-            const formattedChave: ChaveAtivacaoItem = {
+            const item: ChaveAtivacaoItem = {
                 chave: chave.chave,
                 celula_id: chave.celula_id,
                 celula_nome: celulasNamesMap.get(chave.celula_id) || 'N/A',
                 usada: chave.usada,
                 data_uso: chave.data_uso ? new Date(chave.data_uso).toISOString().split('T')[0] : null,
                 usada_por_id: chave.usada_por_id,
-                usada_por_email: (chave as any).profiles?.email || null, // CORREÇÃO: Acessar .email diretamente, não .[0].email
+                usada_por_email: (chave as any).profiles?.email || null,
             };
-
-            if (chave.usada) {
-                chavesUsadas.push(formattedChave);
-            } else {
-                chavesAtivas.push(formattedChave);
-            }
+            chave.usada ? chavesUsadas.push(item) : chavesAtivas.push(item);
         }
-        
-        chavesAtivas.sort((a,b) => (a.celula_nome || '').localeCompare(b.celula_nome || 'N/A') || a.chave.localeCompare(b.chave));
-        chavesUsadas.sort((a,b) => (b.data_uso || '').localeCompare(a.data_uso || ''));
 
         return {
             chaves_ativas: chavesAtivas,
             chaves_usadas: chavesUsadas,
-            total_chaves: total_chaves,
+            total_chaves: allChaves.length,
         };
-
-    } catch (error: any) {
-        console.error("fetchReportDataChavesAtivacao: Erro ao buscar dados de chaves de ativação:", error);
-        throw new Error("Falha ao carregar relatório de chaves de ativação: " + error.message); // CORREÇÃO
+    } catch (error) {
+        console.error("Erro chaves ativação:", error);
+        throw error;
     }
 }
 
 
 // ============================================================================
-//                          FUNÇÕES DE EXPORTAÇÃO CSV (SERVER ACTIONS)
+//                          FUNÇÕES DE EXPORTAÇÃO CSV
 // ============================================================================
-
-import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 
 function escapeCsv(value: string | number | null | undefined): string {
     if (value === null || value === undefined) return '';
@@ -1132,146 +731,98 @@ function escapeCsv(value: string | number | null | undefined): string {
     return `"${strValue}"`;
 }
 
-/**
- * Exporta o relatório de presença de uma reunião para CSV.
- */
 export async function exportReportDataPresencaReuniaoCSV(reuniaoId: string, celulaIdParaFiltrar?: string | null): Promise<string> {
     const reportData = await fetchReportDataPresencaReuniao(reuniaoId, celulaIdParaFiltrar);
     if (!reportData) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
+    let csv = `Detalhes da Reunião:
+Data,${escapeCsv(reportData.reuniao_detalhes.data_reuniao)}
+Tema,${escapeCsv(reportData.reuniao_detalhes.tema)}
+Ministrador Principal,${escapeCsv(reportData.reuniao_detalhes.ministrador_principal_nome)}
+Ministrador Secundário,${escapeCsv(reportData.reuniao_detalhes.ministrador_secundario_nome)}
+Responsável Kids,${escapeCsv(reportData.reuniao_detalhes.responsavel_kids_nome)}
+Crianças Presentes,${escapeCsv(reportData.reuniao_detalhes.num_criancas)}
+Célula,${escapeCsv(reportData.reuniao_detalhes.celula_nome)}
 
-    csv += 'Detalhes da Reunião:\n';
-    csv += 'Data,' + escapeCsv(reportData.reuniao_detalhes.data_reuniao) + '\n'; // CORREÇÃO
-    csv += 'Tema,' + escapeCsv(reportData.reuniao_detalhes.tema) + '\n'; // CORREÇÃO
-    csv += 'Ministrador Principal,' + escapeCsv(reportData.reuniao_detalhes.ministrador_principal_nome) + '\n'; // CORREÇÃO
-    csv += 'Ministrador Secundário,' + escapeCsv(reportData.reuniao_detalhes.ministrador_secundario_nome) + '\n'; // CORREÇÃO
-    csv += 'Responsável Kids,' + escapeCsv(reportData.reuniao_detalhes.responsavel_kids_nome) + '\n'; // CORREÇÃO
-    csv += 'Crianças Presentes,' + escapeCsv(reportData.reuniao_detalhes.num_criancas) + '\n'; // CORREÇÃO
-    csv += 'Célula,' + escapeCsv(reportData.reuniao_detalhes.celula_nome) + '\n'; // CORREÇÃO
-    csv += '\n';
+Membros Presentes:
+Nome,Telefone
+${reportData.membros_presentes.map(m => `${escapeCsv(m.nome)},${escapeCsv(formatPhoneNumberDisplay(m.telefone))}`).join('\n')}
 
-    csv += 'Membros Presentes:\n';
-    csv += 'Nome,Telefone\n';
-    reportData.membros_presentes.forEach(m => {
-        csv += escapeCsv(m.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + '\n'; // CORREÇÃO
-    });
-    csv += '\n';
+Membros Ausentes:
+Nome,Telefone
+${reportData.membros_ausentes.map(m => `${escapeCsv(m.nome)},${escapeCsv(formatPhoneNumberDisplay(m.telefone))}`).join('\n')}
 
-    csv += 'Membros Ausentes:\n';
-    csv += 'Nome,Telefone\n';
-    reportData.membros_ausentes.forEach(m => {
-        csv += escapeCsv(m.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + '\n'; // CORREÇÃO
-    });
-    csv += '\n';
-
-    csv += 'Visitantes Presentes:\n';
-    csv += 'Nome,Telefone\n';
-    reportData.visitantes_presentes.forEach(v => {
-        csv += escapeCsv(v.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + '\n'; // CORREÇÃO
-    });
-    csv += '\n';
-
+Visitantes Presentes:
+Nome,Telefone
+${reportData.visitantes_presentes.map(v => `${escapeCsv(v.nome)},${escapeCsv(formatPhoneNumberDisplay(v.telefone))}`).join('\n')}
+`;
     return csv;
 }
 
-/**
- * Exporta o relatório de presença de um membro para CSV.
- */
 export async function exportReportDataPresencaMembroCSV(membroId: string, celulaIdParaFiltrar?: string | null): Promise<string> {
     const reportData = await fetchReportDataPresencaMembro(membroId, celulaIdParaFiltrar);
     if (!reportData || !reportData.membro_data) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
+    const { membro_data, historico_presenca } = reportData;
 
-    csv += 'Detalhes do Membro:\n';
-    csv += 'Nome,' + escapeCsv(reportData.membro_data.nome) + '\n'; // CORREÇÃO
-    csv += 'Telefone,' + escapeCsv(formatPhoneNumberDisplay(reportData.membro_data.telefone)) + '\n'; // CORREÇÃO
-    csv += 'Data de Ingresso,' + escapeCsv(formatDateForDisplay(reportData.membro_data.data_ingresso)) + '\n'; // CORREÇÃO
-    csv += 'Data de Nascimento,' + escapeCsv(formatDateForDisplay(reportData.membro_data.data_nascimento)) + '\n'; // CORREÇÃO
-    csv += 'Célula,' + escapeCsv(reportData.membro_data.celula_nome) + '\n'; // CORREÇÃO
-    csv += '\n';
+    let csv = `Detalhes do Membro:
+Nome,${escapeCsv(membro_data.nome)}
+Telefone,${escapeCsv(formatPhoneNumberDisplay(membro_data.telefone))}
+Data de Ingresso,${escapeCsv(formatDateForDisplay(membro_data.data_ingresso))}
+Data de Nascimento,${escapeCsv(formatDateForDisplay(membro_data.data_nascimento))}
+Célula,${escapeCsv(membro_data.celula_nome)}
 
-    csv += 'Histórico de Presença:\n';
-    csv += 'Data da Reunião,Tema,Presente?\n';
-    reportData.historico_presenca.forEach(h => {
-        csv += escapeCsv(formatDateForDisplay(h.data_reuniao)) + ',' + escapeCsv(h.tema) + ',' + escapeCsv(h.presente ? 'Sim' : 'Não') + '\n'; // CORREÇÃO
-    });
-    csv += '\n';
-
+Histórico de Presença:
+Data da Reunião,Tema,Presente?
+${historico_presenca.map(h => `${escapeCsv(formatDateForDisplay(h.data_reuniao))},${escapeCsv(h.tema)},${escapeCsv(h.presente ? 'Sim' : 'Não')}`).join('\n')}
+`;
     return csv;
 }
 
-/**
- * Exporta o relatório de membros faltosos por período para CSV.
- */
 export async function exportReportDataFaltososPeriodoCSV(startDate: string, endDate: string, celulaIdParaFiltrar?: string | null): Promise<string> {
     const reportData = await fetchReportDataFaltososPeriodo(startDate, endDate, celulaIdParaFiltrar);
     if (!reportData || reportData.faltosos.length === 0) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
+    // CORREÇÃO AQUI: Usando .periodo.start_date
+    return `Relatório de Membros Faltosos entre ${formatDateForDisplay(reportData.periodo.start_date)} e ${formatDateForDisplay(reportData.periodo.end_date)}
 
-    csv += 'Relatório de Membros Faltosos entre ' + formatDateForDisplay(reportData.start_date) + ' e ' + formatDateForDisplay(reportData.end_date) + '\n\n'; // CORREÇÃO
-    csv += 'Nome,Telefone,Presenças,Reuniões no Período,Célula\n';
-    reportData.faltosos.forEach(f => {
-        csv += escapeCsv(f.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(f.telefone)) + ',' + escapeCsv(f.total_presencas) + ',' + escapeCsv(f.total_reunioes_no_periodo) + ',' + escapeCsv(f.celula_nome) + '\n'; // CORREÇÃO
-    });
-    csv += '\n';
-
-    return csv;
+Nome,Telefone,Presenças,Reuniões no Período,Célula
+${reportData.faltosos.map(f => `${escapeCsv(f.nome)},${escapeCsv(formatPhoneNumberDisplay(f.telefone))},${escapeCsv(f.total_presencas)},${escapeCsv(f.total_reunioes_no_periodo)},${escapeCsv(f.celula_nome)}`).join('\n')}
+`;
 }
 
-/**
- * Exporta o relatório de visitantes por período para CSV.
- */
 export async function exportReportDataVisitantesPeriodoCSV(startDate: string, endDate: string, celulaIdParaFiltrar?: string | null): Promise<string> {
     const reportData = await fetchReportDataVisitantesPeriodo(startDate, endDate, celulaIdParaFiltrar);
     if (!reportData || reportData.visitantes.length === 0) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
+    return `Relatório de Visitantes entre ${formatDateForDisplay(reportData.periodo.start_date)} e ${formatDateForDisplay(reportData.periodo.end_date)}
 
-    csv += 'Relatório de Visitantes entre ' + formatDateForDisplay(reportData.start_date) + ' e ' + formatDateForDisplay(reportData.end_date) + '\n\n'; // CORREÇÃO
-    csv += 'Nome,Telefone,Primeira Visita,Célula\n';
-    reportData.visitantes.forEach(v => {
-        csv += escapeCsv(v.nome) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + ',' + escapeCsv(formatDateForDisplay(v.data_primeira_visita)) + ',' + escapeCsv(v.celula_nome) + '\n'; // CORREÇÃO
-    });
-    csv += '\n';
-
-    return csv;
+Nome,Telefone,Primeira Visita,Célula
+${reportData.visitantes.map(v => `${escapeCsv(v.nome)},${escapeCsv(formatPhoneNumberDisplay(v.telefone))},${escapeCsv(formatDateForDisplay(v.data_primeira_visita))},${escapeCsv(v.celula_nome)}`).join('\n')}
+`;
 }
 
-/**
- * Exporta o relatório de aniversariantes para CSV.
- */
 export async function exportReportDataAniversariantesCSV(mes: number, celulaIdParaFiltrar?: string | null): Promise<string> {
     const reportData = await fetchReportDataAniversariantes(mes, celulaIdParaFiltrar);
     if (!reportData) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
     const mesNome = new Date(reportData.ano_referencia, reportData.mes - 1).toLocaleString('pt-BR', { month: 'long' });
-
-    csv += 'Aniversariantes de ' + mesNome + ' de ' + reportData.ano_referencia + '\n\n'; // CORREÇÃO
+    let csv = `Aniversariantes de ${mesNome} de ${reportData.ano_referencia}\n\n`;
 
     if (reportData.membros.length > 0) {
-        csv += 'Membros Aniversariantes:\n';
-        csv += 'Nome,Data Nasc.,Telefone,Célula\n';
-        reportData.membros.forEach(m => {
-            csv += escapeCsv(m.nome) + ',' + escapeCsv(formatDateForDisplay(m.data_nascimento)) + ',' + escapeCsv(formatPhoneNumberDisplay(m.telefone)) + ',' + escapeCsv(m.celula_nome) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Membros Aniversariantes:\nNome,Data Nasc.,Telefone,Célula\n`;
+        csv += reportData.membros.map(m => `${escapeCsv(m.nome)},${escapeCsv(formatDateForDisplay(m.data_nascimento))},${escapeCsv(formatPhoneNumberDisplay(m.telefone))},${escapeCsv(m.celula_nome)}`).join('\n');
     } else {
-        csv += 'Nenhum membro aniversariante neste mês.\n\n';
+        csv += `Nenhum membro aniversariante neste mês.\n`;
     }
 
+    csv += `\n\n`;
+
     if (reportData.visitantes.length > 0) {
-        csv += 'Visitantes Aniversariantes:\n';
-        csv += 'Nome,Data Nasc.,Telefone,Célula\n';
-        reportData.visitantes.forEach(v => {
-            csv += escapeCsv(v.nome) + ',' + escapeCsv(formatDateForDisplay(v.data_nascimento)) + ',' + escapeCsv(formatPhoneNumberDisplay(v.telefone)) + ',' + escapeCsv(v.celula_nome) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Visitantes Aniversariantes:\nNome,Data Nasc.,Telefone,Célula\n`;
+        csv += reportData.visitantes.map(v => `${escapeCsv(v.nome)},${escapeCsv(formatDateForDisplay(v.data_nascimento))},${escapeCsv(formatPhoneNumberDisplay(v.telefone))},${escapeCsv(v.celula_nome)}`).join('\n');
     } else {
-        csv += 'Nenhum visitante aniversariante neste mês.\n\n';
+        csv += `Nenhum visitante aniversariante neste mês.\n`;
     }
 
     return csv;
@@ -1281,44 +832,34 @@ export async function exportReportDataAlocacaoLideresCSV(): Promise<string> {
     const reportData = await fetchReportDataAlocacaoLideres();
     if (!reportData) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
     const dataGeracao = formatDateForDisplay(new Date().toISOString());
-
-    csv += 'Relatório de Alocação de Líderes - Gerado em: ' + dataGeracao + '\n'; // CORREÇÃO
-    csv += 'Total de Perfis de Líder/Admin: ' + reportData.total_perfis_lider + '\n'; // CORREÇÃO
-    csv += 'Total de Células Registradas: ' + reportData.total_celulas + '\n\n'; // CORREÇÃO
+    let csv = `Relatório de Alocação de Líderes - Gerado em: ${dataGeracao}
+Total de Perfis de Líder/Admin: ${reportData.total_perfis_lider}
+Total de Células Registradas: ${reportData.total_celulas}\n\n`;
 
     if (reportData.lideres_alocados.length > 0) {
-        csv += 'Líderes Alocados em Células:\n';
-        csv += 'Email,Role,Célula Associada,Último Login\n';
-        reportData.lideres_alocados.forEach(l => {
-            csv += escapeCsv(l.email) + ',' + escapeCsv(l.role) + ',' + escapeCsv(l.celula_nome) + ',' + escapeCsv(formatDateForDisplay(l.ultimo_login)) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Líderes Alocados em Células:\nEmail,Role,Célula Associada,Último Login\n`;
+        csv += reportData.lideres_alocados.map(l => `${escapeCsv(l.email)},${escapeCsv(l.role)},${escapeCsv(l.celula_nome)},${escapeCsv(formatDateForDisplay(l.ultimo_login))}`).join('\n');
     } else {
-        csv += 'Nenhum líder alocado em célula encontrado.\n\n';
+        csv += `Nenhum líder alocado em célula encontrado.\n`;
     }
+
+    csv += `\n\n`;
 
     if (reportData.lideres_nao_alocados.length > 0) {
-        csv += 'Líderes sem Célula Alocada no Perfil:\n';
-        csv += 'Email,Role,Data Criação Perfil,Último Login\n';
-        reportData.lideres_nao_alocados.forEach(l => {
-            csv += escapeCsv(l.email) + ',' + escapeCsv(l.role) + ',' + escapeCsv(formatDateForDisplay(l.data_criacao_perfil)) + ',' + escapeCsv(formatDateForDisplay(l.ultimo_login)) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Líderes sem Célula Alocada no Perfil:\nEmail,Role,Data Criação Perfil,Último Login\n`;
+        csv += reportData.lideres_nao_alocados.map(l => `${escapeCsv(l.email)},${escapeCsv(l.role)},${escapeCsv(formatDateForDisplay(l.data_criacao_perfil))},${escapeCsv(formatDateForDisplay(l.ultimo_login))}`).join('\n');
     } else {
-        csv += 'Nenhum líder sem célula alocada encontrado.\n\n';
+        csv += `Nenhum líder sem célula alocada encontrado.\n`;
     }
 
+    csv += `\n\n`;
+
     if (reportData.celulas_sem_lider_atribuido.length > 0) {
-        csv += 'Células sem Líder Atribuído em Perfis:\n';
-        csv += 'Nome da Célula,Líder Principal (no registro da célula)\n';
-        reportData.celulas_sem_lider_atribuido.forEach(c => {
-            csv += escapeCsv(c.nome) + ',' + escapeCsv(c.lider_principal_cadastrado_na_celula) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Células sem Líder Atribuído em Perfis:\nNome da Célula,Líder Principal (no registro da célula)\n`;
+        csv += reportData.celulas_sem_lider_atribuido.map(c => `${escapeCsv(c.nome)},${escapeCsv(c.lider_principal_cadastrado_na_celula)}`).join('\n');
     } else {
-        csv += 'Nenhuma célula sem líder atribuído encontrada.\n\n';
+        csv += `Nenhuma célula sem líder atribuído encontrada.\n`;
     }
 
     return csv;
@@ -1328,32 +869,24 @@ export async function exportReportDataChavesAtivacaoCSV(): Promise<string> {
     const reportData = await fetchReportDataChavesAtivacao();
     if (!reportData) return "Nenhum dado encontrado para exportação CSV.";
 
-    let csv = '';
     const dataGeracao = formatDateForDisplay(new Date().toISOString());
-
-    csv += 'Relatório de Chaves de Ativação - Gerado em: ' + dataGeracao + '\n'; // CORREÇÃO
-    csv += 'Total de Chaves Registradas: ' + reportData.total_chaves + '\n\n'; // CORREÇÃO
+    let csv = `Relatório de Chaves de Ativação - Gerado em: ${dataGeracao}
+Total de Chaves Registradas: ${reportData.total_chaves}\n\n`;
 
     if (reportData.chaves_ativas.length > 0) {
-        csv += 'Chaves Ativas:\n';
-        csv += 'Chave,Célula Associada\n';
-        reportData.chaves_ativas.forEach(c => {
-            csv += escapeCsv(c.chave) + ',' + escapeCsv(c.celula_nome) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Chaves Ativas:\nChave,Célula Associada\n`;
+        csv += reportData.chaves_ativas.map(c => `${escapeCsv(c.chave)},${escapeCsv(c.celula_nome)}`).join('\n');
     } else {
-        csv += 'Nenhuma chave de ativação ativa encontrada.\n\n';
+        csv += `Nenhuma chave de ativação ativa encontrada.\n`;
     }
 
+    csv += `\n\n`;
+
     if (reportData.chaves_usadas.length > 0) {
-        csv += 'Chaves Usadas:\n';
-        csv += 'Chave,Célula Original,Usada Por (Email),Data de Uso\n';
-        reportData.chaves_usadas.forEach(c => {
-            csv += escapeCsv(c.chave) + ',' + escapeCsv(c.celula_nome) + ',' + escapeCsv(c.usada_por_email) + ',' + escapeCsv(formatDateForDisplay(c.data_uso)) + '\n'; // CORREÇÃO
-        });
-        csv += '\n';
+        csv += `Chaves Usadas:\nChave,Célula Original,Usada Por (Email),Data de Uso\n`;
+        csv += reportData.chaves_usadas.map(c => `${escapeCsv(c.chave)},${escapeCsv(c.celula_nome)},${escapeCsv(c.usada_por_email)},${escapeCsv(formatDateForDisplay(c.data_uso))}`).join('\n');
     } else {
-        csv += 'Nenhuma chave de ativação usada encontrada.\n\n';
+        csv += `Nenhuma chave de ativação usada encontrada.\n`;
     }
 
     return csv;

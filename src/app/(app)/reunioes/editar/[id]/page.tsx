@@ -4,6 +4,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { 
+    FaCalendarAlt, 
+    FaUser,     
+    FaArrowLeft,
+    FaChild,
+    FaFilePdf,
+    FaUpload,
+    FaSave,   
+    FaBookOpen  
+} from 'react-icons/fa';
 // Importa funções de data.ts
 import {
     getReuniao,

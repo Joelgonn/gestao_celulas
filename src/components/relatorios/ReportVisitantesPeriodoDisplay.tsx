@@ -17,7 +17,7 @@ export const ReportVisitantesPeriodoDisplay = ({ data }: { data: ReportDataVisit
         <div className="space-y-4">
             {/* Adicionado dark:text-indigo-300 para o modo escuro */}
             <h3 className="text-xl font-semibold mt-4 text-indigo-700 dark:text-indigo-300">Visitantes por Período</h3>
-            <p className="text-gray-600 dark:text-gray-400">Período: {formatDateForDisplay(start_date)} a {formatDateForDisplay(end_date)}</p>
+            <p className="text-gray-600 dark:text-gray-400">Período: {formatDateForDisplay(data.periodo.start_date)} a {formatDateForDisplay(data.periodo.end_date)}</p>
             {safeVisitantes.length > 0 ? (
                 <table className="min-w-full divide-y divide-gray-200 bg-white shadow-sm rounded-lg dark:bg-gray-800 dark:divide-gray-700"> {/* Classes Dark Mode na tabela */}
                     <thead className="bg-gray-50 dark:bg-gray-700"> {/* Classes Dark Mode no cabeçalho */}

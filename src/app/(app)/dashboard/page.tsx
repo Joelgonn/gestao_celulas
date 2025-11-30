@@ -85,6 +85,9 @@ import {
     VisitorsConversionAnalysis,
     NewVisitorsTrendData,
     DuplicateVisitorGroup,
+    PalavraDaSemana, 
+    MemberData,
+    CelulaOption  // <--- ADICIONE ESTE AQUI
 } from '@/lib/types';
 
 

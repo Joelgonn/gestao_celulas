@@ -31,6 +31,7 @@ import type { // Usar 'type' import para clareza
     ReuniaoDB // Incluído se necessário para tipagem mais precisa
 } from './types';
 
+
 // Tipos locais para os parâmetros das funções (agora usando os tipos importados de src/lib/types.ts quando possível)
 // type MemberData = { id: string; nome: string; telefone: string | null }; // Substituído por MembroNomeTelefoneId
 // type CelulaData = { id: string; nome: string }; // Substituído por CelulaNomeId
@@ -38,6 +39,19 @@ type ReuniaoSimple = { id: string }; // Ainda útil para casos específicos
 // type ProfileData = { celula_id: string | null }; // Pode ser usado inline ou definir um tipo específico se reutilizável
 type ReuniaoDate = { id: string; data_reuniao: string };
 type PresenceData = { reuniao_id: string };
+
+// Coloque esta interface no topo de src/lib/dashboard_data.ts
+interface MemberData {
+    id: string;
+    nome: string;
+    telefone: string | null;
+}
+
+// ADICIONE ESTA NOVA INTERFACE
+interface CelulaData {
+    id: string;
+    nome: string;
+}
 
 
 // Função auxiliar para verificar a autorização e retornar o cliente Supabase apropriado

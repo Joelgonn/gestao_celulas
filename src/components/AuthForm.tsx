@@ -11,7 +11,9 @@ import {
   FaExclamationTriangle, 
   FaInfoCircle, 
   FaTimes,
-  FaShieldAlt 
+  FaShieldAlt,
+  FaKey,
+  FaLock
 } from 'react-icons/fa';
 
 // Sistema de Toast integrado
@@ -100,8 +102,10 @@ const useToast = () => {
 
 export default function AuthForm() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'form' | 'success'>('form');
+  const [authMethod, setAuthMethod] = useState<'magic_link' | 'password'>('magic_link');
 
   const router = useRouter();
   const { addToast, ToastContainer } = useToast();
@@ -119,38 +123,63 @@ export default function AuthForm() {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
+      if (authMethod === 'magic_link') {
+        // --- LOGIN COM LINK MÁGICO ---
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
 
-      if (error) throw error;
-      
-      // Sucesso
-      setStep('success');
-      addToast('Link de acesso enviado para seu email!', 'success');
+        if (error) throw error;
+        
+        // Sucesso (Mostra tela de "Link Enviado")
+        setStep('success');
+        addToast('Link de acesso enviado para seu email!', 'success');
+
+      } else {
+        // --- LOGIN COM SENHA ---
+        if (!password) {
+            addToast('Por favor, digite sua senha.', 'warning');
+            setLoading(false);
+            return;
+        }
+
+        const { error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password
+        });
+
+        if (error) throw error;
+
+        // Sucesso (Redireciona direto)
+        addToast('Login realizado com sucesso!', 'success');
+        router.push('/dashboard');
+      }
       
     } catch (error: any) {
       console.error('Erro no login:', error);
-      addToast(`Erro no login: ${error.message}`, 'error');
+      let msg = error.message;
+      if (msg === 'Invalid login credentials') msg = 'Email ou senha incorretos.';
+      addToast(`Erro: ${msg}`, 'error');
     } finally {
-      setLoading(false);
+      if (authMethod === 'password') setLoading(false); // Só para senha, pois magic link muda de tela
     }
   };
 
   const handleResetForm = () => {
     setEmail('');
+    setPassword('');
     setStep('form');
   };
 
+  // TELA DE SUCESSO (APENAS PARA LINK MÁGICO)
   if (step === 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-            {/* Ícone de sucesso */}
             <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <FaCheckCircle className="text-white text-3xl" />
             </div>
@@ -187,16 +216,6 @@ export default function AuthForm() {
               >
                 Enviar Novo Link
               </button>
-              
-              <p className="text-gray-500 text-sm">
-                Não recebeu o email?{' '}
-                <button
-                  onClick={() => addToast('Verifique sua pasta de spam ou tente novamente.', 'info')}
-                  className="text-indigo-600 hover:text-indigo-700 font-medium underline"
-                >
-                  Clique aqui
-                </button>
-              </p>
             </div>
           </div>
         </div>
@@ -205,6 +224,7 @@ export default function AuthForm() {
     );
   }
 
+  // TELA DE LOGIN (FORMULÁRIO)
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="w-full max-w-md">
@@ -215,19 +235,53 @@ export default function AuthForm() {
             <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
               <FaShieldAlt className="text-2xl" />
             </div>
-            <h1 className="text-2xl font-bold mb-2">Sistema Células</h1>
+            <h1 className="text-2xl font-bold mb-2">Apascentar Células</h1>
             <p className="text-indigo-100 opacity-90">Acesso Seguro para Líderes</p>
+          </div>
+
+          {/* Abas de Seleção */}
+          <div className="flex border-b border-gray-100">
+            <button
+              onClick={() => setAuthMethod('magic_link')}
+              className={`flex-1 py-4 text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+                authMethod === 'magic_link'
+                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <FaMagic className={authMethod === 'magic_link' ? 'text-indigo-600' : 'text-gray-400'} />
+              <span>Link Mágico</span>
+            </button>
+            <button
+              onClick={() => setAuthMethod('password')}
+              className={`flex-1 py-4 text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+                authMethod === 'password'
+                  ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <FaKey className={authMethod === 'password' ? 'text-purple-600' : 'text-gray-400'} />
+              <span>Senha</span>
+            </button>
           </div>
 
           {/* Formulário */}
           <div className="p-8">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
-                <FaMagic className="text-indigo-600 text-lg" />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-r ${authMethod === 'magic_link' ? 'from-indigo-100 to-blue-100' : 'from-purple-100 to-pink-100'}`}>
+                {authMethod === 'magic_link' ? (
+                   <FaMagic className="text-indigo-600 text-lg" />
+                ) : (
+                   <FaLock className="text-purple-600 text-lg" />
+                )}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-800">Link Mágico</h2>
-                <p className="text-gray-600 text-sm">Acesso rápido e seguro sem senhas</p>
+                <h2 className="text-xl font-bold text-gray-800">
+                    {authMethod === 'magic_link' ? 'Acesso sem Senha' : 'Acesso com Senha'}
+                </h2>
+                <p className="text-gray-600 text-sm">
+                    {authMethod === 'magic_link' ? 'Receba um link de acesso no email' : 'Utilize sua senha cadastrada'}
+                </p>
               </div>
             </div>
 
@@ -236,7 +290,7 @@ export default function AuthForm() {
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
                   <div className="flex items-center space-x-2">
                     <FaEnvelope className="text-gray-500" />
-                    <span>Email de Acesso</span>
+                    <span>Email</span>
                   </div>
                 </label>
                 <input
@@ -249,26 +303,49 @@ export default function AuthForm() {
                   required
                   disabled={loading}
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  Utilize o email cadastrado no sistema
-                </p>
               </div>
+
+              {/* Campo de Senha (Condicional) */}
+              {authMethod === 'password' && (
+                <div className="animate-fade-in-down">
+                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <div className="flex items-center space-x-2">
+                        <FaLock className="text-gray-500" />
+                        <span>Senha</span>
+                    </div>
+                    </label>
+                    <input
+                    id="password"
+                    type="password"
+                    placeholder="Sua senha segura"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200 placeholder-gray-400"
+                    required
+                    disabled={loading}
+                    />
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:from-indigo-400 disabled:to-purple-400 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+                className={`w-full text-white py-4 px-6 rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none bg-gradient-to-r ${
+                    authMethod === 'magic_link' 
+                        ? 'from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:from-indigo-400 disabled:to-blue-400' 
+                        : 'from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-purple-400 disabled:to-pink-400'
+                }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   {loading ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Enviando Link...</span>
+                      <span>Processando...</span>
                     </>
                   ) : (
                     <>
-                      <FaMagic className="text-lg" />
-                      <span>Receber Link Mágico</span>
+                      {authMethod === 'magic_link' ? <FaMagic className="text-lg" /> : <FaCheckCircle className="text-lg" />}
+                      <span>{authMethod === 'magic_link' ? 'Receber Link Mágico' : 'Entrar no Sistema'}</span>
                     </>
                   )}
                 </div>
@@ -278,32 +355,29 @@ export default function AuthForm() {
             {/* Informações adicionais */}
             <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
               <div className="flex items-start space-x-3">
-                <FaInfoCircle className="text-indigo-500 text-lg mt-0.5 flex-shrink-0" />
+                <FaInfoCircle className={`${authMethod === 'magic_link' ? 'text-indigo-500' : 'text-purple-500'} text-lg mt-0.5 flex-shrink-0`} />
                 <div className="text-left">
                   <p className="text-gray-700 text-sm font-medium">
-                    Como funciona o Link Mágico?
+                    {authMethod === 'magic_link' ? 'Como funciona?' : 'Esqueceu a senha?'}
                   </p>
-                  <ul className="text-gray-600 text-xs mt-2 space-y-1">
-                    <li>• Enviamos um link seguro para seu email</li>
-                    <li>• Clique no link para acessar automaticamente</li>
-                    <li>• Não precisa lembrar senhas</li>
-                    <li>• Acesso válido por 24 horas</li>
-                  </ul>
+                  <p className="text-gray-600 text-xs mt-1">
+                    {authMethod === 'magic_link' 
+                        ? 'Enviamos um link seguro para seu email. Não precisa decorar senhas.' 
+                        : 'Use a opção "Link Mágico" para entrar e redefinir sua senha no perfil.'}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-gray-500 text-sm">
-            Sistema exclusivo para líderes e administradores
+            Apascentar Células &copy; 2025
           </p>
         </div>
       </div>
 
-      {/* Container de Toasts */}
       <ToastContainer />
     </div>
   );
