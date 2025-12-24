@@ -4,24 +4,26 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
-import { FaPhone, FaWhatsapp, FaPlus, FaEdit, FaTrash, FaUserPlus, FaUsers, FaSearch, FaFilter, FaCalendarAlt, FaComment } from 'react-icons/fa';
-// Importações de listarVisitantes, excluirVisitante, listarCelulasParaAdmin
-// Se CelulaOption e Visitante são tipos, eles devem vir de um arquivo de tipos
-// como '@/lib/types', não de '@/lib/data' se data.ts contém apenas funções.
-// Assumindo que você já ajustou isso em types.ts se data.ts é apenas para funções.
+import { 
+    FaPhone, 
+    FaWhatsapp, 
+    FaPlus, 
+    FaEdit, 
+    FaTrash, 
+    FaUserPlus, 
+    FaUsers, 
+    FaSearch, 
+    FaFilter, 
+    FaCalendarAlt, 
+    FaComment,
+    FaClock
+} from 'react-icons/fa';
+
 import { listarVisitantes, excluirVisitante, listarCelulasParaAdmin } from '@/lib/data';
-
-// Importações de interfaces de types.ts (SE forem tipos globais)
-import { CelulaOption, Visitante } from '@/lib/types'; // EX: Assumindo que estes são tipos
-
+import { CelulaOption, Visitante } from '@/lib/types';
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
-
-// --- REFATORAÇÃO: TOASTS & LOADING SPINNER ---
-// Agora importamos o useToast do hook global
 import useToast from '@/hooks/useToast';
-// Importe apenas LoadingSpinner se o ToastContainer do useToast já lida com a renderização dos toasts
-import LoadingSpinner from '@/components/LoadingSpinner'; // Assumimos que existe um LoadingSpinner global
-// --- FIM REFATORAÇÃO ---
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function VisitantesPage() {
     const [visitantes, setVisitantes] = useState<Visitante[]>([]);
@@ -35,10 +37,8 @@ export default function VisitantesPage() {
 
     const [submitting, setSubmitting] = useState(false);
 
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
-    const { addToast, removeToast, ToastContainer } = useToast();
+    const { addToast, ToastContainer } = useToast();
 
-    // Funções de fetch encapsuladas em useCallback
     const fetchVisitantesAndCelulas = useCallback(async () => {
         setLoading(true);
 
@@ -50,10 +50,7 @@ export default function VisitantesPage() {
                     .select('role')
                     .eq('id', user.id)
                     .single();
-                if (profileError || !profile) {
-                    console.error("Erro ao buscar perfil do usuário:", profileError);
-                    setUserRole(null);
-                } else {
+                if (!profileError && profile) {
                     setUserRole(profile.role as 'admin' | 'líder');
                     if (profile.role === 'admin') {
                         const celulasData = await listarCelulasParaAdmin();
@@ -70,331 +67,274 @@ export default function VisitantesPage() {
                 minDaysSinceLastContact === "" ? null : parseInt(minDaysSinceLastContact)
             );
             setVisitantes(data);
-            addToast('Dados carregados com sucesso!', 'success');
+            
         } catch (e: any) {
-            console.error("Erro ao buscar visitantes ou células:", e);
-            addToast('Erro ao carregar dados: ' + (e.message || 'Erro desconhecido.'), 'error');
+            console.error("Erro fetch:", e);
+            addToast('Erro ao carregar dados', 'error');
         } finally {
             setLoading(false);
         }
-    // CORREÇÃO: addToast NÃO É MAIS UMA DEPENDÊNCIA VARIÁVEL, REMOVER DAQUI.
-    }, [selectedCelulaId, minDaysSinceLastContact]); 
+    }, [selectedCelulaId, minDaysSinceLastContact, addToast]); 
 
-    // O useEffect agora só roda quando fetchVisitantesAndCelulas muda, o que só acontece
-    // quando as dependências REAIS (filtros) mudam.
     useEffect(() => {
         fetchVisitantesAndCelulas();
     }, [fetchVisitantesAndCelulas]);
 
     const handleDelete = async (visitanteId: string, nome: string) => {
-        if (!confirm('Tem certeza que deseja remover o visitante ' + nome + '? Esta ação é irreversível.')) {
-            return;
-        }
+        if (!confirm(`Remover visitante ${nome}? Ação irreversível.`)) return;
         setSubmitting(true);
         try {
             await excluirVisitante(visitanteId);
-            setVisitantes(visitantes.filter(v => v.id !== visitanteId));
-            addToast(nome + ' removido com sucesso!', 'success');
+            setVisitantes(prev => prev.filter(v => v.id !== visitanteId));
+            addToast(`${nome} removido!`, 'success');
         } catch (e: any) {
-            console.error("Erro ao excluir visitante:", e);
-            addToast('Falha ao excluir ' + nome + ': ' + (e.message || "Erro desconhecido."), 'error');
+            console.error("Erro delete:", e);
+            addToast('Falha ao excluir visitante', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
     const filteredVisitantes = useMemo(() => {
-        if (!searchTerm) {
-            return visitantes;
-        }
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        return visitantes.filter(visitante =>
-            visitante.nome.toLowerCase().includes(lowerCaseSearchTerm) ||
-            (visitante.telefone && visitante.telefone.toLowerCase().includes(lowerCaseSearchTerm)) ||
-            (userRole === 'admin' && visitante.celula_nome && visitante.celula_nome.toLowerCase().includes(lowerCaseSearchTerm))
+        if (!searchTerm) return visitantes;
+        const term = searchTerm.toLowerCase();
+        return visitantes.filter(v =>
+            v.nome.toLowerCase().includes(term) ||
+            (v.telefone && v.telefone.includes(term)) ||
+            (userRole === 'admin' && v.celula_nome?.toLowerCase().includes(term))
         );
     }, [visitantes, searchTerm, userRole]);
 
-    if (loading) {
+    if (loading && visitantes.length === 0) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="bg-white rounded-xl shadow-lg p-8">
-                        <div className="animate-pulse">
-                            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-                            <div className="space-y-4">
-                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                            </div>
-                        </div>
-                        <LoadingSpinner /> {/* Usa o LoadingSpinner global */}
-                    </div>
-                </div>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <LoadingSpinner />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            {/* Renderiza o ToastContainer do hook */}
+        <div className="min-h-screen bg-gray-50 pb-20">
             <ToastContainer />
 
-            <div className="max-w-7xl mx-auto px-4">
-                {/* Header com Gradiente */}
-                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold mb-2">
-                                {userRole === 'admin' ? 'Todos os Visitantes' : 'Meus Visitantes'}
-                            </h1>
-                            <div className="flex items-center space-x-4 text-green-100">
-                                <div className="flex items-center space-x-2">
-                                    <FaUsers className="w-5 h-5" />
-                                    <span>{filteredVisitantes.length} visitante(s) encontrado(s)</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>Gerencie os visitantes da célula</span>
-                                </div>
-                            </div>
-                        </div>
-                        {userRole === 'admin' && (
-                            <div className="bg-green-400 text-green-900 px-4 py-2 rounded-full font-semibold">
-                                Administrador
-                            </div>
-                        )}
+            {/* Header Responsivo */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg px-4 pt-6 pb-12 sm:px-8">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+                            <FaUsers /> {userRole === 'admin' ? 'Todos Visitantes' : 'Meus Visitantes'}
+                        </h1>
+                        <p className="text-green-100 text-sm mt-1 flex items-center gap-2">
+                            <span>{filteredVisitantes.length} encontrados</span>
+                        </p>
                     </div>
+                    {userRole === 'admin' && (
+                        <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs font-bold uppercase">
+                            Administrador
+                        </div>
+                    )}
                 </div>
+            </div>
 
-                {/* Filtros e Ações */}
-                <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
-                        {/* Pesquisa */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+                
+                {/* Filtros Mobile-Friendly */}
+                <div className="bg-white rounded-xl shadow-md p-4 mb-6 border border-gray-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        
+                        {/* Busca */}
                         <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FaSearch className="text-gray-400" />
-                            </div>
+                            <FaSearch className="absolute left-3 top-3.5 text-gray-400 text-sm" />
                             <input
                                 type="text"
-                                placeholder="Pesquisar nome ou telefone..."
+                                placeholder="Nome ou telefone..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                                className="pl-9 w-full border border-gray-300 rounded-lg py-2.5 text-base focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                             />
                         </div>
 
-                        {/* Filtro de Célula (Admin) */}
+                        {/* Filtro Célula (Admin) */}
                         {userRole === 'admin' && (
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <FaFilter className="text-gray-400" />
-                                </div>
+                                <FaFilter className="absolute left-3 top-3.5 text-gray-400 text-sm" />
                                 <select
                                     value={selectedCelulaId}
                                     onChange={(e) => setSelectedCelulaId(e.target.value)}
-                                    className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                                    className="pl-9 w-full border border-gray-300 rounded-lg py-2.5 text-base bg-white focus:ring-2 focus:ring-green-500"
                                 >
                                     <option value="">Todas as Células</option>
-                                    {celulasOptions.map(celula => (
-                                        <option key={celula.id} value={celula.id}>{celula.nome}</option>
+                                    {celulasOptions.map(c => (
+                                        <option key={c.id} value={c.id}>{c.nome}</option>
                                     ))}
                                 </select>
                             </div>
                         )}
 
-                        {/* Filtro de Dias sem Contato */}
+                        {/* Filtro Dias sem Contato */}
                         <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FaCalendarAlt className="text-gray-400" />
-                            </div>
+                            <FaClock className="absolute left-3 top-3.5 text-gray-400 text-sm" />
                             <input
                                 type="number"
-                                placeholder="Sem contato há (dias)"
+                                placeholder="Dias sem contato"
                                 value={minDaysSinceLastContact}
                                 onChange={(e) => setMinDaysSinceLastContact(e.target.value)}
-                                className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                                className="pl-9 w-full border border-gray-300 rounded-lg py-2.5 text-base focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                                 min="0"
                             />
                         </div>
 
-                        {/* Botão Novo Visitante */}
-                        <div className="flex items-center">
-                            {userRole !== 'admin' && (
-                                <Link
-                                    href="/visitantes/novo"
-                                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 flex items-center space-x-2 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1 justify-center"
-                                >
-                                    <FaPlus className="text-sm" />
-                                    <span>Novo Visitante</span>
-                                </Link>
-                            )}
-                        </div>
+                        {/* Botão Novo */}
+                        {userRole !== 'admin' && (
+                            <Link
+                                href="/visitantes/novo"
+                                className="bg-green-600 text-white py-2.5 px-4 rounded-lg hover:bg-green-700 transition-colors font-bold flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                            >
+                                <FaPlus /> Novo Visitante
+                            </Link>
+                        )}
                     </div>
                 </div>
 
-                {/* Lista de Visitantes */}
-                {filteredVisitantes.length === 0 && !searchTerm && !selectedCelulaId && minDaysSinceLastContact === "" ? (
-                    <div className="text-center p-12 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl">
-                        <div className="max-w-md mx-auto">
-                            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FaUsers className="text-2xl text-indigo-600" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                                {userRole === 'admin' ? 'Nenhum visitante encontrado' : 'Nenhum visitante em sua célula'}
-                            </h3>
-                            <p className="text-gray-500 mb-6">
-                                {userRole !== 'admin' ? 'Adicione o primeiro visitante da sua célula!' : 'Os visitantes aparecerão aqui quando forem cadastrados.'}
-                            </p>
-                            {userRole !== 'admin' && (
-                                <Link
-                                    href="/visitantes/novo"
-                                    className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-3 rounded-xl hover:from-indigo-700 hover:to-indigo-800 transition-all duration-300 font-medium inline-flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-                                >
-                                    <FaPlus />
-                                    <span>Adicionar Primeiro Visitante</span>
-                                </Link>
-                            )}
-                        </div>
-                    </div>
-                ) : filteredVisitantes.length === 0 && (searchTerm || selectedCelulaId || minDaysSinceLastContact !== "") ? (
-                    <div className="text-center p-12 bg-yellow-50 border border-yellow-200 rounded-2xl">
-                        <div className="max-w-md mx-auto">
-                            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FaUsers className="text-2xl text-yellow-600" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">Nenhum visitante encontrado</h3>
-                            <p className="text-gray-500">Tente ajustar os filtros de pesquisa</p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                                    <tr>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Nome</th>
-                                        {userRole === 'admin' && (<th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Célula</th>)}
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Telefone</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">1ª Visita</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Últ. Contato</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Observações</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredVisitantes.map((visitante) => (
-                                        <tr key={visitante.id} className="hover:bg-gray-50 transition-colors duration-150">
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <span className="font-medium text-gray-900">{visitante.nome}</span>
-                                            </td>
-                                            {userRole === 'admin' && (
-                                                <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {visitante.celula_nome || 'N/A'}
-                                                    </span>
-                                                </td>
-                                            )}
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-gray-700">{formatPhoneNumberDisplay(visitante.telefone)}</span>
-                                                    {visitante.telefone && (userRole === 'líder' || (userRole === 'admin' && selectedCelulaId)) && (
-                                                        <div className="flex space-x-1">
-                                                            <a
-                                                                href={'tel:' + visitante.telefone}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors"
-                                                                title="Ligar"
-                                                            >
-                                                                <FaPhone className="text-sm" />
-                                                            </a>
-                                                            <a
-                                                                href={'https://wa.me/' + visitante.telefone}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-green-500 hover:text-green-700 p-1 rounded hover:bg-green-50 transition-colors"
-                                                                title="WhatsApp"
-                                                            >
-                                                                <FaWhatsapp className="text-sm" />
-                                                            </a>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <span className="text-gray-700">{formatDateForDisplay(visitante.data_primeira_visita)}</span>
-                                            </td>
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <span className={'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + (visitante.data_ultimo_contato ? 'bg-green-100 text-green-800 border-green-200' : 'bg-orange-100 text-orange-800 border-orange-200')}>
-                                                    {formatDateForDisplay(visitante.data_ultimo_contato) || 'Nunca'}
-                                                </span>
-                                            </td>
-                                            <td className="py-4 px-6 border-r border-gray-100">
-                                                <div className="max-w-xs">
-                                                    <div className="flex items-start space-x-2">
-                                                        <FaComment className="text-gray-400 mt-0.5 flex-shrink-0" />
-                                                        <span
-                                                            className="text-sm text-gray-600 line-clamp-2"
-                                                            title={visitante.observacoes || undefined}
-                                                        >
-                                                            {visitante.observacoes || 'Nenhuma observação'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 whitespace-nowrap">
-                                                <div className="flex items-center justify-start space-x-2">
-                                                    <Link
-                                                        href={'/visitantes/editar/' + visitante.id}
-                                                        className="inline-flex items-center space-x-1 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                                                        title="Editar Visitante"
-                                                    >
-                                                        <FaEdit className="text-sm" />
-                                                    </Link>
-                                                    <button
-                                                        onClick={() => handleDelete(visitante.id, visitante.nome)}
-                                                        className="inline-flex items-center space-x-1 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        title="Excluir Visitante"
-                                                        disabled={submitting}
-                                                    >
-                                                        <FaTrash className="text-sm" />
-                                                    </button>
-                                                    <Link
-                                                        href={'/visitantes/converter/' + visitante.id}
-                                                        className="inline-flex items-center space-x-1 p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors duration-200"
-                                                        title="Converter em Membro"
-                                                    >
-                                                        <FaUserPlus className="text-sm" />
-                                                    </Link>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                {/* Empty State */}
+                {filteredVisitantes.length === 0 && (
+                    <div className="text-center p-12 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
+                        <FaUsers className="text-4xl text-gray-300 mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold text-gray-700">Nenhum visitante encontrado</h3>
+                        <p className="text-gray-500 text-sm mb-6">Verifique os filtros ou cadastre um novo.</p>
+                        {userRole !== 'admin' && (
+                            <Link href="/visitantes/novo" className="text-green-600 font-medium hover:underline">
+                                Cadastrar Visitante
+                            </Link>
+                        )}
                     </div>
                 )}
-            </div>
 
-            {/* Estilos de animação */}
-            <style jsx>{`
-                @keyframes slide-in {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                .animate-slide-in {
-                    animation: slide-in 0.3s ease-out;
-                }
-            `}</style>
+                {/* === VISUALIZAÇÃO DESKTOP (TABELA) === */}
+                <div className="hidden md:block bg-white shadow-sm rounded-2xl overflow-hidden border border-gray-200">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Nome</th>
+                                    {userRole === 'admin' && <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Célula</th>}
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contato</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">1ª Visita</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Últ. Contato</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Obs</th>
+                                    <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {filteredVisitantes.map((v) => (
+                                    <tr key={v.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 font-medium text-gray-900">{v.nome}</td>
+                                        {userRole === 'admin' && (
+                                            <td className="px-6 py-4">
+                                                <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold">
+                                                    {v.celula_nome || 'N/A'}
+                                                </span>
+                                            </td>
+                                        )}
+                                        <td className="px-6 py-4 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <span>{formatPhoneNumberDisplay(v.telefone)}</span>
+                                                {v.telefone && (
+                                                    <div className="flex gap-1">
+                                                        <a href={`tel:${v.telefone}`} className="text-blue-500 p-1 hover:bg-blue-50 rounded"><FaPhone size={12} /></a>
+                                                        <a href={`https://wa.me/${v.telefone.replace(/\D/g, '')}`} target="_blank" className="text-green-500 p-1 hover:bg-green-50 rounded"><FaWhatsapp size={14} /></a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">{formatDateForDisplay(v.data_primeira_visita)}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${v.data_ultimo_contato ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                {formatDateForDisplay(v.data_ultimo_contato) || 'Nunca'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 truncate max-w-[150px]" title={v.observacoes || ''}>{v.observacoes || '-'}</td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Link href={`/visitantes/converter/${v.id}`} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded" title="Converter"><FaUserPlus /></Link>
+                                                <Link href={`/visitantes/editar/${v.id}`} className="text-blue-600 p-2 hover:bg-blue-50 rounded" title="Editar"><FaEdit /></Link>
+                                                <button onClick={() => handleDelete(v.id, v.nome)} disabled={submitting} className="text-red-600 p-2 hover:bg-red-50 rounded" title="Excluir"><FaTrash /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* === VISUALIZAÇÃO MOBILE (CARDS) === */}
+                <div className="md:hidden space-y-4">
+                    {filteredVisitantes.map((v) => (
+                        <div key={v.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
+                            
+                            {/* Header Card */}
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-bold text-gray-900 text-lg leading-tight">{v.nome}</h3>
+                                    <div className="flex flex-wrap gap-2 mt-1.5">
+                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${v.data_ultimo_contato ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                            Contato: {formatDateForDisplay(v.data_ultimo_contato) || 'Pendente'}
+                                        </span>
+                                        {userRole === 'admin' && v.celula_nome && (
+                                            <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                                                {v.celula_nome}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <Link href={`/visitantes/converter/${v.id}`} className="bg-emerald-50 text-emerald-600 p-2.5 rounded-lg hover:bg-emerald-100" title="Converter em Membro">
+                                    <FaUserPlus size={18} />
+                                </Link>
+                            </div>
+
+                            {/* Informações */}
+                            <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 border-t border-gray-100 pt-3">
+                                <div className="flex items-center gap-2">
+                                    <FaCalendarAlt className="text-gray-400" />
+                                    <span className="text-xs">1ª Visita: {formatDateForDisplay(v.data_primeira_visita)}</span>
+                                </div>
+                                {v.observacoes && (
+                                    <div className="flex items-center gap-2 col-span-2">
+                                        <FaComment className="text-gray-400" />
+                                        <span className="text-xs italic truncate">{v.observacoes}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Botões de Ação */}
+                            <div className="flex gap-2 pt-1">
+                                {v.telefone ? (
+                                    <>
+                                        <a href={`https://wa.me/${v.telefone.replace(/\D/g, '')}`} target="_blank" className="flex-1 bg-green-50 text-green-700 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium text-sm">
+                                            <FaWhatsapp size={16} /> WhatsApp
+                                        </a>
+                                        <a href={`tel:${v.telefone}`} className="w-12 bg-gray-50 text-gray-600 rounded-lg flex items-center justify-center">
+                                            <FaPhone size={14} />
+                                        </a>
+                                    </>
+                                ) : (
+                                    <div className="flex-1 bg-gray-50 text-gray-400 py-2.5 rounded-lg text-center text-sm italic">Sem telefone</div>
+                                )}
+                                
+                                <Link href={`/visitantes/editar/${v.id}`} className="w-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                                    <FaEdit size={16} />
+                                </Link>
+                                
+                                <button onClick={() => handleDelete(v.id, v.nome)} disabled={submitting} className="w-12 bg-red-50 text-red-600 rounded-lg flex items-center justify-center">
+                                    <FaTrash size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+            </div>
         </div>
     );
 }
