@@ -158,7 +158,84 @@ const CustomSelectSheet = ({
         </div>
     );
 };
-// --- FIM COMPONENTE CUSTOMIZADO ---
+
+// --- COMPONENTE DE INPUT CORRIGIDO (MOVIDO PARA FORA) ---
+interface InputFieldProps {
+    label: string;
+    name: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    error?: string | null;
+    type?: string;
+    required?: boolean;
+    icon?: any;
+    placeholder?: string;
+    maxLength?: number;
+    rows?: number;
+}
+
+const InputField = ({ 
+    label, 
+    name, 
+    value, 
+    onChange, 
+    onBlur, 
+    error, 
+    type = 'text', 
+    required = false, 
+    icon: Icon, 
+    placeholder, 
+    maxLength, 
+    rows 
+}: InputFieldProps) => {
+    const isTextarea = type === 'textarea';
+
+    return (
+        <div className="space-y-2">
+            <label htmlFor={name} className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                {Icon && <Icon className={error ? "text-red-500" : "text-emerald-500"} />} 
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="relative">
+                {isTextarea ? (
+                    <textarea
+                        id={name}
+                        name={name}
+                        value={value}
+                        onChange={onChange}
+                        onBlur={onBlur}
+                        rows={rows}
+                        placeholder={placeholder}
+                        className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${
+                            error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-emerald-500'
+                        }`}
+                    />
+                ) : (
+                    <input
+                        type={type}
+                        id={name}
+                        name={name}
+                        value={value}
+                        onChange={onChange}
+                        onBlur={onBlur}
+                        required={required}
+                        placeholder={placeholder}
+                        maxLength={maxLength}
+                        className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
+                            error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-emerald-500'
+                        }`}
+                    />
+                )}
+            </div>
+            {error && (
+                <p className="text-red-600 text-sm flex items-center space-x-1">
+                    <FaTimes className="w-3 h-3" /> <span>{error}</span>
+                </p>
+            )}
+        </div>
+    );
+};
 
 
 export default function NovoVisitantePage() {
@@ -270,56 +347,6 @@ export default function NovoVisitantePage() {
         }
     };
 
-    const InputField = ({ label, name, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows }: any) => {
-        const error = getFieldError(name);
-        const isTextarea = type === 'textarea';
-
-        return (
-            <div className="space-y-2">
-                <label htmlFor={name} className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                    {Icon && <Icon className={error ? "text-red-500" : "text-emerald-500"} />} 
-                    {label} {required && <span className="text-red-500">*</span>}
-                </label>
-                <div className="relative">
-                    {isTextarea ? (
-                        <textarea
-                            id={name}
-                            name={name}
-                            value={(formData[name as keyof NovoVisitanteFormData] as string) || ''}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            rows={rows}
-                            placeholder={placeholder}
-                            className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${
-                                error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-emerald-500'
-                            }`}
-                        />
-                    ) : (
-                        <input
-                            type={type}
-                            id={name}
-                            name={name}
-                            value={(formData[name as keyof NovoVisitanteFormData] as string) || ''}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required={required}
-                            placeholder={placeholder}
-                            maxLength={maxLength}
-                            className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-emerald-500'
-                            }`}
-                        />
-                    )}
-                </div>
-                {error && (
-                    <p className="text-red-600 text-sm flex items-center space-x-1">
-                        <FaTimes className="w-3 h-3" /> <span>{error}</span>
-                    </p>
-                )}
-            </div>
-        );
-    };
-
     return (
         <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
             <ToastContainer />
@@ -349,6 +376,10 @@ export default function NovoVisitantePage() {
                             <InputField 
                                 label="Nome Completo" 
                                 name="nome" 
+                                value={formData.nome}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                error={getFieldError('nome')}
                                 required 
                                 icon={FaUserPlus} 
                                 placeholder="Ex: Maria Souza" 
@@ -358,6 +389,10 @@ export default function NovoVisitantePage() {
                             <InputField 
                                 label="Telefone" 
                                 name="telefone" 
+                                value={formData.telefone || ''}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                error={getFieldError('telefone')}
                                 icon={FaPhone} 
                                 placeholder="(XX) XXXXX-XXXX" 
                                 maxLength={11} 
@@ -368,6 +403,10 @@ export default function NovoVisitantePage() {
                                 <InputField 
                                     label="Data da 1ª Visita" 
                                     name="data_primeira_visita" 
+                                    value={formData.data_primeira_visita}
+                                    onChange={handleChange}
+                                    onBlur={handleBlur}
+                                    error={getFieldError('data_primeira_visita')}
                                     type="date" 
                                     required 
                                     icon={FaCalendar} 
@@ -375,6 +414,9 @@ export default function NovoVisitantePage() {
                                 <InputField 
                                     label="Data de Nascimento" 
                                     name="data_nascimento" 
+                                    value={formData.data_nascimento || ''}
+                                    onChange={handleChange}
+                                    onBlur={handleBlur}
                                     type="date" 
                                     icon={FaCalendar} 
                                 />
@@ -404,6 +446,9 @@ export default function NovoVisitantePage() {
                             <InputField 
                                 label="Endereço" 
                                 name="endereco" 
+                                value={formData.endereco || ''}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
                                 icon={FaMapMarkerAlt} 
                                 placeholder="Rua, número, bairro..." 
                             />
@@ -412,6 +457,9 @@ export default function NovoVisitantePage() {
                             <InputField 
                                 label="Data Último Contato" 
                                 name="data_ultimo_contato" 
+                                value={formData.data_ultimo_contato || ''}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
                                 type="date" 
                                 icon={FaClock} 
                             />
@@ -420,6 +468,9 @@ export default function NovoVisitantePage() {
                             <InputField 
                                 label="Observações" 
                                 name="observacoes" 
+                                value={formData.observacoes || ''}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
                                 type="textarea" 
                                 icon={FaComments} 
                                 placeholder="Detalhes importantes..." 
