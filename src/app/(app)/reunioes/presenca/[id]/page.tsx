@@ -1,7 +1,7 @@
 // src/app/(app)/reunioes/presenca/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -12,22 +12,12 @@ import {
     registrarPresencaVisitante,
     getNumCriancasReuniao,
     setNumCriancasReuniao,
-    // Remover ReuniaoParaEdicao, MembroComPresenca, VisitanteComPresenca daqui se forem tipos
-    // ReuniaoParaEdicao, 
-    // MembroComPresenca,
-    // VisitanteComPresenca
 } from '@/lib/data';
 
-// Importar tipos de '@/lib/types' (ou um arquivo de tipos específico se tiver)
-import { ReuniaoParaEdicao, MembroComPresenca, VisitanteComPresenca } from '@/lib/types'; // Assumindo que você tem um arquivo types.ts
-
-
+import { ReuniaoParaEdicao, MembroComPresenca, VisitanteComPresenca } from '@/lib/types';
 import { formatDateForDisplay } from '@/utils/formatters';
-
-// IMPORTS DOS COMPONENTES E HOOKS
-// Remova 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import useToast from '@/hooks/useToast';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import LoadingSpinner from '@/components/LoadingSpinner'; // Ajuste o caminho se necessário conforme seu projeto
 
 export default function GerenciarPresencaPage() {
     const params = useParams();
@@ -39,19 +29,17 @@ export default function GerenciarPresencaPage() {
     const [numCriancas, setNumCriancas] = useState(0);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    
+    // IDs de função para controle visual
+    const [specialRoles, setSpecialRoles] = useState<string[]>([]);
+
     const router = useRouter();
+    const { addToast, ToastContainer } = useToast();
 
-    // IDs das funções (não usados diretamente nos inputs, mas úteis para lógica)
-    const [ministradorPrincipalId, setMinistradorPrincipalId] = useState<string | null>(null);
-    const [ministradorSecundarioId, setMinistradorSecundarioId] = useState<string | null>(null);
-    const [responsavelKidsId, setResponsavelKidsId] = useState<string | null>(null);
-
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
-    const { addToast, removeToast, ToastContainer } = useToast();
-
-    // Contadores para feedback visual
+    // Contadores em tempo real
     const membrosPresentes = membrosPresenca.filter(m => m.presente).length;
     const visitantesPresentes = visitantesPresenca.filter(v => v.presente).length;
+    const totalPresentes = membrosPresentes + visitantesPresentes + numCriancas;
 
     useEffect(() => {
         const fetchPresencaData = async () => {
@@ -70,43 +58,33 @@ export default function GerenciarPresencaPage() {
                     return;
                 }
                 
-                // --- EXTRAÇÃO DOS IDs DE FUNÇÃO ---
+                // Extração dos IDs de função
                 const mpId = fetchedReuniao.ministrador_principal || null;
                 const msId = fetchedReuniao.ministrador_secundario || null;
                 const rkId = fetchedReuniao.responsavel_kids || null;
+                
+                // Array de IDs especiais para desabilitar/destacar na UI
+                const roles = [mpId, msId, rkId].filter((id): id is string => id !== null);
+                setSpecialRoles(roles);
 
                 setReuniao(fetchedReuniao);
-                setMinistradorPrincipalId(mpId);
-                setMinistradorSecundarioId(msId);
-                setResponsavelKidsId(rkId);
                 setVisitantesPresenca(visitantesData);
                 setNumCriancas(criancasCount);
 
-                // --- LÓGICA DE PRÉ-MARCAÇÃO ---
-                const idsComFuncao = [mpId, msId, rkId].filter((id): id is string => id !== null);
-
+                // Lógica de Pré-Marcação (Mantida a original)
                 const membrosComPreMarcacao = membrosRawData.map(m => {
-                    const isDesignado = idsComFuncao.includes(m.id);
-                    
-                    // Se o membro tiver uma função NA FICHA DA REUNIÃO,
-                    // e ele AINDA NÃO tiver presença registrada (m.presenca_registrada é false/nulo),
-                    // marcamos como presente. Se já tiver registro, mantemos o registro do DB.
+                    const isDesignado = roles.includes(m.id);
                     if (isDesignado && !m.presenca_registrada) {
                         return { ...m, presente: true };
                     }
-                    
                     return m;
                 });
 
                 setMembrosPresenca(membrosComPreMarcacao);
-                // --- FIM LÓGICA DE PRÉ-MARCAÇÃO ---
-
-                addToast('Dados carregados com sucesso!', 'success');
 
             } catch (e: any) {
-                console.error("Erro ao buscar dados de presença:", e);
-                addToast(`Erro ao carregar dados: ${e.message || 'Tente novamente.'}`, 'error');
-                setTimeout(() => router.replace('/reunioes'), 3000);
+                console.error("Erro ao buscar dados:", e);
+                addToast(`Erro ao carregar dados: ${e.message}`, 'error');
             } finally {
                 setLoading(false);
             }
@@ -117,237 +95,212 @@ export default function GerenciarPresencaPage() {
         }
     }, [reuniaoId, router, addToast]);
 
-    const handleMembroChange = (membroId: string, presente: boolean) => {
+    // Otimização com useCallback
+    const handleMembroChange = useCallback((membroId: string, presente: boolean) => {
         setMembrosPresenca(prev => prev.map(m =>
             m.id === membroId ? { ...m, presente: presente } : m
         ));
-    };
+    }, []);
 
-    const handleVisitanteChange = (visitanteId: string, presente: boolean) => {
+    const handleVisitanteChange = useCallback((visitanteId: string, presente: boolean) => {
         setVisitantesPresenca(prev => prev.map(v =>
             v.visitante_id === visitanteId ? { ...v, presente: presente } : v
         ));
-    };
+    }, []);
 
-    const handleNumCriancasChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleNumCriancasChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseInt(e.target.value, 10);
         setNumCriancas(isNaN(value) ? 0 : Math.max(0, value));
-    };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
 
         try {
-            // Salvar presenças de membros
-            await Promise.all(membrosPresenca.map(async (membro) => {
-                // Não precisamos da lógica isSpecialRole aqui, pois o estado já foi atualizado
-                // pelo usuário ou pré-marcado na inicialização.
-                return registrarPresencaMembro(reuniaoId, membro.id, membro.presente);
-            }));
+            await Promise.all([
+                ...membrosPresenca.map(m => registrarPresencaMembro(reuniaoId, m.id, m.presente)),
+                ...visitantesPresenca.map(v => registrarPresencaVisitante(reuniaoId, v.visitante_id, v.presente)),
+                setNumCriancasReuniao(reuniaoId, numCriancas)
+            ]);
 
-            // Salvar presenças de visitantes
-            await Promise.all(visitantesPresenca.map(visitante =>
-                registrarPresencaVisitante(reuniaoId, visitante.visitante_id, visitante.presente)
-            ));
-
-            // Salvar número de crianças
-            await setNumCriancasReuniao(reuniaoId, numCriancas);
-
-            addToast('Presenças salvas com sucesso! Redirecionando...', 'success');
-            
-            setTimeout(() => {
-                router.push('/reunioes');
-            }, 1500);
+            addToast('Lista de presença salva com sucesso!', 'success');
+            setTimeout(() => router.push('/reunioes'), 1000);
 
         } catch (e: any) {
-            console.error("Erro ao salvar presenças:", e);
-            addToast(`Falha ao salvar presenças: ${e.message || "Erro desconhecido"}`, 'error');
+            console.error("Erro ao salvar:", e);
+            addToast(`Falha ao salvar: ${e.message}`, 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
+    // Loading State
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-                <div className="max-w-4xl mx-auto px-4">
-                    <div className="bg-white rounded-xl shadow-lg p-8">
-                        <div className="animate-pulse">
-                            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-                            <div className="space-y-4">
-                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                            </div>
-                        </div>
-                        <LoadingSpinner />
-                    </div>
-                </div>
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+                <LoadingSpinner />
+                <p className="mt-4 text-gray-500 font-medium animate-pulse">Carregando lista...</p>
             </div>
         );
     }
 
-    if (!reuniao) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-                <div className="max-w-4xl mx-auto px-4">
-                    <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                        <div className="text-red-500 mb-4">
-                            <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">Reunião não encontrada</h2>
-                        <Link 
-                            href="/reunioes" 
-                            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg"
-                        >
-                            Voltar para Lista de Reuniões
-                        </Link>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    if (!reuniao) return null;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            {/* Renderiza o ToastContainer do hook global */}
+        <div className="min-h-screen bg-gray-50 pb-20"> {/* pb-20 para dar espaço ao botão flutuante/final */}
             <ToastContainer />
 
-            <div className="max-w-6xl mx-auto px-4">
-                {/* Header com Gradiente */}
-                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold mb-2">Gerenciar Presença</h1>
-                            <div className="flex items-center space-x-6 text-green-100">
-                                <div className="flex items-center space-x-2">
-                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>{formatDateForDisplay(reuniao.data_reuniao)}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>{reuniao.tema}</span>
-                                </div>
-                            </div>
+            {/* Header Compacto Mobile */}
+            <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-6 sm:px-6 sm:py-8 shadow-lg">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex flex-col gap-2">
+                        <Link href="/reunioes" className="text-white/80 text-sm flex items-center gap-1 w-fit hover:text-white transition-colors">
+                            ← Voltar
+                        </Link>
+                        <h1 className="text-2xl font-bold text-white leading-tight">
+                            {reuniao.tema}
+                        </h1>
+                        <div className="flex items-center gap-3 text-emerald-100 text-sm">
+                            <span className="flex items-center gap-1">
+                                📅 {formatDateForDisplay(reuniao.data_reuniao)}
+                            </span>
                         </div>
-                        <div className="text-right">
-                            <div className="text-2xl font-bold">{membrosPresentes + visitantesPresentes}</div>
-                            <div className="text-green-100">Total de Pessoas</div>
+                    </div>
+                    
+                    {/* Card de Total Flutuante no Header */}
+                    <div className="mt-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <p className="text-emerald-100 text-xs uppercase tracking-wider font-semibold">Total Presentes</p>
+                            <p className="text-3xl font-bold text-white">{totalPresentes}</p>
+                        </div>
+                        <div className="flex gap-2 text-center text-xs text-white/90">
+                            <div className="bg-white/10 px-3 py-1.5 rounded-lg">
+                                <span className="block font-bold text-lg">{membrosPresentes}</span>
+                                Membros
+                            </div>
+                            <div className="bg-white/10 px-3 py-1.5 rounded-lg">
+                                <span className="block font-bold text-lg">{visitantesPresentes}</span>
+                                Visit.
+                            </div>
+                            <div className="bg-white/10 px-3 py-1.5 rounded-lg">
+                                <span className="block font-bold text-lg">{numCriancas}</span>
+                                Kids
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
+            <main className="max-w-4xl mx-auto px-3 sm:px-6 -mt-4">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Seção de Membros */}
-                        <div className="bg-white rounded-xl shadow-lg p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-                                    <svg className="w-6 h-6 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                                    </svg>
-                                    Membros
-                                </h2>
-                                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                                    {membrosPresentes}/{membrosPresenca.length}
-                                </span>
-                            </div>
-                            <div className="max-h-80 overflow-y-auto space-y-3">
-                                {membrosPresenca.length === 0 ? (
-                                    <div className="text-center py-8 text-gray-500">
-                                        <svg className="w-12 h-12 mx-auto mb-2 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                        </svg>
-                                        Nenhum membro encontrado
-                                    </div>
-                                ) : (
-                                    membrosPresenca.map((membro) => {
-                                        const isSpecialRole = [ministradorPrincipalId, ministradorSecundarioId, responsavelKidsId].includes(membro.id);
-                                        return (
-                                            <div key={membro.id} className={`flex items-center p-3 rounded-lg border transition-all duration-200 ${membro.presente ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                                                <input
-                                                    type="checkbox"
-                                                    id={`membro-${membro.id}`}
-                                                    checked={membro.presente}
-                                                    onChange={(e) => handleMembroChange(membro.id, e.target.checked)}
-                                                    disabled={isSpecialRole} // MANTÉM DESABILITADO SE FOR FUNÇÃO
-                                                    className="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
-                                                />
-                                                <label htmlFor={`membro-${membro.id}`} className={`ml-3 flex-1 text-sm font-medium ${isSpecialRole ? 'text-green-800 font-bold' : 'text-gray-700'}`}>
-                                                    {membro.nome}
-                                                    {isSpecialRole && (
-                                                        <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                                                            Função
-                                                        </span>
-                                                    )}
-                                                </label>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
+                    
+                    {/* Lista de Membros */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center sticky top-0 z-10">
+                            <h2 className="font-bold text-gray-800 flex items-center gap-2">
+                                👥 Membros
+                            </h2>
+                            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded-full">
+                                {membrosPresentes} / {membrosPresenca.length}
+                            </span>
                         </div>
-
-                        {/* Seção de Visitantes (sem mudanças) */}
-                        <div className="bg-white rounded-xl shadow-lg p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-                                    <svg className="w-6 h-6 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                    </svg>
-                                    Visitantes
-                                </h2>
-                                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                                    {visitantesPresentes}/{visitantesPresenca.length}
-                                </span>
-                            </div>
-                            <div className="max-h-80 overflow-y-auto space-y-3">
-                                {visitantesPresenca.length === 0 ? (
-                                    <div className="text-center py-8 text-gray-500">
-                                        <svg className="w-12 h-12 mx-auto mb-2 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                                        </svg>
-                                        Nenhum visitante encontrado
-                                    </div>
-                                ) : (
-                                    visitantesPresenca.map((visitante) => (
-                                        <div key={visitante.visitante_id} className={`flex items-center p-3 rounded-lg border transition-all duration-200 ${visitante.presente ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                        
+                        {/* Removemos max-h para permitir scroll da página inteira no mobile */}
+                        <div className="divide-y divide-gray-100">
+                            {membrosPresenca.map((membro) => {
+                                const isSpecialRole = specialRoles.includes(membro.id);
+                                return (
+                                    <label 
+                                        key={membro.id} 
+                                        className={`
+                                            relative flex items-center p-4 cursor-pointer transition-colors touch-manipulation
+                                            ${membro.presente ? 'bg-emerald-50/50' : 'bg-white hover:bg-gray-50'}
+                                        `}
+                                    >
+                                        <div className="flex items-center h-6">
                                             <input
                                                 type="checkbox"
-                                                id={`visitante-${visitante.visitante_id}`}
-                                                checked={visitante.presente}
-                                                onChange={(e) => handleVisitanteChange(visitante.visitante_id, e.target.checked)}
-                                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                                checked={membro.presente}
+                                                disabled={isSpecialRole}
+                                                onChange={(e) => handleMembroChange(membro.id, e.target.checked)}
+                                                className={`
+                                                    w-6 h-6 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all
+                                                    ${isSpecialRole ? 'opacity-50 cursor-not-allowed' : ''}
+                                                `}
                                             />
-                                            <label htmlFor={`visitante-${visitante.visitante_id}`} className="ml-3 flex-1 text-sm font-medium text-gray-700">
-                                                {visitante.nome}
-                                            </label>
                                         </div>
-                                    ))
-                                )}
-                            </div>
+                                        <div className="ml-3 flex-1">
+                                            <div className={`text-base font-medium ${membro.presente ? 'text-emerald-900' : 'text-gray-700'}`}>
+                                                {membro.nome}
+                                            </div>
+                                            {isSpecialRole && (
+                                                <div className="text-xs text-emerald-600 font-semibold mt-0.5">
+                                                    Liderança / Apoio (Já incluso)
+                                                </div>
+                                            )}
+                                        </div>
+                                        {membro.presente && (
+                                            <div className="absolute right-4 text-emerald-600 animate-in fade-in zoom-in duration-200">
+                                                ✓
+                                            </div>
+                                        )}
+                                    </label>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Seção de Crianças */}
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                            <svg className="w-6 h-6 mr-2 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clipRule="evenodd" />
-                            </svg>
-                            Crianças Presentes
-                        </h2>
-                        <div className="flex items-center space-x-4">
-                            <div className="flex-1 max-w-xs">
-                                <label htmlFor="num_criancas" className="block text-sm font-medium text-gray-700 mb-2">
-                                    Número de Crianças
+                    {/* Lista de Visitantes */}
+                    {visitantesPresenca.length > 0 && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex justify-between items-center sticky top-0 z-10">
+                                <h2 className="font-bold text-blue-900 flex items-center gap-2">
+                                    👋 Visitantes
+                                </h2>
+                                <span className="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">
+                                    {visitantesPresentes} / {visitantesPresenca.length}
+                                </span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {visitantesPresenca.map((v) => (
+                                    <label 
+                                        key={v.visitante_id}
+                                        className={`
+                                            relative flex items-center p-4 cursor-pointer transition-colors touch-manipulation
+                                            ${v.presente ? 'bg-blue-50/30' : 'bg-white hover:bg-gray-50'}
+                                        `}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={v.presente}
+                                            onChange={(e) => handleVisitanteChange(v.visitante_id, e.target.checked)}
+                                            className="w-6 h-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span className={`ml-3 text-base font-medium flex-1 ${v.presente ? 'text-blue-900' : 'text-gray-700'}`}>
+                                            {v.nome}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Card de Crianças */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-purple-100 p-2 rounded-lg text-purple-600">
+                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <h2 className="font-bold text-gray-800 text-lg">Crianças</h2>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                                <label htmlFor="num_criancas" className="block text-sm text-gray-500 mb-1">
+                                    Quantidade total
                                 </label>
                                 <input
                                     type="number"
@@ -355,87 +308,48 @@ export default function GerenciarPresencaPage() {
                                     value={numCriancas}
                                     onChange={handleNumCriancasChange}
                                     min="0"
-                                    max="100"
-                                    className="w-full border border-gray-300 rounded-lg p-3 text-center text-lg font-semibold focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="w-full text-base border-gray-300 rounded-lg p-3 text-lg font-bold text-gray-800 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                 />
                             </div>
-                            <div className="flex-1">
-                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                    <div className="text-sm text-purple-800">
-                                        <span className="font-semibold">Observação:</span> Este campo conta o número total de crianças presentes, incluindo bebês e crianças na sala kids.
-                                    </div>
-                                </div>
+                            <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg flex-1">
+                                Inclua bebês e crianças na sala kids.
                             </div>
                         </div>
                     </div>
 
-                    {/* Botões de Ação */}
-                    <div className="flex space-x-4">
+                    {/* Botões de Ação Fixos/Grandes */}
+                    <div className="pt-4 flex flex-col gap-3">
                         <button 
                             type="submit" 
                             disabled={submitting}
-                            className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg"
+                            className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white text-lg font-bold py-4 px-6 rounded-xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {submitting ? (
-                                <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                                    Salvando Presenças...
-                                </div>
+                                <>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    Salvando...
+                                </>
                             ) : (
-                                <div className="flex items-center justify-center">
-                                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
-                                    Salvar Todas as Presenças
-                                </div>
+                                    Confirmar Presença
+                                </>
                             )}
                         </button>
                         
                         <Link 
                             href="/reunioes" 
-                            className="flex items-center justify-center px-8 py-4 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 shadow-lg"
+                            className="w-full text-center py-4 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
                         >
-                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                            </svg>
-                            Voltar
+                            Cancelar
                         </Link>
                     </div>
                 </form>
-
-                {/* Resumo Rápido */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                        <div className="text-2xl font-bold text-green-600">{membrosPresentes}</div>
-                        <div className="text-sm text-gray-600">Membros Presentes</div>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                        <div className="text-2xl font-bold text-blue-600">{visitantesPresentes}</div>
-                        <div className="text-sm text-gray-600">Visitantes Presentes</div>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                        <div className="text-2xl font-bold text-purple-600">{numCriancas}</div>
-                        <div className="text-sm text-gray-600">Crianças Presentes</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Adicionar estilos de animação */}
-            <style jsx>{`
-                @keyframes slide-in {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                .animate-slide-in {
-                    animation: slide-in 0.3s ease-out;
-                }
-            `}</style>
+            </main>
         </div>
     );
 }
