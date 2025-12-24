@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { ReportDataAniversariantes } from '@/lib/reports_data';
+import { ReportDataAniversariantes } from '@/lib/types';
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
 export const ReportAniversariantesDisplay = ({ data }: { data: ReportDataAniversariantes }) => {

@@ -34,9 +34,8 @@ ChartJS.register(
     BarElement
 );
 
-// ADICIONAR ESTAS DUAS LINHAS NOVAS para o sistema de toast:
+// MUDANÇA AQUI: Remova a importação de Toast, use apenas useToast
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
 
 
 // --- IMPORTAÇÕES DE FUNÇÕES DE dashboard_data.ts ---
@@ -158,7 +157,8 @@ export default function DashboardPage() {
     const [palavraDaSemana, setPalavraDaSemana] = useState<PalavraDaSemana | null>(null);
 
     const router = useRouter();
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const fetchDashboardData = useCallback(async (showRefreshToast = false) => {
         setLoadingStats(true);
@@ -342,19 +342,9 @@ export default function DashboardPage() {
 
     return (
         <>
-            {/* NOVO: Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
-            {/* FIM NOVO: Container de Toasts */}
+            {/* MUDANÇA AQUI: Renderiza o ToastContainer do hook */}
+            <ToastContainer />
+            {/* FIM MUDANÇA: Container de Toasts */}
 
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-7xl mx-auto">

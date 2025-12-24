@@ -5,15 +5,21 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
 import { FaPhone, FaWhatsapp, FaPlus, FaEdit, FaTrash, FaUserPlus, FaUsers, FaSearch, FaFilter, FaCalendarAlt, FaComment } from 'react-icons/fa';
-import { listarVisitantes, excluirVisitante, listarCelulasParaAdmin, CelulaOption, Visitante } from '@/lib/data';
+// Importações de listarVisitantes, excluirVisitante, listarCelulasParaAdmin
+// Se CelulaOption e Visitante são tipos, eles devem vir de um arquivo de tipos
+// como '@/lib/types', não de '@/lib/data' se data.ts contém apenas funções.
+// Assumindo que você já ajustou isso em types.ts se data.ts é apenas para funções.
+import { listarVisitantes, excluirVisitante, listarCelulasParaAdmin } from '@/lib/data';
+
+// Importações de interfaces de types.ts (SE forem tipos globais)
+import { CelulaOption, Visitante } from '@/lib/types'; // EX: Assumindo que estes são tipos
+
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS & LOADING SPINNER ---
 // Agora importamos o useToast do hook global
 import useToast from '@/hooks/useToast';
-// Importamos o componente Toast e LoadingSpinner do diretório de componentes,
-// presumindo que você tenha um src/components/ui/Toast.tsx e um src/components/LoadingSpinner.tsx
-import Toast from '@/components/ui/Toast';
+// Importe apenas LoadingSpinner se o ToastContainer do useToast já lida com a renderização dos toasts
 import LoadingSpinner from '@/components/LoadingSpinner'; // Assumimos que existe um LoadingSpinner global
 // --- FIM REFATORAÇÃO ---
 
@@ -29,8 +35,8 @@ export default function VisitantesPage() {
 
     const [submitting, setSubmitting] = useState(false);
 
-    // Usar o hook de toast global
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     // Funções de fetch encapsuladas em useCallback
     const fetchVisitantesAndCelulas = useCallback(async () => {
@@ -72,7 +78,7 @@ export default function VisitantesPage() {
             setLoading(false);
         }
     // CORREÇÃO: addToast NÃO É MAIS UMA DEPENDÊNCIA VARIÁVEL, REMOVER DAQUI.
-    }, [selectedCelulaId, minDaysSinceLastContact]); // Removido addToast
+    }, [selectedCelulaId, minDaysSinceLastContact]); 
 
     // O useEffect agora só roda quando fetchVisitantesAndCelulas muda, o que só acontece
     // quando as dependências REAIS (filtros) mudam.
@@ -130,17 +136,8 @@ export default function VisitantesPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook */}
+            <ToastContainer />
 
             <div className="max-w-7xl mx-auto px-4">
                 {/* Header com Gradiente */}

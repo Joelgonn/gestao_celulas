@@ -1,42 +1,38 @@
-// src/app/(app)/visitantes/converter/[id]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
-// Importa funções de data.ts (REMOVIDAS as interfaces/types duplicadas daqui)
+// Importa funções de data.ts
 import {
     getVisitante,
     converterVisitanteEmMembro,
 } from '@/lib/data';
 
-// Importa interfaces de types.ts (MANTIDAS as interfaces/types aqui)
+// Importa interfaces de types.ts
 import {
-    Visitante, // Importar Visitante para tipagem
-    Membro,    // Importar Membro para tipagem de status
+    Visitante,
+    Membro,
 } from '@/lib/types';
 
 import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
-// --- CORREÇÃO: Adicionar status e celula_id à interface MembroFormData ---
-// Renomeado para MembroConversionFormData para evitar conflito com a interface Membro se ela já existisse
 interface MembroConversionFormData {
     nome: string;
-    telefone: string | null; // Pode ser null se o visitante não tiver
+    telefone: string | null;
     data_ingresso: string;
     data_nascimento: string | null;
-    endereco: string | null; // Pode ser null
-    status: Membro['status']; // Adicionar status, obrigatório para Membro
-    celula_id: string; // Adicionar celula_id, será preenchido pelo visitante original
+    endereco: string | null;
+    status: Membro['status'];
+    celula_id: string;
 }
-// --- FIM CORREÇÃO ---
 
 export default function ConverterVisitantePage() {
     const params = useParams();
@@ -45,18 +41,15 @@ export default function ConverterVisitantePage() {
     const [formData, setFormData] = useState<MembroConversionFormData>({
         nome: '',
         telefone: null,
-        data_ingresso: formatDateForInput(new Date().toISOString()), // Data padrão de ingresso
+        data_ingresso: formatDateForInput(new Date().toISOString()),
         data_nascimento: null,
         endereco: null,
-        // --- CORREÇÃO: Inicializar status e celula_id ---
-        status: 'Ativo', // Status padrão para novo membro
-        celula_id: '', // Será preenchido do visitante original
-        // --- FIM CORREÇÃO ---
+        status: 'Ativo',
+        celula_id: '',
     });
 
-    // --- REFATORAÇÃO: TOASTS ---
-    const { toasts, addToast, removeToast } = useToast();
-    // --- FIM REFATORAÇÃO TOASTS ---
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -69,7 +62,7 @@ export default function ConverterVisitantePage() {
                 const data = await getVisitante(visitanteId);
 
                 if (!data) {
-                    addToast('O visitante solicitado não existe ou você não tem permissão para acessá-lo', 'error'); // Usando addToast do hook
+                    addToast('O visitante solicitado não existe ou você não tem permissão para acessá-lo', 'error');
                     setTimeout(() => router.replace('/visitantes'), 2000);
                     return;
                 }
@@ -77,20 +70,18 @@ export default function ConverterVisitantePage() {
                 setFormData({
                     nome: data.nome || '',
                     telefone: normalizePhoneNumber(data.telefone) || null,
-                    data_ingresso: formatDateForInput(new Date().toISOString()), // Manter como data atual para o membro
-                    data_nascimento: data.data_nascimento || null, // Usar a data de nascimento do visitante
+                    data_ingresso: formatDateForInput(new Date().toISOString()),
+                    data_nascimento: data.data_nascimento || null,
                     endereco: data.endereco || null,
-                    // --- CORREÇÃO: Preencher celula_id do visitante original e status padrão ---
-                    status: 'Ativo', // Status padrão para o novo membro
-                    celula_id: data.celula_id, // Usar a celula_id do visitante original
-                    // --- FIM CORREÇÃO ---
+                    status: 'Ativo',
+                    celula_id: data.celula_id,
                 });
 
-                addToast('Informações do visitante carregadas para conversão', 'success', 3000); // Usando addToast do hook
+                addToast('Informações do visitante carregadas para conversão', 'success', 3000);
 
             } catch (e: any) {
                 console.error("Erro ao buscar visitante para conversão:", e);
-                addToast(e.message || 'Erro desconhecido ao carregar dados do visitante', 'error'); // Usando addToast do hook
+                addToast(e.message || 'Erro desconhecido ao carregar dados do visitante', 'error');
                 setTimeout(() => router.replace('/visitantes'), 2000);
             } finally {
                 setLoading(false);
@@ -100,14 +91,14 @@ export default function ConverterVisitantePage() {
         if (visitanteId) {
             fetchVisitanteData();
         }
-    }, [visitanteId, router, addToast]); // Adicionar addToast às dependências
+    }, [visitanteId, router, addToast]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => { // Adicionar HTMLSelectElement
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); // Lidar com campos que podem ser nulos
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         }
     };
 
@@ -117,16 +108,16 @@ export default function ConverterVisitantePage() {
 
         // Validações
         if (!formData.nome.trim()) {
-            addToast('O campo "Nome Completo" é obrigatório', 'error'); // Usando addToast do hook
+            addToast('O campo "Nome Completo" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.data_ingresso) {
-            addToast('O campo "Data de Ingresso" é obrigatório', 'error'); // Usando addToast do hook
+            addToast('O campo "Data de Ingresso" é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
-        if (!formData.celula_id) { // Adicionar validação para celula_id
+        if (!formData.celula_id) {
             addToast('O ID da célula não está disponível para conversão.', 'error');
             setSubmitting(false);
             return;
@@ -134,37 +125,34 @@ export default function ConverterVisitantePage() {
 
         const normalizedPhone = normalizePhoneNumber(formData.telefone);
         if (normalizedPhone && (normalizedPhone.length < 10 || normalizedPhone.length > 11)) {
-            addToast('O número de telefone deve ter 10 ou 11 dígitos (incluindo DDD).', 'error'); // Usando addToast do hook
+            addToast('O número de telefone deve ter 10 ou 11 dígitos (incluindo DDD).', 'error');
             setSubmitting(false);
             return;
         }
 
         try {
-            // --- CORREÇÃO: Inverter a ordem dos argumentos e incluir celula_id e status ---
-            const { success, message } = await converterVisitanteEmMembro(visitanteId, { // Primeiro o visitanteId
+            const { success, message } = await converterVisitanteEmMembro(visitanteId, {
                 nome: formData.nome,
                 telefone: normalizedPhone || null,
                 data_ingresso: formData.data_ingresso,
                 data_nascimento: formData.data_nascimento || null,
                 endereco: formData.endereco || null,
-                status: formData.status, // Incluir status
-                celula_id: formData.celula_id, // Incluir celula_id
+                status: formData.status,
+                celula_id: formData.celula_id,
             });
-            // --- FIM CORREÇÃO ---
 
             if (success) {
-                addToast('Visitante convertido em membro com sucesso!', 'success', 4000); // Usando addToast do hook
+                addToast('Visitante convertido em membro com sucesso!', 'success', 4000);
 
-                // Redirecionar após mostrar o toast
                 setTimeout(() => {
                     router.push('/membros');
                 }, 2000);
             } else {
-                addToast(message || 'Erro desconhecido ao converter visitante', 'error'); // Usando addToast do hook
+                addToast(message || 'Erro desconhecido ao converter visitante', 'error');
             }
         } catch (e: any) {
             console.error("Erro na conversão de visitante:", e);
-            addToast(e.message || 'Erro desconhecido durante a conversão', 'error'); // Usando addToast do hook
+            addToast(e.message || 'Erro desconhecido durante a conversão', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -176,18 +164,8 @@ export default function ConverterVisitantePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             {/* Conteúdo Principal */}
             <div className="max-w-2xl mx-auto">
@@ -219,7 +197,7 @@ export default function ConverterVisitantePage() {
                     {/* Formulário */}
                     <div className="p-6 sm:p-8">
                         {loading ? (
-                            <LoadingSpinner text="Carregando dados do visitante..." /> // Usar LoadingSpinner global
+                            <LoadingSpinner text="Carregando dados do visitante..." />
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 {/* Informações Básicas */}
@@ -268,7 +246,7 @@ export default function ConverterVisitantePage() {
                                         type="text"
                                         id="telefone"
                                         name="telefone"
-                                        value={formData.telefone || ''}
+                                        value={formData.telefone || ''} // Corrigido para lidar com null
                                         onChange={handleChange}
                                         placeholder="(XX) XXXXX-XXXX"
                                         maxLength={11}
@@ -289,7 +267,7 @@ export default function ConverterVisitantePage() {
                                         type="text"
                                         id="endereco"
                                         name="endereco"
-                                        value={formData.endereco || ''}
+                                        value={formData.endereco || ''} // Corrigido para lidar com null
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         placeholder="Endereço completo do novo membro"
@@ -329,7 +307,7 @@ export default function ConverterVisitantePage() {
                                             type="date"
                                             id="data_nascimento"
                                             name="data_nascimento"
-                                            value={formData.data_nascimento || ''}
+                                            value={formData.data_nascimento || ''} // Corrigido para lidar com null
                                             onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                         />

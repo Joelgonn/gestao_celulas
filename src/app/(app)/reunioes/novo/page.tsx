@@ -34,7 +34,9 @@ import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 // --- REFATORAÇÃO: TOASTS ---
 // Removendo a implementação local de Toast e usando o hook global.
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
+// (o ToastContainer do hook já importa e usa o componente Toast internamente)
+// import Toast from '@/components/ui/Toast';
 // --- FIM REFATORAÇÃO TOASTS ---
 
 
@@ -49,8 +51,8 @@ export default function NovaReuniaoPage() {
     });
     const [membros, setMembros] = useState<Membro[]>([]);
     // --- REFATORAÇÃO: TOASTS ---
-    // Substituir o estado local de toasts pelo hook global
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Substituir o estado local de toasts pelo hook global e desestruturar ToastContainer
+    const { addToast, removeToast, ToastContainer } = useToast();
     // --- FIM REFATORAÇÃO TOASTS ---
 
     const [loading, setLoading] = useState(true);
@@ -179,24 +181,10 @@ export default function NovaReuniaoPage() {
         }
     };
 
-    // --- REFATORAÇÃO: TOASTS ---
-    // getToastIcon e getToastStyles foram removidos, agora usamos o componente Toast.
-    // --- FIM REFATORAÇÃO TOASTS ---
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration} // Passar a duração se quiser que o Toast component cuide do timer
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             {/* Conteúdo Principal */}
             <div className="max-w-4xl mx-auto">

@@ -12,14 +12,20 @@ import {
     registrarPresencaVisitante,
     getNumCriancasReuniao,
     setNumCriancasReuniao,
-    ReuniaoParaEdicao, // Para a estrutura da reunião que contém os IDs de função
-    MembroComPresenca,
-    VisitanteComPresenca
+    // Remover ReuniaoParaEdicao, MembroComPresenca, VisitanteComPresenca daqui se forem tipos
+    // ReuniaoParaEdicao, 
+    // MembroComPresenca,
+    // VisitanteComPresenca
 } from '@/lib/data';
+
+// Importar tipos de '@/lib/types' (ou um arquivo de tipos específico se tiver)
+import { ReuniaoParaEdicao, MembroComPresenca, VisitanteComPresenca } from '@/lib/types'; // Assumindo que você tem um arquivo types.ts
+
+
 import { formatDateForDisplay } from '@/utils/formatters';
 
 // IMPORTS DOS COMPONENTES E HOOKS
-import Toast from '@/components/ui/Toast'; 
+// Remova 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
@@ -40,7 +46,8 @@ export default function GerenciarPresencaPage() {
     const [ministradorSecundarioId, setMinistradorSecundarioId] = useState<string | null>(null);
     const [responsavelKidsId, setResponsavelKidsId] = useState<string | null>(null);
 
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     // Contadores para feedback visual
     const membrosPresentes = membrosPresenca.filter(m => m.presente).length;
@@ -82,7 +89,7 @@ export default function GerenciarPresencaPage() {
                     const isDesignado = idsComFuncao.includes(m.id);
                     
                     // Se o membro tiver uma função NA FICHA DA REUNIÃO,
-                    // e ele AINDA NÃO tiver presença registrada (m.presente é false/nulo),
+                    // e ele AINDA NÃO tiver presença registrada (m.presenca_registrada é false/nulo),
                     // marcamos como presente. Se já tiver registro, mantemos o registro do DB.
                     if (isDesignado && !m.presenca_registrada) {
                         return { ...m, presente: true };
@@ -205,18 +212,8 @@ export default function GerenciarPresencaPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             <div className="max-w-6xl mx-auto px-4">
                 {/* Header com Gradiente */}

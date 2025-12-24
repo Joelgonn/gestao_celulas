@@ -17,17 +17,15 @@ import {
     FaBookOpen,
     FaFileDownload
 } from 'react-icons/fa';
-// REMOVER ESTA LINHA: import { useToastStore } from '@/lib/toast';
 // ADICIONAR ESTAS DUAS LINHAS:
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
     uploadPalavraDaSemana, 
     getPalavraDaSemana, 
     deletePalavraDaSemana, 
-    // REMOVA: PalavraDaSemana // <--- REMOVA ESTA LINHA
 } from '@/lib/data';
 import { PalavraDaSemana } from '@/lib/types'; // <--- ADICIONE ESTA LINHA para importar do types.ts
 import { formatDateForDisplay, formatDateForInput } from '@/utils/formatters';
@@ -43,9 +41,8 @@ export default function AdminPalavraSemanaPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const [currentPalavra, setCurrentPalavra] = useState<PalavraDaSemana | null>(null);
-    // ALTERAR ESTA LINHA: const { addToast } = useToastStore();
-    // PARA ESTA LINHA:
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     // Calcula a data da segunda-feira da semana atual para o input padrão
     const getDefaultDateForWeek = useMemo(() => {
@@ -221,19 +218,8 @@ export default function AdminPalavraSemanaPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
-            {/* NOVO: Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
-            {/* FIM NOVO: Container de Toasts */}
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
@@ -382,8 +368,8 @@ export default function AdminPalavraSemanaPage() {
                                 >
                                     <FaFileDownload className="text-lg" />
                                     <span className="text-sm">Baixar</span>
-                                </a>
-                                <button
+                                </a
+                                ><button
                                     onClick={() => handleDelete(currentPalavra.id)}
                                     className="inline-flex items-center space-x-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200"
                                     title="Excluir Palavra"

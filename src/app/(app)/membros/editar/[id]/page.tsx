@@ -1,4 +1,3 @@
-// src/app/(app)/membros/editar/[id]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,16 +6,16 @@ import Link from 'next/link';
 // Importa funções de data.ts, mas os tipos vêm de types.ts
 import { atualizarMembro, getMembro } from '@/lib/data';
 // Importa a interface Membro de types.ts
-import { Membro, MembroEditFormData } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Membro de types.ts
+import { Membro, MembroEditFormData } from '@/lib/types'; 
 import { normalizePhoneNumber } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import LoadingSpinner from '@/components/LoadingSpinner'; // Usando o LoadingSpinner principal
 // --- FIM REFATORAÇÃO TOASTS ---
 
-// --- NOVO: Ícones para a página (para o layout moderno) ---
+// --- Ícones para a página (para o layout moderno) ---
 import {
     FaUser,
     FaPhone,
@@ -25,18 +24,19 @@ import {
     FaCheckCircle,
     FaSave,
     FaArrowLeft,
-    FaUserTag // Para o status, se for usar ícone
+    FaUserTag 
 } from 'react-icons/fa';
 // --- FIM NOVO: Ícones ---
 
-interface FormData {
-  nome: string;
-  telefone: string;
-  data_nascimento: string;
-  endereco: string;
-  data_ingresso: string;
-  status: 'Ativo' | 'Inativo' | 'Em transição';
-}
+// Remover esta interface local se MembroEditFormData de types.ts for usada diretamente para o estado
+// interface FormData {
+//   nome: string;
+//   telefone: string;
+//   data_nascimento: string;
+//   endereco: string;
+//   data_ingresso: string;
+//   status: 'Ativo' | 'Inativo' | 'Em transição';
+// }
 
 export default function EditMembroPage() {
     const params = useParams();
@@ -44,15 +44,16 @@ export default function EditMembroPage() {
     const [formData, setFormData] = useState<MembroEditFormData>({
         nome: '',
         telefone: '',
-        data_nascimento: '',
-        endereco: '',
+        data_nascimento: null, // Pode ser null conforme types.ts
+        endereco: null,        // Pode ser null conforme types.ts
         data_ingresso: '',
-        status: 'ativo', // ou '' se preferir
-        cargo: '',       // <--- ADICIONE ESTA LINHA
-        email: ''        // <--- ADICIONE ESTA LINHA
+        status: 'Ativo', 
+        cargo: '',       
+        email: ''        
     });
 
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -69,12 +70,12 @@ export default function EditMembroPage() {
                     setFormData({
                         nome: membro.nome || '',
                         telefone: membro.telefone || '',
-                        data_nascimento: membro.data_nascimento || '',
-                        endereco: membro.endereco || '',
+                        data_nascimento: membro.data_nascimento || null, // Garante null
+                        endereco: membro.endereco || null,               // Garante null
                         data_ingresso: membro.data_ingresso || '',
                         status: membro.status || 'Ativo', 
-                        cargo: (membro as any).cargo || 'Membro',
-                        email: (membro as any).email || ''
+                        cargo: (membro as any).cargo || '',             // Garante string vazia
+                        email: (membro as any).email || ''              // Garante string vazia
                     });
                 } else {
                     addToast('Membro não encontrado.', 'error');
@@ -89,14 +90,12 @@ export default function EditMembroPage() {
         fetchMembro();
     }, [membroId, router, addToast]); 
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => { // Adicionado HTMLTextAreaElement para consistência
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            // Se o campo for de data e o valor for vazio, armazena null.
-            // Para outros campos que podem ser null (como 'endereco', 'data_nascimento'),
-            // também garante que string vazia vira null.
+            // Garante que strings vazias se tornem null para campos opcionais no estado
             setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         }
     };
@@ -112,10 +111,10 @@ export default function EditMembroPage() {
             await atualizarMembro(membroId, {
                 nome: formData.nome,
                 telefone: normalizedPhone || null, // Garante que seja null se vazio
-                data_nascimento: formData.data_nascimento,
-                endereco: formData.endereco,
+                data_nascimento: formData.data_nascimento || null, // Garante null para o DB
+                endereco: formData.endereco || null,               // Garante null para o DB
                 data_ingresso: formData.data_ingresso,
-                status: formData.status as any,
+                status: formData.status, // Já é tipado corretamente
             });
             addToast('Membro atualizado com sucesso!', 'success');
             setTimeout(() => router.push('/membros'), 2000);
@@ -127,19 +126,8 @@ export default function EditMembroPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* --- REFATORAÇÃO: TOASTS --- */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
-            {/* --- FIM REFATORAÇÃO TOASTS --- */}
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             <div className="max-w-2xl mx-auto">
                 {loading ? (
@@ -151,7 +139,7 @@ export default function EditMembroPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                                        <FaUser className="w-8 h-8" /> {/* Ícone para Editar Membro */}
+                                        <FaUser className="w-8 h-8" />
                                         Editar Membro
                                     </h1>
                                     <p className="text-indigo-100 mt-2">Atualize as informações do membro</p>
@@ -197,7 +185,7 @@ export default function EditMembroPage() {
                                         type="text" 
                                         id="telefone" 
                                         name="telefone" 
-                                        value={formData.telefone} 
+                                        value={formData.telefone || ''} // Corrigido para lidar com null
                                         onChange={handleChange} 
                                         placeholder="(XX) XXXXX-XXXX" 
                                         maxLength={11} 
@@ -215,7 +203,7 @@ export default function EditMembroPage() {
                                         type="text" 
                                         id="endereco" 
                                         name="endereco" 
-                                        value={formData.endereco} 
+                                        value={formData.endereco || ''} // Corrigido para lidar com null
                                         onChange={handleChange} 
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         placeholder="Endereço completo do membro"
@@ -248,7 +236,7 @@ export default function EditMembroPage() {
                                             type="date" 
                                             id="data_nascimento" 
                                             name="data_nascimento" 
-                                            value={formData.data_nascimento} 
+                                            value={formData.data_nascimento || ''} // Corrigido para lidar com null
                                             onChange={handleChange} 
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         />

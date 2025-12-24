@@ -18,12 +18,12 @@ import {
 import { 
     Membro, 
     CelulaOption 
-} from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Membro e CelulaOption de types.ts
+} from '@/lib/types'; 
 
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters'; 
 
-import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast'; 
+// Importe useToast corretamente (sem a desestruturação de 'toasts' no retorno)
+import useToast from '@/hooks/useToast'; // Remova a linha 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import LoadingSpinner from '@/components/LoadingSpinner'; 
 
 export default function MembrosPage() {
@@ -40,7 +40,8 @@ export default function MembrosPage() {
     const [submitting, setSubmitting] = useState(false); 
     const [exporting, setExporting] = useState(false); 
 
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     // 1. Efeito para buscar o userRole UMA ÚNICA VEZ na montagem inicial
     useEffect(() => {
@@ -83,7 +84,8 @@ export default function MembrosPage() {
                 if (selectedCelulaId !== "" && !celulasData.some(c => c.id === selectedCelulaId)) {
                     setSelectedCelulaId("");
                     addToast("Filtro de célula resetado para o admin.", 'info');
-                    return; // Retorna para re-executar com o estado correto
+                    // Não precisa de return aqui, a função continuará com o novo selectedCelulaId (vazio)
+                    // e loadAllData será chamado novamente devido à dependência.
                 }
             } else if (userRole === 'líder') {
                  setCelulasOptions([]); // Garante que o dropdown de células do admin não apareça para o líder
@@ -237,18 +239,9 @@ export default function MembrosPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                    />
-                ))}
-            </div>
-
+            {/* Renderiza o ToastContainer do hook */}
+            <ToastContainer /> 
+            
             <div className="max-w-7xl mx-auto px-4">
                 {/* Header com Gradiente */}
                 <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
@@ -547,5 +540,3 @@ export default function MembrosPage() {
         </div>
     );
 }
-
-// TESTE DE MUDANÇAsem erros no console

@@ -1,69 +1,69 @@
-// src/app/(app)/visitantes/novo/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-    adicionarVisitante, 
-    listarCelulasParaAdmin, 
-    CelulaOption,
-    Visitante // Manter Visitante para tipagem interna se necessário
+import {
+    adicionarVisitante,
+    listarCelulasParaAdmin,
 } from '@/lib/data';
+
+// Importar tipos de '@/lib/types'
+import { CelulaOption, Visitante, NovoVisitanteFormData } from '@/lib/types'; // Adicionei NovoVisitanteFormData aqui
+
 import { normalizePhoneNumber } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS (CORRETO AGORA) ---
 import useToast from '@/hooks/useToast'; // Importa o hook useToast global
-import Toast from '@/components/ui/Toast';   // Importa o componente Toast global
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
-import { 
-    FaUserPlus, 
-    FaPhone, 
-    FaCalendar, 
-    FaMapMarkerAlt, 
+import {
+    FaUserPlus,
+    FaPhone,
+    FaCalendar,
+    FaMapMarkerAlt,
     FaComments,
     FaArrowLeft,
     FaSave,
     FaTimes
 } from 'react-icons/fa';
 
-// --- CORREÇÃO: Interface NovoVisitanteFormData atualizada e correta ---
-interface NovoVisitanteFormData { 
-    nome: string;
-    telefone: string | null;
-    data_primeira_visita: string;
-    data_nascimento: string | null; // Adicionado: data de nascimento
-    endereco: string | null;
-    data_ultimo_contato: string | null; 
-    observacoes: string | null;
-    celula_id: string; // Adicionado: celula_id é obrigatório para adicionar um visitante
-}
-// --- FIM CORREÇÃO ---
+// REMOVIDA: A interface NovoVisitanteFormData local, pois agora vem de '@/lib/types'
+// interface NovoVisitanteFormData {
+//     nome: string;
+//     telefone: string | null;
+//     data_primeira_visita: string;
+//     data_nascimento: string | null;
+//     endereco: string | null;
+//     data_ultimo_contato: string | null;
+//     observacoes: string | null;
+//     celula_id: string;
+// }
 
 export default function NovoVisitantePage() {
-    // CORREÇÃO: Usar a interface NovoVisitanteFormData
+    // Usando a interface NovoVisitanteFormData de types.ts
     const [formData, setFormData] = useState<NovoVisitanteFormData>({
         nome: '',
         telefone: null,
         data_primeira_visita: new Date().toISOString().split('T')[0],
         data_nascimento: null,
         endereco: null,
-        data_ultimo_contato: null, 
+        data_ultimo_contato: null,
         observacoes: null,
         celula_id: '',
     });
-    
+
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<string, boolean>>({});
-    
+
     const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
 
     const router = useRouter();
     // --- REFATORAÇÃO: TOASTS (USANDO O HOOK GLOBAL) ---
-    const { toasts, addToast, removeToast } = useToast(); // AQUI ESTAVA O ERRO useToastStore()
+    const { addToast, removeToast, ToastContainer } = useToast();
     // --- FIM REFATORAÇÃO TOASTS ---
 
     useEffect(() => {
@@ -90,13 +90,13 @@ export default function NovoVisitantePage() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        
+
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         }
-        
+
         if (!touched[name]) {
             setTouched({ ...touched, [name]: true });
         }
@@ -111,9 +111,9 @@ export default function NovoVisitantePage() {
 
     const getFieldError = (fieldName: keyof NovoVisitanteFormData): string | null => {
         if (!touched[fieldName]) return null;
-        
+
         const value = formData[fieldName];
-        
+
         switch (fieldName) {
             case 'nome':
                 return !value || !value.trim() ? 'Nome é obrigatório' : null;
@@ -130,9 +130,9 @@ export default function NovoVisitantePage() {
                 return null;
         }
     };
-    
+
     const hasErrors = (): boolean => {
-        return !formData.nome.trim() || 
+        return !formData.nome.trim() ||
                !!(formData.telefone && (formData.telefone.length < 10 || formData.telefone.length > 11)) ||
                !formData.data_primeira_visita ||
                !formData.celula_id;
@@ -140,7 +140,7 @@ export default function NovoVisitantePage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const allTouched = Object.keys(formData).reduce((acc, key) => {
             acc[key as keyof NovoVisitanteFormData] = true;
             return acc;
@@ -161,20 +161,20 @@ export default function NovoVisitantePage() {
                 data_primeira_visita: formData.data_primeira_visita,
                 data_nascimento: formData.data_nascimento || null,
                 endereco: formData.endereco || null,
-                data_ultimo_contato: formData.data_ultimo_contato || null, 
+                data_ultimo_contato: formData.data_ultimo_contato || null,
                 observacoes: formData.observacoes || null,
                 celula_id: formData.celula_id,
             });
-            
+
             addToast('Visitante adicionado com sucesso!', 'success', 3000);
-            
+
             setTimeout(() => {
                 router.push('/visitantes');
             }, 1500);
-            
+
         } catch (e: any) {
             console.error("Erro ao adicionar visitante:", e);
-            if (e.code === '23505') { 
+            if (e.code === '23505') {
                 addToast('Já existe um visitante com este nome na sua célula', 'error');
             } else {
                 addToast(`Falha ao adicionar: ${e.message || 'Erro desconhecido'}`, 'error');
@@ -184,18 +184,18 @@ export default function NovoVisitantePage() {
         }
     };
 
-    const InputField = ({ 
-        label, 
-        name, 
-        type = 'text', 
-        required = false, 
+    const InputField = ({
+        label,
+        name,
+        type = 'text',
+        required = false,
         icon: Icon,
         placeholder,
         maxLength,
         rows
     }: {
         label: string;
-        name: keyof NovoVisitanteFormData; // CORREÇÃO: Usar a nova interface
+        name: keyof NovoVisitanteFormData; // Usar a nova interface
         type?: string;
         required?: boolean;
         icon?: any;
@@ -205,32 +205,32 @@ export default function NovoVisitantePage() {
     }) => {
         const error = getFieldError(name);
         const isTextarea = type === 'textarea';
-        
+
         return (
             <div className="space-y-2">
                 <label htmlFor={name} className="block text-sm font-medium text-gray-700">
                     {label} {required && <span className="text-red-500">*</span>}
                 </label>
-                
+
                 <div className="relative">
                     {Icon && (
                         <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                             <Icon className="w-4 h-4" />
                         </div>
                     )}
-                    
+
                     {isTextarea ? (
                         <textarea
                             id={name}
                             name={name}
-                            value={(formData[name] as string) || ''}
+                            value={(formData[name] as string) || ''} // Corrigido para lidar com null
                             onChange={handleChange}
                             onBlur={handleBlur}
                             rows={rows}
                             placeholder={placeholder}
                             className={`w-full pl-${Icon ? '10' : '3'} pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                error 
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+                                error
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                                     : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
                             }`}
                         />
@@ -239,21 +239,21 @@ export default function NovoVisitantePage() {
                             type={type}
                             id={name}
                             name={name}
-                            value={(formData[name] as string) || ''}
+                            value={(formData[name] as string) || ''} // Corrigido para lidar com null
                             onChange={handleChange}
                             onBlur={handleBlur}
                             required={required}
                             placeholder={placeholder}
                             maxLength={maxLength}
                             className={`w-full pl-${Icon ? '10' : '3'} pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                error 
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+                                error
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                                     : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
                             }`}
                         />
                     )}
                 </div>
-                
+
                 {error && (
                     <p className="text-red-600 text-sm flex items-center space-x-1">
                         <FaTimes className="w-3 h-3" />
@@ -266,18 +266,8 @@ export default function NovoVisitantePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             {/* Conteúdo Principal */}
             <div className="max-w-2xl mx-auto">
@@ -346,8 +336,8 @@ export default function NovoVisitantePage() {
                                             onChange={handleChange}
                                             onBlur={handleBlur}
                                             className={`w-full pl-10 pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                                getFieldError('celula_id') 
-                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+                                                getFieldError('celula_id')
+                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                                                     : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
                                             }`}
                                         >
@@ -394,18 +384,18 @@ export default function NovoVisitantePage() {
                             <div className="text-sm text-gray-500">
                                 Campos marcados com <span className="text-red-500">*</span> são obrigatórios
                             </div>
-                            
+
                             <div className="flex space-x-3 w-full sm:w-auto">
-                                <Link 
-                                    href="/visitantes" 
+                                <Link
+                                    href="/visitantes"
                                     className="flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 font-medium w-full sm:w-auto"
                                 >
                                     <FaArrowLeft className="w-4 h-4" />
                                     <span>Voltar</span>
                                 </Link>
-                                
-                                <button 
-                                    type="submit" 
+
+                                <button
+                                    type="submit"
                                     disabled={submitting || loading || hasErrors()}
                                     className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-xl hover:from-emerald-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg hover:shadow-xl w-full sm:w-auto"
                                 >

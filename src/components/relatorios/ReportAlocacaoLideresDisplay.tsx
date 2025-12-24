@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { ReportDataAlocacaoLideres } from '@/lib/reports_data';
+import { ReportDataAlocacaoLideres } from '@/lib/types';
 import { formatDateForDisplay } from '@/utils/formatters';
 
 export const ReportAlocacaoLideresDisplay = ({ data }: { data: ReportDataAlocacaoLideres }) => {

@@ -1,182 +1,64 @@
-// src/lib/reports_data.ts
 'use server';
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { parseISO } from 'date-fns';
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 
+// REMOVIDO: import { Membro, Visitante, CelulaOption as BaseCelulaOption } from '@/lib/data';
+// AGORA, TODOS OS TIPOS SÃO IMPORTADOS DE '@/lib/types'
 import {
     Membro,
     Visitante,
-    CelulaOption as BaseCelulaOption
-} from '@/lib/data';
+    MembroOption,
+    ReuniaoOption,
+    CelulaOption, // Não mais BaseCelulaOption, é o CelulaOption padrão do types.ts
+    MembroNomeTelefoneId, // Se for usado, será definido em types.ts
+    VisitanteNomeTelefoneId, // Se for usado, será definido em types.ts
+    CelulaNomeId, // Se for usado, será definido em types.ts
+    ReportDataPresencaReuniao,
+    RelatorioPresencaMembroItem,
+    ReportDataPresencaMembro,
+    MembroFaltoso,
+    ReportDataFaltososPeriodo,
+    VisitantePorPeriodo,
+    ReportDataVisitantesPeriodo,
+    MembroAniversariante,
+    VisitanteAniversariante,
+    ReportDataAniversariantes,
+    LiderAlocacaoItem,
+    CelulaSemLiderItem,
+    ReportDataAlocacaoLideres,
+    ChaveAtivacaoItem,
+    ReportDataChavesAtivacao,
+} from '@/lib/types';
+
 
 // ============================================================================
-//                                DEFINIÇÕES DE TIPOS
+// REMOVIDO: DEFINIÇÕES DE TIPOS - TODAS AS INTERFACES ABAIXO FORAM MOVIDAS PARA src/lib/types.ts
 // ============================================================================
-
-export interface MembroOption {
-    id: string;
-    nome: string;
-}
-
-export type ReuniaoOption = {
-    id: string;
-    data_reuniao: string;
-    tema: string;
-    ministrador_principal_nome: string | null;
-};
-
-export type CelulaOption = BaseCelulaOption;
-
-interface MembroNomeTelefoneId {
-    id: string;
-    nome: string;
-    telefone: string | null;
-}
-
-interface VisitanteNomeTelefoneId {
-    id: string;
-    nome: string;
-    telefone: string | null;
-}
-
-interface CelulaNomeId {
-    id: string;
-    nome: string;
-}
-
-export interface ReportDataPresencaReuniao {
-    reuniao_detalhes: {
-        id: string;
-        data_reuniao: string;
-        tema: string;
-        caminho_pdf: string | null;
-        ministrador_principal_nome: string | null;
-        ministrador_principal_telefone: string | null;
-        ministrador_secundario_nome: string | null;
-        ministrador_secundario_telefone: string | null;
-        responsavel_kids_nome: string | null;
-        responsavel_kids_telefone: string | null;
-        num_criancas: number;
-        celula_nome?: string | null;
-    };
-    membros_presentes: { id: string; nome: string; telefone: string | null }[];
-    membros_ausentes: { id: string; nome: string; telefone: string | null }[];
-    visitantes_presentes: { id: string; nome: string; telefone: string | null }[];
-}
-
-export interface RelatorioPresencaMembroItem {
-    data_reuniao: string;
-    tema: string;
-    presente: boolean;
-}
-
-export interface ReportDataPresencaMembro {
-    membro_data: Membro & { celula_nome?: string | null };
-    historico_presenca: RelatorioPresencaMembroItem[];
-}
-
-export interface MembroFaltoso {
-    id: string;
-    nome: string;
-    telefone: string | null;
-    total_presencas: number;
-    total_reunioes_no_periodo: number;
-    celula_nome: string | null;
-}
-
-export interface ReportDataFaltososPeriodo {
-    faltosos: MembroFaltoso[];
-    periodo: {
-        start_date: string;
-        end_date: string;
-        total_reunioes: number;
-    }
-}
-
-export interface VisitantePorPeriodo {
-    id: string;
-    nome: string;
-    telefone: string | null;
-    data_primeira_visita: string;
-    celula_nome: string | null;
-}
-
-export interface ReportDataVisitantesPeriodo {
-    visitantes: VisitantePorPeriodo[];
-    periodo: {
-        start_date: string;
-        end_date: string;
-        total_visitantes: number;
-    }
-}
-
-export interface MembroAniversariante {
-    id: string;
-    nome: string;
-    data_nascimento: string;
-    telefone: string | null;
-    celula_nome: string | null;
-    celula_id?: string | null;
-}
-
-export interface VisitanteAniversariante {
-    id: string;
-    nome: string;
-    data_primeira_visita: string;
-    data_nascimento: string;
-    telefone: string | null;
-    celula_nome: string | null;
-    celula_id?: string | null;
-}
-
-export interface ReportDataAniversariantes {
-    mes: number;
-    ano_referencia: number;
-    membros: MembroAniversariante[];
-    visitantes: VisitanteAniversariante[];
-}
-
-export interface LiderAlocacaoItem {
-    id: string;
-    email: string;
-    role: 'admin' | 'líder';
-    celula_id: string | null;
-    celula_nome: string | null;
-    data_criacao_perfil: string;
-    ultimo_login: string | null;
-}
-
-export interface CelulaSemLiderItem {
-    id: string;
-    nome: string;
-    lider_principal_cadastrado_na_celula: string | null;
-}
-
-export interface ReportDataAlocacaoLideres {
-    lideres_alocados: LiderAlocacaoItem[];
-    lideres_nao_alocados: LiderAlocacaoItem[];
-    celulas_sem_lider_atribuido: CelulaSemLiderItem[];
-    total_perfis_lider: number;
-    total_celulas: number;
-}
-
-export interface ChaveAtivacaoItem {
-    chave: string;
-    celula_id: string;
-    celula_nome: string | null;
-    usada: boolean;
-    data_uso: string | null;
-    usada_por_email: string | null;
-    usada_por_id: string | null;
-}
-
-export interface ReportDataChavesAtivacao {
-    chaves_ativas: ChaveAtivacaoItem[];
-    chaves_usadas: ChaveAtivacaoItem[];
-    total_chaves: number;
-}
+/*
+export interface MembroOption { ... }
+export type ReuniaoOption = { ... };
+export type CelulaOption = BaseCelulaOption; // Não mais BaseCelulaOption, é o CelulaOption padrão do types.ts
+interface MembroNomeTelefoneId { ... }
+interface VisitanteNomeTelefoneId { ... }
+interface CelulaNomeId { ... }
+export interface ReportDataPresencaReuniao { ... }
+export interface RelatorioPresencaMembroItem { ... }
+export interface ReportDataPresencaMembro { ... }
+export interface MembroFaltoso { ... }
+export interface ReportDataFaltososPeriodo { ... }
+export interface VisitantePorPeriodo { ... }
+export interface ReportDataVisitantesPeriodo { ... }
+export interface MembroAniversariante { ... }
+export interface VisitanteAniversariante { ... }
+export interface ReportDataAniversariantes { ... }
+export interface LiderAlocacaoItem { ... }
+export interface CelulaSemLiderItem { ... }
+export interface ReportDataAlocacaoLideres { ... }
+export interface ChaveAtivacaoItem { ... }
+export interface ReportDataChavesAtivacao { ... }
+*/
 
 
 // ============================================================================
@@ -212,18 +94,25 @@ async function checkUserAuthorizationReports() {
     };
 }
 
-async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: any, adminSupabase: any): Promise<Map<string, string>> {
+async function getCelulasNamesMap(celulaIds: Set<string>, supabaseInstance: ReturnType<typeof createServerClient> | null, adminSupabase: ReturnType<typeof createAdminClient> | null): Promise<Map<string, string>> {
     let namesMap = new Map<string, string>();
     if (celulaIds.size === 0) return namesMap;
 
-    const clientToUse = adminSupabase ?? supabaseInstance;
+    const clientToUse = adminSupabase || supabaseInstance; // Deve ser sempre um cliente válido aqui
+
+    if (!clientToUse) {
+        console.error("getCelulasNamesMap: Cliente Supabase não disponível.");
+        return namesMap;
+    }
 
     const { data, error } = await clientToUse
         .from('celulas')
         .select('id, nome')
         .in('id', Array.from(celulaIds));
 
-    if (!error) {
+    if (error) {
+        console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error);
+    } else {
         data?.forEach((c: CelulaNomeId) => namesMap.set(c.id, c.nome));
     }
     return namesMap;
@@ -284,7 +173,7 @@ export async function listReunioes(celulaIdParaFiltrar?: string | null): Promise
     })) || [];
 }
 
-export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
+export async function listarCelulasParaAdminReports(): Promise<CelulaOption[]> { // Renomeado para evitar conflito com listarCelulasParaAdmin de data.ts
     const { supabase, role, adminSupabase } = await checkUserAuthorizationReports();
     if (role !== 'admin') throw new Error("Acesso negado.");
 
@@ -305,12 +194,16 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
     if (role === 'líder') {
         if (!celulaId) return null;
         targetCelulaIdForQuery = celulaId;
-    } else {
+    } else { // Admin ou usuário sem celulaId específica
         const { data } = await clientToUse.from('reunioes').select('celula_id').eq('id', reuniaoId).single();
         if (!data?.celula_id) return null;
+        // Se admin e um filtro de célula específico for passado, verifica se corresponde à célula da reunião
         if (celulaIdParaFiltrar && celulaIdParaFiltrar !== data.celula_id) return null;
         targetCelulaIdForQuery = data.celula_id;
     }
+    
+    // Se, por alguma razão, targetCelulaIdForQuery ainda for nulo, significa que não conseguimos determinar a célula
+    if (!targetCelulaIdForQuery) return null;
 
     try {
         const [reuniaoResult, criancasResult] = await Promise.all([
@@ -318,18 +211,19 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
                     id, data_reuniao, tema, caminho_pdf, created_at, celula_id,
                     ministrador_principal_alias:membros!ministrador_principal(nome, telefone),
                     ministrador_secundario_alias:membros!ministrador_secundario(nome, telefone),
-                    responsavel_kids_alias:membros!responsavel_kids(nome, telefone)
+                    responsavel_kids_alias:membros!responsavel_kids(nome, telefone),
+                    celula_nome_alias:celulas(nome)
                 `).eq('id', reuniaoId).eq('celula_id', targetCelulaIdForQuery).single(),
             clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle()
         ]);
 
         if (!reuniaoResult.data) throw new Error('Reunião não encontrada');
 
-        const [presentesMembrosRaw, allMembersData, visitantesPresentesRaw, celulasNamesMap] = await Promise.all([
+        const [presentesMembrosRaw, allMembersData, visitantesPresentesRaw] = await Promise.all([
             clientToUse.from('presencas_membros').select('membro_id, membros(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
             clientToUse.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
             clientToUse.from('presencas_visitantes').select('visitante_id, visitantes(nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            getCelulasNamesMap(new Set([reuniaoResult.data.celula_id]), clientToUse, adminSupabase)
+            // getCelulasNamesMap não é mais necessário aqui pois celula_nome já vem no select da reunião
         ]);
 
         const membrosPresentes = (presentesMembrosRaw.data || []).map((p: any) => ({
@@ -355,14 +249,14 @@ export async function fetchReportDataPresencaReuniao(reuniaoId: string, celulaId
                 data_reuniao: reuniaoResult.data.data_reuniao,
                 tema: reuniaoResult.data.tema,
                 caminho_pdf: reuniaoResult.data.caminho_pdf,
-                ministrador_principal_nome: (reuniaoResult.data as any).ministrador_principal_alias?.nome || 'Não Definido',
+                ministrador_principal_nome: (reuniaoResult.data as any).ministrador_principal_alias?.nome || null,
                 ministrador_principal_telefone: (reuniaoResult.data as any).ministrador_principal_alias?.telefone || null,
                 ministrador_secundario_nome: (reuniaoResult.data as any).ministrador_secundario_alias?.nome || null,
                 ministrador_secundario_telefone: (reuniaoResult.data as any).ministrador_secundario_alias?.telefone || null,
                 responsavel_kids_nome: (reuniaoResult.data as any).responsavel_kids_alias?.nome || null,
                 responsavel_kids_telefone: (reuniaoResult.data as any).responsavel_kids_alias?.telefone || null,
                 num_criancas: criancasResult.data?.numero_criancas ?? 0,
-                celula_nome: celulasNamesMap.get(reuniaoResult.data.celula_id) || null,
+                celula_nome: (reuniaoResult.data as any).celula_nome_alias?.nome || null, // Acessa o alias
             },
             membros_presentes: membrosPresentes,
             membros_ausentes: membrosAusentes,
@@ -390,6 +284,8 @@ export async function fetchReportDataPresencaMembro(membroId: string, celulaIdPa
         if (celulaIdParaFiltrar && celulaIdParaFiltrar !== data.celula_id) return null;
         targetCelulaIdForQuery = data.celula_id;
     }
+    
+    if (!targetCelulaIdForQuery) return null; // Garante que a célula alvo foi definida
 
     try {
         const { data: membroData } = await clientToUse
@@ -700,7 +596,7 @@ export async function fetchReportDataChavesAtivacao(): Promise<ReportDataChavesA
             const item: ChaveAtivacaoItem = {
                 chave: chave.chave,
                 celula_id: chave.celula_id,
-                celula_nome: celulasNamesMap.get(chave.celula_id) || 'N/A',
+                celula_nome: celulasNamesMap.get(chave.celula_id) || null,
                 usada: chave.usada,
                 data_uso: chave.data_uso ? new Date(chave.data_uso).toISOString().split('T')[0] : null,
                 usada_por_id: chave.usada_por_id,

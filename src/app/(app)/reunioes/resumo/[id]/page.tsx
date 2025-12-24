@@ -6,13 +6,13 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 // Importa funções de data.ts
 import { getReuniaoDetalhesParaResumo } from '@/lib/data';
-// Importa interfaces de types.ts <--- CORREÇÃO AQUI
+// Importa interfaces de types.ts
 import { ReuniaoDetalhesParaResumo } from '@/lib/types';
 
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
 // IMPORTS DOS COMPONENTES E HOOKS AGORA SEPARADOS (CORREÇÃO APLICADA AQUI)
-import Toast from '@/components/ui/Toast'; // Importa o componente Toast
+// Remova 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import useToast from '@/hooks/useToast';   // Importa o hook useToast
 import LoadingSpinner from '@/components/LoadingSpinner'; // Importe seu LoadingSpinner correto
 
@@ -25,7 +25,8 @@ export default function ReuniaoResumoPage() {
     const [exportingPdf, setExportingPdf] = useState(false);
 
     const router = useRouter();
-    const { toasts, addToast, removeToast } = useToast(); // Use o hook importado
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast(); // Use o hook importado
 
     const fetchResumo = useCallback(async () => {
         setLoading(true);
@@ -34,7 +35,7 @@ export default function ReuniaoResumoPage() {
             if (!data) {
                 addToast("Resumo da reunião não encontrado ou acesso negado.", 'error');
                 // Adicione um retorno ou redirecionamento aqui, se desejar
-                // router.replace('/reunioes');
+                router.replace('/reunioes'); // Adicionado redirecionamento para feedback mais claro
                 return;
             }
             setResumo(data);
@@ -45,7 +46,7 @@ export default function ReuniaoResumoPage() {
         } finally {
             setLoading(false);
         }
-    }, [reuniaoId, addToast]); // 'addToast' é agora estável vindo do hook global
+    }, [reuniaoId, router, addToast]); // 'addToast' é agora estável vindo do hook global
 
     useEffect(() => {
         if (reuniaoId) {
@@ -137,17 +138,8 @@ export default function ReuniaoResumoPage() {
         return (
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
                 <div className="max-w-4xl mx-auto px-4">
-                    {/* Container de Toasts */}
-                    <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                        {toasts.map((toast) => (
-                            <Toast
-                                key={toast.id}
-                                message={toast.message}
-                                type={toast.type}
-                                onClose={() => removeToast(toast.id)}
-                            />
-                        ))}
-                    </div>
+                    {/* Renderiza o ToastContainer do hook global */}
+                    <ToastContainer />
 
                     <div className="bg-white rounded-xl shadow-lg p-8 text-center">
                         <div className="text-red-500 mb-4">
@@ -170,17 +162,8 @@ export default function ReuniaoResumoPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             <div className="max-w-4xl mx-auto px-4">
                 {/* Header com Gradiente */}

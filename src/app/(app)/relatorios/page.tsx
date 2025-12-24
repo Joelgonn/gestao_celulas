@@ -1,11 +1,10 @@
-// src/app/(app)/relatorios/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 import {
-    // --- Funções ---
+    // --- Funções (mantidas aqui) ---
     fetchReportDataPresencaReuniao,
     fetchReportDataPresencaMembro,
     fetchReportDataFaltososPeriodo,
@@ -22,24 +21,39 @@ import {
     exportReportDataAniversariantesCSV,
     exportReportDataAlocacaoLideresCSV,
     exportReportDataChavesAtivacaoCSV,
-    // --- Tipos de Relatórios ---
-    ReportDataPresencaReuniao,
-    ReportDataPresencaMembro,
-    ReportDataFaltososPeriodo,
-    ReportDataVisitantesPeriodo,
-    ReportDataAniversariantes,
-    ReportDataAlocacaoLideres,
-    ReportDataChavesAtivacao,
-    // --- Tipos de Opções (ADICIONADOS AGORA) ---
-    ReuniaoOption,
-    MembroOption
-} from '@/lib/reports_data';
+    // REMOVIDO: Tipos de Relatórios e Tipos de Opções, pois virão de '@/lib/types'
+    // ReportDataPresencaReuniao,
+    // ReportDataPresencaMembro,
+    // ReportDataFaltososPeriodo,
+    // ReportDataVisitantesPeriodo,
+    // ReportDataAniversariantes,
+    // ReportDataAlocacaoLideres,
+    // ReportDataChavesAtivacao,
+    // ReuniaoOption,
+    // MembroOption
+} from '@/lib/reports_data'; // Este arquivo agora exporta APENAS funções
 
 import {
-    CelulaOption,
     listarCelulasParaAdmin,
     listarCelulasParaLider,
 } from '@/lib/data';
+
+// IMPORTAR TODOS OS TIPOS NECESSÁRIOS APENAS DE '@/lib/types'
+import {
+    CelulaOption, // Já corrigido para importar daqui
+    ReportDataPresencaReuniao, // <-- IMPORTAR AQUI
+    ReportDataPresencaMembro,  // <-- IMPORTAR AQUI
+    ReportDataFaltososPeriodo, // <-- IMPORTAR AQUI
+    ReportDataVisitantesPeriodo, // <-- IMPORTAR AQUI
+    ReportDataAniversariantes, // <-- IMPORTAR AQUI
+    ReportDataAlocacaoLideres, // <-- IMPORTAR AQUI
+    ReportDataChavesAtivacao,  // <-- IMPORTAR AQUI
+    ReuniaoOption,             // <-- IMPORTAR AQUI
+    MembroOption,              // <-- IMPORTAR AQUI
+    // Adicione quaisquer outros tipos que a página relatorios.tsx possa usar e que
+    // já foram movidos para src/lib/types.ts
+} from '@/lib/types';
+
 
 import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
@@ -51,8 +65,8 @@ import { ReportAniversariantesDisplay } from '@/components/relatorios/ReportAniv
 import { ReportAlocacaoLideresDisplay } from '@/components/relatorios/ReportAlocacaoLideresDisplay';
 import { ReportChavesAtivacaoDisplay } from '@/components/relatorios/ReportChavesAtivacaoDisplay';
 
+// MUDANÇA AQUI: Remova a importação de Toast, use apenas useToast
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 type ReportContent = ReportDataPresencaReuniao | ReportDataPresencaMembro | ReportDataFaltososPeriodo | ReportDataVisitantesPeriodo | ReportDataAniversariantes | ReportDataAlocacaoLideres | ReportDataChavesAtivacao;
@@ -87,7 +101,8 @@ export default function RelatoriosPage() {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportingCsv, setExportingCsv] = useState(false);
 
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const months = Array.from({ length: 12 }, (_, i) => ({
         value: (i + 1).toString(),
@@ -430,9 +445,8 @@ export default function RelatoriosPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (<Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />))}
-            </div>
+            {/* MUDANÇA AQUI: Renderiza o ToastContainer do hook */}
+            <ToastContainer />
             <div className="max-w-6xl mx-auto px-4">
                 <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
                     <div className="flex items-center justify-between">
@@ -538,7 +552,7 @@ export default function RelatoriosPage() {
                 </div>
                 <div className="bg-white rounded-xl shadow-lg p-6">
                     <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center"><svg className="w-6 h-6 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>Resultados do Relatório</h2>
-                    {loadingReport ? (<div className="text-center p-8"><LoadingSpinner /><p className="mt-4 text-gray-600">Carregando resultados do relatório...</p></div>) : (<>{reportDisplayData ? (<><div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6 mb-6"><h3 className="text-2xl font-bold text-blue-800 text-center">{reportDisplayData.title}</h3></div><div className="mb-6">{reportDisplayData.type === 'presenca_reuniao' && (<ReportPresencaReuniaoDisplay data={reportDisplayData.content as ReportDataPresencaReuniao} />)}{reportDisplayData.type === 'presenca_membro' && (<ReportPresencaMembroDisplay data={reportDisplayData.content as ReportDataPresencaMembro} />)}{reportDisplayData.type === 'faltosos' && (<ReportFaltososPeriodoDisplay data={reportDisplayData.content as ReportDataFaltososPeriodo} />)}{reportDisplayData.type === 'visitantes_periodo' && (<ReportVisitantesPeriodoDisplay data={reportDisplayData.content as ReportDataVisitantesPeriodo} />)}{reportDisplayData.type === 'aniversariantes_mes' && (<ReportAniversariantesDisplay data={reportDisplayData.content as ReportDataAniversariantes} />)}{reportDisplayData.type === 'alocacao_lideres' && (<ReportAlocacaoLideresDisplay data={reportDisplayData.content as ReportDataAlocacaoLideres} />)}{reportDisplayData.type === 'chaves_ativacao' && (<ReportChavesAtivacaoDisplay data={reportDisplayData.content as ReportDataChavesAtivacao} />)}</div><div className="flex space-x-4 mt-6"><button onClick={handleExportPdf} disabled={exportingPdf} className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center">{exportingPdf ? (<div className="flex items-center"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>Exportando PDF...</div>) : (<div className="flex items-center"><svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Exportar para PDF</div>)}</button><button onClick={handleExportCsv} disabled={exportingCsv} className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center">{exportingCsv ? (<div className="flex items-center"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>Exportando CSV...</div>) : (<div className="flex items-center"><svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Exportar para CSV</div>)}</button></div></>) : (<div className="text-center py-12 text-gray-500"><svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg><p className="text-lg">Nenhum relatório gerado ainda.</p><p className="text-sm">Use o formulário acima para gerar um relatório.</p></div>)}</>)}
+                    {loadingReport ? (<div className="text-center p-8"><LoadingSpinner /><p className="mt-4 text-gray-600">Carregando resultados do relatório...</p></div>) : (<>{reportDisplayData ? (<><div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6 mb-6"><h3 className="2xl font-bold text-blue-800 text-center">{reportDisplayData.title}</h3></div><div className="mb-6">{reportDisplayData.type === 'presenca_reuniao' && (<ReportPresencaReuniaoDisplay data={reportDisplayData.content as ReportDataPresencaReuniao} />)}{reportDisplayData.type === 'presenca_membro' && (<ReportPresencaMembroDisplay data={reportDisplayData.content as ReportDataPresencaMembro} />)}{reportDisplayData.type === 'faltosos' && (<ReportFaltososPeriodoDisplay data={reportDisplayData.content as ReportDataFaltososPeriodo} />)}{reportDisplayData.type === 'visitantes_periodo' && (<ReportVisitantesPeriodoDisplay data={reportDisplayData.content as ReportDataVisitantesPeriodo} />)}{reportDisplayData.type === 'aniversariantes_mes' && (<ReportAniversariantesDisplay data={reportDisplayData.content as ReportDataAniversariantes} />)}{reportDisplayData.type === 'alocacao_lideres' && (<ReportAlocacaoLideresDisplay data={reportDisplayData.content as ReportDataAlocacaoLideres} />)}{reportDisplayData.type === 'chaves_ativacao' && (<ReportChavesAtivacaoDisplay data={reportDisplayData.content as ReportDataChavesAtivacao} />)}</div><div className="flex space-x-4 mt-6"><button onClick={handleExportPdf} disabled={exportingPdf} className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center">{exportingPdf ? (<div className="flex items-center"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>Exportando PDF...</div>) : (<div className="flex items-center"><svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Exportar para PDF</div>)}</button><button onClick={handleExportCsv} disabled={exportingCsv} className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center">{exportingCsv ? (<div className="flex items-center"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>Exportando CSV...</div>) : (<div className="flex items-center"><svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>Exportar para CSV</div>)}</button></div></>) : (<div className="text-center py-12 text-gray-500"><svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg><p className="text-lg">Nenhum relatório gerado ainda.</p><p className="text-sm">Use o formulário acima para gerar um relatório.</p></div>)}</>)}
                 </div>
             </div>
             <style jsx>{` @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } } .animate-slide-in { animation: slide-in 0.3s ease-out; } `}</style>

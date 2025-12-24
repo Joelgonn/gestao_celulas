@@ -1,4 +1,3 @@
-// src/app/(app)/profile/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,20 +10,20 @@ import {
     updateUserPassword,
 } from '@/lib/data';
 // Importa a interface Profile de types.ts
-import { Profile } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar Profile de types.ts
+import { Profile } from '@/lib/types';
 
 import { normalizePhoneNumber, formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { 
-  FaUser, 
-  FaEnvelope, 
-  FaUsers, 
-  FaCalendarAlt, 
-  FaPhone, 
-  FaLock, 
-  FaCheckCircle, 
-  FaExclamationTriangle, 
-  FaInfoCircle, 
+import {
+  FaUser,
+  FaEnvelope,
+  FaUsers,
+  FaCalendarAlt,
+  FaPhone,
+  FaLock,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
   FaTimes,
   FaEdit,
   FaKey,
@@ -32,9 +31,8 @@ import {
 } from 'react-icons/fa';
 
 // --- REFATORAÇÃO: TOASTS ---
-// CORREÇÃO: Vamos importar o useToast E o ToastComponent de UI
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast'; // Importar o componente Toast UI diretamente
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 // --- FIM REFATORAÇÃO TOASTS ---
 
 
@@ -46,8 +44,8 @@ export default function ProfilePage() {
 
     // Estados para o formulário de edição do perfil
     const [formData, setFormData] = useState({
-        nome_completo: '',
-        telefone: '',
+        nome_completo: '', // Profile.nome_completo é string | null, mas aqui o input espera string
+        telefone: '',      // Profile.telefone é string | null, mas aqui o input espera string
     });
 
     // Estados para o formulário de troca de senha
@@ -55,10 +53,8 @@ export default function ProfilePage() {
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const router = useRouter();
-    // CORREÇÃO AQUI: Chamar o hook useToast e obter 'toasts', 'addToast', 'removeToast'.
-    // O ToastContainer NÃO é retornado por este useToast do hooks/.
-    // A renderização do ToastContainer será feita manualmente no JSX, como nas outras páginas.
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
 
     const fetchUserProfile = useCallback(async () => {
@@ -68,10 +64,9 @@ export default function ProfilePage() {
             if (userProfileData) {
                 setProfile(userProfileData);
                 setFormData({
-                    nome_completo: userProfileData.nome_completo || '',
-                    telefone: normalizePhoneNumber(userProfileData.telefone),
+                    nome_completo: userProfileData.nome_completo || '', // Garante string para o input
+                    telefone: normalizePhoneNumber(userProfileData.telefone) || '', // Garante string para o input
                 });
-                // CORREÇÃO: Adicionando toast ao carregar perfil.
                 addToast('Perfil carregado com sucesso', 'success', 3000);
             } else {
                 addToast("Perfil não encontrado ou acesso negado.", 'error');
@@ -82,7 +77,7 @@ export default function ProfilePage() {
         } finally {
             setLoading(false);
         }
-    }, [addToast]); // `addToast` é uma dependência estável do hook `useToast`
+    }, [addToast]);
 
     useEffect(() => {
         fetchUserProfile();
@@ -121,11 +116,10 @@ export default function ProfilePage() {
         try {
             await updateUserProfileData(profile.id, {
                 nome_completo: formData.nome_completo.trim(),
-                telefone: normalizedPhone || null,
+                telefone: normalizedPhone || null, // Garante null para o DB se for vazio
             });
             addToast("Perfil atualizado com sucesso!", 'success');
-            // Re-fetch para atualizar os dados exibidos no perfil e na sidebar
-            fetchUserProfile();
+            fetchUserProfile(); // Re-fetch para atualizar os dados exibidos no perfil e na sidebar
         } catch (err: any) {
             console.error("Erro ao atualizar perfil:", err);
             addToast(err.message || "Falha ao atualizar perfil.", 'error');
@@ -202,8 +196,8 @@ export default function ProfilePage() {
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-6 lg:space-y-0">
                         <div className="flex items-center space-x-4">
-                            <Link 
-                                href="/dashboard" 
+                            <Link
+                                href="/dashboard"
                                 className="bg-white bg-opacity-20 p-3 rounded-xl hover:bg-opacity-30 transition-all duration-200"
                             >
                                 <FaArrowLeft className="text-lg" />
@@ -213,7 +207,7 @@ export default function ProfilePage() {
                                 <p className="text-purple-100 text-lg">Gerencie suas informações pessoais e segurança</p>
                             </div>
                         </div>
-                        
+
                         <div className="bg-white bg-opacity-20 rounded-xl p-4">
                             <div className="flex items-center space-x-3">
                                 <div className="w-12 h-12 bg-white bg-opacity-30 rounded-full flex items-center justify-center">
@@ -237,8 +231,8 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => setActiveTab('profile')}
                                     className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
-                                        activeTab === 'profile' 
-                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200' 
+                                        activeTab === 'profile'
+                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200'
                                             : 'text-gray-600 hover:bg-gray-50'
                                     }`}
                                 >
@@ -248,8 +242,8 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => setActiveTab('password')}
                                     className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
-                                        activeTab === 'password' 
-                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200' 
+                                        activeTab === 'password'
+                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200'
                                             : 'text-gray-600 hover:bg-gray-50'
                                     }`}
                                 >
@@ -266,8 +260,8 @@ export default function ProfilePage() {
                                     <div>
                                         <p className="font-medium text-blue-800">{profile.celula_nome || 'Nenhuma célula'}</p>
                                         {profile.celula_id === null && profile.role === 'líder' && (
-                                            <Link 
-                                                href="/activate-account" 
+                                            <Link
+                                                href="/activate-account"
                                                 className="text-orange-600 hover:text-orange-700 text-sm font-medium underline mt-1 inline-block"
                                             >
                                                 Ativar minha célula
@@ -299,7 +293,7 @@ export default function ProfilePage() {
                                         </div>
                                         <p className="text-gray-900 font-semibold">{profile.email}</p>
                                     </div>
-                                    
+
                                     <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
                                         <div className="flex items-center space-x-3 mb-2">
                                             <FaUsers className="text-gray-500 text-lg" />
@@ -309,7 +303,7 @@ export default function ProfilePage() {
                                             {profile.role === 'admin' ? 'Administrador' : 'Líder'}
                                         </p>
                                     </div>
-                                    
+
                                     <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
                                         <div className="flex items-center space-x-3 mb-2">
                                             <FaCalendarAlt className="text-gray-500 text-lg" />
@@ -337,7 +331,7 @@ export default function ProfilePage() {
                                             placeholder="Digite seu nome completo"
                                         />
                                     </div>
-                                    
+
                                     <div>
                                         <label htmlFor="telefone" className="block text-sm font-semibold text-gray-700 mb-2">
                                             <div className="flex items-center space-x-2">
@@ -349,7 +343,7 @@ export default function ProfilePage() {
                                             type="text"
                                             id="telefone"
                                             name="telefone"
-                                            value={formData.telefone}
+                                            value={formData.telefone || ''} // Corrigido para lidar com null
                                             onChange={handleFormChange}
                                             placeholder="(XX) XXXXX-XXXX"
                                             maxLength={11}
@@ -358,7 +352,7 @@ export default function ProfilePage() {
                                         />
                                         <p className="text-xs text-gray-500 mt-2">Apenas números, com DDD (10 ou 11 dígitos)</p>
                                     </div>
-                                    
+
                                     <button
                                         type="submit"
                                         disabled={submitting}
@@ -407,7 +401,7 @@ export default function ProfilePage() {
                                         />
                                         <p className="text-xs text-gray-500 mt-2">Mínimo de 6 caracteres</p>
                                     </div>
-                                    
+
                                     <div>
                                         <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
                                             Confirmar Nova Senha *
@@ -424,7 +418,7 @@ export default function ProfilePage() {
                                             minLength={6}
                                         />
                                     </div>
-                                    
+
                                     <button
                                         type="submit"
                                         disabled={submitting}
@@ -451,18 +445,8 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* Container de Toasts */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2"> {/* CORREÇÃO: Adicionar o container manualmente aqui */}
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
         </div>
     );
 }

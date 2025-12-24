@@ -1,4 +1,3 @@
-// src/lib/data.ts
 'use server';
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
@@ -6,151 +5,30 @@ import { revalidatePath } from 'next/cache';
 import { format, isSameMonth, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// ============================================================================
-//                                DEFINIÇÕES DE TIPOS
-// ============================================================================
-
-export interface Membro {
-  id: string;
-  celula_id: string;
-  nome: string;
-  telefone: string | null;
-  data_ingresso: string;
-  data_nascimento: string | null;
-  endereco: string | null;
-  status: 'Ativo' | 'Inativo' | 'Em transição';
-  celula_nome?: string | null;
-  created_at: string;
-}
-
-export interface Visitante {
-  id: string;
-  celula_id: string;
-  nome: string;
-  telefone: string | null;
-  data_primeira_visita: string;
-  data_nascimento: string | null;
-  endereco: string | null;
-  data_ultimo_contato: string | null;
-  observacoes: string | null;
-  celula_nome?: string | null;
-  created_at: string;
-}
-
-export interface ReuniaoDB {
-  id: string;
-  celula_id: string;
-  data_reuniao: string;
-  tema: string;
-
-  ministrador_principal: string | null;
-  ministrador_secundario: string | null;
-  responsavel_kids: string | null;
-
-  caminho_pdf: string | null;
-  created_at: string;
-}
-
-export interface ReuniaoComNomes extends Omit<ReuniaoDB, 'ministrador_principal' | 'ministrador_secundario' | 'responsavel_kids'> {
-    ministrador_principal_nome: string | null;
-    ministrador_secundario_nome: string | null;
-    responsavel_kids_nome: string | null;
-    num_criancas: number;
-    celula_nome?: string | null;
-}
-
-export interface ReuniaoParaEdicao extends ReuniaoDB {
-    ministrador_principal_nome: string | null;
-    ministrador_secundario_nome: string | null;
-    responsavel_kids_nome: string | null;
-    celula_nome?: string | null;
-}
-
-export interface ReuniaoFormData {
-    data_reuniao: string;
-    tema: string;
-    ministrador_principal: string | null;
-    ministrador_secundario: string | null;
-    responsavel_kids: string | null;
-    caminho_pdf?: string | null;
-    celula_id?: string; // Pode ser undefined ou string
-}
-
-export interface MembroComPresenca extends Membro {
-    presente: boolean;
-    presenca_registrada: boolean; // <--- ADICIONADO: Sinaliza se o dado veio do DB ou é default
-}
-
-export interface VisitanteComPresenca {
-    visitante_id: string;
-    nome: string;
-    telefone: string | null;
-    presente: boolean;
-    celula_nome?: string | null;
-}
-
-export interface CelulaOption {
-    id: string;
-    nome: string;
-}
-
-export interface ReuniaoDetalhesParaResumo {
-    id: string;
-    data_reuniao: string;
-    tema: string;
-    ministrador_principal_nome: string | null;
-    ministrador_secundario_nome: string | null;
-    responsavel_kids_nome: string | null;
-    num_criancas: number;
-    celula_nome: string | null;
-    caminho_pdf: string | null;
-    membros_presentes: { id: string; nome: string; telefone: string | null }[];
-    membros_ausentes: { id: string; nome: string; telefone: string | null }[];
-    visitantes_presentes: { id: string; nome: string; telefone: string | null }[];
-}
-
-export interface Profile {
-    id: string;
-    email: string;
-    nome_completo: string | null;
-    telefone: string | null;
-    role: 'admin' | 'líder' | null;
-    celula_id: string | null;
-    celula_nome: string | null;
-    created_at: string;
-}
-
-export interface PalavraDaSemana {
-    id: string;
-    titulo: string;
-    descricao: string | null;
-    url_arquivo: string;
-    data_semana: string;
-    created_at: string;
-    created_by?: string | null;
-    created_by_email?: string | null;
-}
-
-interface CelulaNomeId {
-    id: string;
-    nome: string;
-}
-
-export interface ImportMembroResult {
-    success: boolean;
-    message: string;
-    importedCount: number;
-    errors: { rowIndex: number; data: any; error: string }[];
-}
-
-interface CriancasReuniaoData {
-    reuniao_id: string;
-    numero_criancas: number;
-}
+// IMPORTAR TODOS OS TIPOS NECESSÁRIOS DE types.ts
+import {
+    Membro,
+    Visitante,
+    ReuniaoDB,
+    ReuniaoComNomes,
+    ReuniaoParaEdicao,
+    ReuniaoFormData,
+    MembroComPresenca,
+    VisitanteComPresenca,
+    CelulaOption,
+    ReuniaoDetalhesParaResumo,
+    Profile,
+    PalavraDaSemana,
+    CelulaNomeId,
+    ImportMembroResult,
+    CriancasReuniaoData,
+    // Adicione aqui qualquer outro tipo que suas funções Server Action retornam ou aceitam,
+    // que antes estava definido localmente em data.ts
+} from './types';
 
 
 // ============================================================================
-//                            FUNÇÕES DE CÉLULAS
+//                            FUNÇÕES AUXILIARES
 // ============================================================================
 
 async function checkUserAuthorization(): Promise<{
@@ -369,7 +247,6 @@ export async function listarMembros(
             throw new Error(`Falha ao carregar membros por mês de aniversário: ${rpcError.message}`);
         }
         
-        // CORRIGIDO: memberIdsToFilter é inicializado como array vazio
         const memberIdsToFilter: string[] = rpcMemberIds || []; 
 
         if (memberIdsToFilter.length === 0) { 
@@ -568,7 +445,7 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTe
             console.error("exportarMembrosCSV: Erro na RPC get_members_birthday_ids_in_month:", rpcError);
             throw new Error(`Falha ao exportar membros por mês de aniversário: ${rpcError.message}`);
         }
-        const memberIdsToFilter: string[] = rpcMemberIds || []; // Garante que seja um array, mesmo que vazio
+        const memberIdsToFilter: string[] = rpcMemberIds || []; 
         if (memberIdsToFilter.length === 0) {
             return "Nome,Telefone,Data de Ingresso,Data de Nascimento,Endereço,Status,Célula\n"; 
         }
@@ -600,7 +477,7 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTe
 export async function listarVisitantes(celulaIdFilter: string | null = null, searchTerm: string | null = null, minDaysSinceLastContact: number | null = null): Promise<Visitante[]> {
     const { supabase, role, celulaId, adminSupabase } = await checkUserAuthorization(); 
     if (!role) { return []; }
-    let query = supabase.from('visitantes').select('*');
+    let query = supabase.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, data_nascimento, endereco, data_ultimo_contato, observacoes, status_conversao, created_at'); // Incluido status_conversao
     if (role === 'líder') { if (!celulaId) { return []; } query = query.eq('celula_id', celulaId); }
     else if (role === 'admin' && celulaIdFilter) { query = query.eq('celula_id', celulaIdFilter); }
     else if (role === 'admin' && !celulaIdFilter) { /* Admin sem filtro vê todos, então não adiciona eq('celula_id') */ }
@@ -616,7 +493,7 @@ export async function listarVisitantes(celulaIdFilter: string | null = null, sea
     return visitantes.map((v: Visitante) => ({ ...v, celula_nome: celulasNamesMap.get(v.celula_id) || null }));
 }
 
-export async function adicionarVisitante(newVisitanteData: Omit<Visitante, 'id' | 'created_at' | 'celula_nome'>): Promise<string> {
+export async function adicionarVisitante(newVisitanteData: Omit<Visitante, 'id' | 'created_at' | 'celula_nome' | 'status_conversao'>): Promise<string> { // status_conversao removido do Omit
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) throw new Error("Não autorizado");
     
@@ -629,7 +506,8 @@ export async function adicionarVisitante(newVisitanteData: Omit<Visitante, 'id' 
     }
     const { data, error } = await supabase.from('visitantes').insert({
         ...newVisitanteData,
-        celula_id: targetCelulaIdForInsert
+        celula_id: targetCelulaIdForInsert,
+        status_conversao: 'Em Contato' // Valor padrão ao adicionar
     }).select('id').single();
     if (error) { console.error("Erro ao adicionar visitante:", error); throw error; } revalidatePath('/visitantes'); return data.id;
 }
@@ -638,7 +516,7 @@ export async function adicionarVisitante(newVisitanteData: Omit<Visitante, 'id' 
 export async function getVisitante(visitanteId: string): Promise<Visitante | null> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) return null;
-    let query = supabase.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, created_at').eq('id', visitanteId);
+    let query = supabase.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, status_conversao, created_at').eq('id', visitanteId); // Adicionado status_conversao
     if (role === 'líder') { if (!celulaId) return null; query = query.eq('celula_id', celulaId); }
     const { data, error } = await query.single(); if (error) { if (error.code === 'PGRST116') return null; throw error; } return data;
 }
@@ -699,7 +577,8 @@ export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
 
         ministrador_principal_alias:membros!ministrador_principal(nome),
         ministrador_secundario_alias:membros!ministrador_secundario(nome),
-        responsavel_kids_alias:membros!responsavel_kids(nome)
+        responsavel_kids_alias:membros!responsavel_kids(nome),
+        celula_nome_alias:celulas(nome)
     `);
 
     if (role === 'líder') { if (!celulaId) return []; query = query.eq('celula_id', celulaId); }
@@ -716,16 +595,13 @@ export async function listarReunioes(): Promise<ReuniaoComNomes[]> {
     if (criancasError) console.warn("Aviso: Erro ao buscar contagem de crianças:", criancasError.message);
     const criancasMap = new Map((criancasData || []).map((c: CriancasReuniaoData) => [c.reuniao_id, c.numero_criancas]));
 
-    const celulaIds = new Set<string>(reunioesComObjetosAninhados.map((r: any) => r.celula_id));
-    const celulasNamesMap = await getCelulasNamesMap(adminSupabase || supabase, celulaIds); 
-
     const result = reunioesComObjetosAninhados.map((reuniao: any) => ({
         id: reuniao.id,
         data_reuniao: reuniao.data_reuniao,
         tema: reuniao.tema,
         caminho_pdf: reuniao.caminho_pdf,
         celula_id: reuniao.celula_id,
-        celula_nome: celulasNamesMap.get(reuniao.celula_id) || null,
+        celula_nome: reuniao.celula_nome_alias?.nome || null, // <- Corrigido para acessar o alias
         ministrador_principal_nome: reuniao.ministrador_principal_alias?.nome || null,
         ministrador_secundario_nome: reuniao.ministrador_secundario_alias?.nome || null,
         responsavel_kids_nome: reuniao.responsavel_kids_alias?.nome || null,
@@ -764,7 +640,8 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
                 id, data_reuniao, tema, caminho_pdf, celula_id,
                 ministrador_principal_alias:membros!ministrador_principal(id, nome, telefone),
                 ministrador_secundario_alias:membros!ministrador_secundario(id, nome, telefone),
-                responsavel_kids_alias:membros!responsavel_kids(id, nome, telefone)`
+                responsavel_kids_alias:membros!responsavel_kids(id, nome, telefone),
+                celula_nome_alias:celulas(nome)` 
             ).eq('id', reuniaoId).eq('celula_id', targetCelulaIdForQuery).single(),
             clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle()
         ]);
@@ -780,16 +657,16 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
             ministrador_principal_alias: { id: string, nome: string, telefone: string | null } | null;
             ministrador_secundario_alias: { id: string, nome: string, telefone: string | null } | null;
             responsavel_kids_alias: { id: string, nome: string, telefone: string | null } | null;
+            celula_nome_alias: { nome: string } | null; 
         } = reuniaoDataRaw as any;
 
         const { data: criancasData } = criancasResult;
         const numCriancas = Number(criancasData?.numero_criancas) || 0;
 
-        const [presMembros, allMems, visPres, celNames] = await Promise.all([
+        const [presMembros, allMems, visPres] = await Promise.all([
             clientToUse.from('presencas_membros').select('membro_id, membro_data:membros(id, nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
             clientToUse.from('membros').select('id, nome, telefone').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }),
             clientToUse.from('presencas_visitantes').select('visitante_id, visitante_data:visitantes(id, nome, telefone)').eq('reuniao_id', reuniaoId).eq('presente', true),
-            getCelulasNamesMap(clientToUse, new Set([reuniaoDataMapped.celula_id]))
         ]);
 
         if (presMembros.error || allMems.error || visPres.error) {
@@ -811,7 +688,8 @@ export async function getReuniaoDetalhesParaResumo(reuniaoId: string): Promise<R
             nome: (p as any).visitante_data?.nome || 'N/A',
             telefone: (p as any).visitante_data?.telefone || null
         }));
-        const celulaNome = celNames.get(reuniaoDataMapped.celula_id) || null;
+        
+        const celulaNome = reuniaoDataMapped.celula_nome_alias?.nome || null; // <-- Acessa o nome da célula pelo alias
 
         return {
             id: reuniaoDataMapped.id,
@@ -874,11 +752,11 @@ export async function getReuniao(reuniaoId: string): Promise<ReuniaoParaEdicao |
         ministrador_secundario,
         responsavel_kids,
 
-        ministrador_principal_nome:membros!ministrador_principal(nome),
-        ministrador_secundario_nome:membros!ministrador_secundario(nome),
-        responsavel_kids_nome:membros!responsavel_kids(nome),
+        ministrador_principal_nome_alias:membros!ministrador_principal(nome),
+        ministrador_secundario_nome_alias:membros!ministrador_secundario(nome),
+        responsavel_kids_nome_alias:membros!responsavel_kids(nome),
 
-        celula_nome:celulas(nome)
+        celula_nome_alias:celulas(nome)
     `).eq('id', reuniaoId);
 
     if (role === 'líder') { if (!celulaId) return null; query = query.eq('celula_id', celulaId); }
@@ -891,6 +769,7 @@ export async function getReuniao(reuniaoId: string): Promise<ReuniaoParaEdicao |
         throw new Error("Falha ao carregar reunião: " + error.message);
     }
 
+    // Mapeamento explícito para garantir `null` para campos não encontrados, em vez de `undefined`
     const reuniaoData: ReuniaoParaEdicao = {
         id: reuniaoRawData.id,
         celula_id: reuniaoRawData.celula_id,
@@ -903,10 +782,10 @@ export async function getReuniao(reuniaoId: string): Promise<ReuniaoParaEdicao |
         ministrador_secundario: reuniaoRawData.ministrador_secundario,
         responsavel_kids: reuniaoRawData.responsavel_kids,
 
-        ministrador_principal_nome: (reuniaoRawData as any).ministrador_principal_nome?.nome || null,
-        ministrador_secundario_nome: (reuniaoRawData as any).ministrador_secundario_nome?.nome || null,
-        responsavel_kids_nome: (reuniaoRawData as any).responsavel_kids_nome?.nome || null,
-        celula_nome: (reuniaoRawData as any).celula_nome?.nome || null,
+        ministrador_principal_nome: (reuniaoRawData as any).ministrador_principal_nome_alias?.nome || null,
+        ministrador_secundario_nome: (reuniaoRawData as any).ministrador_secundario_nome_alias?.nome || null,
+        responsavel_kids_nome: (reuniaoRawData as any).responsavel_kids_nome_alias?.nome || null,
+        celula_nome: (reuniaoRawData as any).celula_nome_alias?.nome || null, // <- Corrigido para acessar o alias e garantir null
     };
 
     return reuniaoData;
@@ -1039,7 +918,7 @@ export async function listarTodosVisitantesComPresenca(reuniaoId: string): Promi
     if (!targetCelulaIdForQuery) { return []; }
     try {
         const clientToUse = adminSupabase || supabase;
-        const { data: visitors, error: visitorsError } = await clientToUse.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true });
+        const { data: visitors, error: visitorsError } = await clientToUse.from('visitantes').select('id, celula_id, nome, telefone, data_primeira_visita, endereco, data_ultimo_contato, observacoes, data_nascimento, status_conversao, created_at').eq('celula_id', targetCelulaIdForQuery).order('nome', { ascending: true }); // Incluido status_conversao
         if (visitorsError) { console.error("Erro ao listar visitantes com presença:", visitorsError); throw visitorsError; }
         const visitorIds = (visitors || []).map((v: Visitante) => v.id);
         const { data: presences, error: presencesError } = await clientToUse.from('presencas_visitantes').select('visitante_id, presente').eq('reuniao_id', reuniaoId).in('visitante_id', Array.from(visitorIds)); 
@@ -1197,10 +1076,11 @@ export async function getUserProfile(): Promise<Profile | null> {
 
     try {
         const clientToUse = adminSupabase || supabase; 
-        const { data: profileData, error: profileError } = await clientToUse.from('profiles').select('id, email, nome_completo, telefone, role, celula_id, created_at').eq('id', user.id).single();
+        const { data: profileData, error: profileError } = await clientToUse.from('profiles').select('id, email, nome_completo, telefone, role, celula_id, created_at').eq('id', user.id).single(); // Removido last_sign_in_at da query
         if (profileError || !profileData) {
             if (profileError?.code === 'PGRST116') {
-                 return { id: user.id, email: user.email || 'email@example.com', nome_completo: null, telefone: null, role: null, celula_id: null, celula_nome: null, created_at: user.created_at };
+                 // CORRIGIDO: Pega last_sign_in_at do 'user' aqui também
+                 return { id: user.id, email: user.email || 'email@example.com', nome_completo: null, telefone: null, role: null, celula_id: null, celula_nome: null, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at || null }; 
             }
             console.error("Erro ao carregar perfil:", profileError);
             throw new Error("Falha ao carregar perfil: " + profileError?.message);
@@ -1210,7 +1090,18 @@ export async function getUserProfile(): Promise<Profile | null> {
             const celulasNamesMap = await getCelulasNamesMap(clientToUse, new Set([profileData.celula_id])); 
             celulaName = celulasNamesMap.get(profileData.celula_id) || null;
         }
-        return { id: profileData.id, email: profileData.email || 'N/A', nome_completo: profileData.nome_completo, telefone: profileData.telefone, role: profileData.role, celula_id: profileData.celula_id, celula_nome: celulaName, created_at: profileData.created_at };
+        // CORRIGIDO: Pega last_sign_in_at do objeto 'user' de auth
+        return { 
+            id: profileData.id, 
+            email: profileData.email || 'N/A', 
+            nome_completo: profileData.nome_completo, 
+            telefone: profileData.telefone, 
+            role: profileData.role, 
+            celula_id: profileData.celula_id, 
+            celula_nome: celulaName, 
+            created_at: profileData.created_at, 
+            last_sign_in_at: user.last_sign_in_at || null 
+        };
     } catch (e: any) { console.error("Falha ao carregar perfil de usuário:", e); throw new Error("Falha ao carregar perfil: " + e.message); }
 }
 
@@ -1284,8 +1175,8 @@ export async function uploadPalavraDaSemana(formData: FormData): Promise<{ succe
         let fileUrl: string | null = existingPalavra?.url_arquivo || null;
 
         if (file && file.size > 0) {
-            if (file.type !== 'application/pdf') {
-                return { success: false, message: "Apenas arquivos PDF são permitidos." };
+            if (!['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'].includes(file.type)) {
+                return { success: false, message: "Apenas arquivos PDF, PPT ou PPTX são permitidos." }; // Corrigido a validação
             }
             if (file.size > 5 * 1024 * 1024) { // 5MB limit
                 return { success: false, message: "O arquivo excede o limite de 5MB." };
@@ -1381,16 +1272,17 @@ export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana
 
         let createdByEmail: string | null = null;
         if (palavraData.created_by) {
+            // CORREÇÃO: Usar maybeSingle() para lidar com a ausência de email ou perfil
             const { data: profileEmailData, error: profileEmailError } = await createServerClient()
                 .from('profiles')
                 .select('email')
                 .eq('id', palavraData.created_by)
-                .single();
+                .maybeSingle(); // Usar maybeSingle()
 
             if (profileEmailError) {
                 console.warn(`Aviso: Não foi possível buscar o email para created_by ${palavraData.created_by}:`, profileEmailError.message);
             } else {
-                createdByEmail = profileEmailData?.email || 'Admin';
+                createdByEmail = profileEmailData?.email || null; // Garante que é null se não encontrado
             }
         }
 
@@ -1439,10 +1331,29 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
         }
 
         const urlSegments = palavra.url_arquivo.split('/');
-        const publicIndex = urlSegments.indexOf('object');
+        const publicIndex = urlSegments.indexOf('public'); 
         const bucketName = publicIndex > 0 ? urlSegments[publicIndex - 1] : null;
 
-        const filePath = publicIndex > 0 ? urlSegments.slice(publicIndex + 2).join('/') : null;
+        let filePath = '';
+        if (publicIndex > -1) { // Se 'public' está na URL
+            const bucketSegmentIndex = urlSegments.indexOf('palavra_semana_files'); // Nome do seu bucket
+            if (bucketSegmentIndex > -1) {
+                filePath = urlSegments.slice(bucketSegmentIndex + 1).join('/'); // Pega o caminho após o nome do bucket
+            } else {
+                // Fallback mais genérico se a estrutura da URL for diferente
+                // Tenta pegar o caminho após '/storage/v1/object/public/{bucket_name}/'
+                const objectPublicIndex = urlSegments.indexOf('object');
+                if (objectPublicIndex > -1 && objectPublicIndex + 2 < urlSegments.length) {
+                    filePath = urlSegments.slice(objectPublicIndex + 3).join('/'); 
+                }
+            }
+        } else { // Se 'public' não está na URL (ex: URL interna ou estrutura diferente)
+             const bucketSegmentIndex = urlSegments.indexOf('palavra_semana_files');
+             if (bucketSegmentIndex > -1) {
+                 filePath = urlSegments.slice(bucketSegmentIndex + 1).join('/');
+             }
+        }
+
 
         if (bucketName && filePath) {
             const { error: deleteFileError } = await createServerClient().storage

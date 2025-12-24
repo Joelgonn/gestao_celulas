@@ -7,55 +7,25 @@ import Link from 'next/link';
 // Importa funções de data.ts
 import { importarMembrosCSV } from '@/lib/data';
 // Importa a interface ImportMembroResult de types.ts
-import { ImportMembroResult } from '@/lib/types'; // <--- CORREÇÃO AQUI: Importar ImportMembroResult de types.ts
+import { ImportMembroResult } from '@/lib/types'; 
 
 // --- REFATORAÇÃO: TOASTS ---
-// Remover a implementação local de Toast e usar o hook global.
-// REMOVER ESTE BLOCO:
-// Sistema de Toasts
-// interface Toast {
-//   id: string;
-//   type: 'success' | 'error' | 'warning' | 'info';
-//   title: string;
-//   message?: string;
-//   duration?: number;
-// }
-// FIM DO BLOCO A SER REMOVIDO
-
-// ADICIONAR ESTAS DUAS LINHAS:
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
+// (o ToastContainer do hook já importa e usa o componente Toast internamente)
+// import Toast from '@/components/ui/Toast'; 
+// --- FIM REFATORAÇÃO ---
 
 export default function ImportarMembrosPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  // REMOVER ESTA LINHA: const [toasts, setToasts] = useState<Toast[]>([]);
   const [loading, setLoading] = useState(false);
-  // CORREÇÃO: tipagem do estado 'errors' com a interface ImportMembroResult['errors'][number]
-  const [errors, setErrors] = useState<ImportMembroResult['errors']>([]); // <--- CORREÇÃO AQUI
+  const [errors, setErrors] = useState<ImportMembroResult['errors']>([]); 
   const [fileName, setFileName] = useState<string>('');
 
   const router = useRouter();
 
-  // ADICIONAR ESTA LINHA: Inicializar o hook de toast global
-  const { toasts, addToast, removeToast } = useToast();
-
-  // REMOVER ESTAS FUNÇÕES LOCAIS:
-  // Função para adicionar toast
-  // const addToast = (toast: Omit<Toast, 'id'>) => {
-  //   const id = Math.random().toString(36).substring(2, 9);
-  //   const newToast = { ...toast, id };
-  //   setToasts(prev => [...prev, newToast]);
-    
-  //   setTimeout(() => {
-  //     removeToast(id);
-  //   }, toast.duration || 5000);
-  // };
-
-  // Função para remover toast
-  // const removeToast = (id: string) => {
-  //   setToasts(prev => prev.filter(toast => toast.id !== id));
-  // };
-  // FIM DAS FUNÇÕES LOCAIS A SEREM REMOVIDAS
+  // MUDANÇA AQUI: Inicializar o hook de toast global, desestruturando ToastContainer
+  const { addToast, removeToast, ToastContainer } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -64,7 +34,7 @@ export default function ImportarMembrosPage() {
       setFileName(file.name);
       setErrors([]);
       
-      // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+      // A chamada addToast já está no formato correto para o hook global
       addToast(
         `Arquivo selecionado: ${file.name} pronto para importação`,
         'success',
@@ -79,7 +49,7 @@ export default function ImportarMembrosPage() {
     setErrors([]);
 
     if (!csvFile) {
-      // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+      // A chamada addToast já está no formato correto para o hook global
       addToast(
         'Por favor, selecione um arquivo CSV',
         'error'
@@ -95,7 +65,7 @@ export default function ImportarMembrosPage() {
         const result = await importarMembrosCSV(csvString);
 
         if (result.success) {
-          // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+          // A chamada addToast já está no formato correto para o hook global
           addToast(
             `${result.importedCount} membros importados com sucesso!`,
             'success',
@@ -106,7 +76,7 @@ export default function ImportarMembrosPage() {
             router.push('/membros');
           }, 2000);
         } else {
-          // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+          // A chamada addToast já está no formato correto para o hook global
           addToast(
             `Importação parcial: ${result.importedCount} sucessos, ${result.errors.length} erros.`,
             'warning'
@@ -117,7 +87,7 @@ export default function ImportarMembrosPage() {
       };
       
       fileReader.onerror = () => {
-        // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+        // A chamada addToast já está no formato correto para o hook global
         addToast(
           'Não foi possível ler o arquivo.',
           'error'
@@ -128,7 +98,7 @@ export default function ImportarMembrosPage() {
       fileReader.readAsText(csvFile);
     } catch (error: any) {
       console.error("Erro ao ler arquivo ou na importação:", error);
-      // ALTERAR A CHAMADA addToast AQUI PARA O NOVO FORMATO
+      // A chamada addToast já está no formato correto para o hook global
       addToast(
         `Erro inesperado: ${error.message || "Erro desconhecido durante a importação"}`,
         'error'
@@ -137,28 +107,10 @@ export default function ImportarMembrosPage() {
     }
   };
 
-  // REMOVER ESTAS FUNÇÕES LOCAIS E SEUS USOS
-  // Ícones para os toasts
-  // const getToastIcon = (type: Toast['type']) => { ... };
-  // const getToastStyles = (type: Toast['type']) => { ... };
-  // FIM DAS FUNÇÕES LOCAIS A SEREM REMOVIDAS
-
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      {/* NOVO: Container de Toasts global */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-            duration={toast.duration}
-          />
-        ))}
-      </div>
-      {/* FIM NOVO: Container de Toasts */}
+      {/* Renderiza o ToastContainer do hook global */}
+      <ToastContainer />
 
       {/* Conteúdo Principal */}
       <div className="max-w-2xl mx-auto">

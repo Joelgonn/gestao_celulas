@@ -1,4 +1,3 @@
-// src/app/(app)/membros/novo/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,29 +6,32 @@ import Link from 'next/link';
 import {
     adicionarMembro,
     listarCelulasParaAdmin,
-    Membro,
-    CelulaOption
 } from '@/lib/data';
+
+// Importar Membro e CelulaOption de '@/lib/types'
+import { Membro, CelulaOption } from '@/lib/types';
+
 import { normalizePhoneNumber } from '@/utils/formatters';
 
-// --- REFATORAÇÃO: TOASTS ---
-import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Usando o LoadingSpinner principal
+// --- REFATORAÇÃO: TOASTS (CORRETO AGORA) ---
+import useToast from '@/hooks/useToast'; // Importa o hook useToast global
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
+import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
 // --- NOVO: Ícones para a página (para o layout moderno) ---
-import { 
-    FaUserPlus, 
-    FaPhone, 
-    FaCalendarAlt, // Mudado de FaCalendar para FaCalendarAlt para consistência
-    FaMapMarkerAlt, 
-    FaComments, // Para observações, se houver
+import {
+    FaUserPlus,
+    FaPhone,
+    FaCalendarAlt,
+    FaMapMarkerAlt,
+    FaComments,
     FaArrowLeft,
     FaSave,
-    FaUserTag // Para o status, se for usar ícone
+    FaUserTag
 } from 'react-icons/fa';
 // --- FIM NOVO: Ícones ---
+
 
 interface FormData {
     nome: string;
@@ -51,14 +53,16 @@ export default function NewMembroPage() {
         status: 'Ativo',
         celula_id: '',
     });
-    
+
     const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
     const [loading, setLoading] = useState(true); // Inicializa como true para mostrar o spinner no primeiro carregamento
     const [submitting, setSubmitting] = useState(false);
-    
-    const { toasts, addToast, removeToast } = useToast();
+
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const router = useRouter();
+
 
     useEffect(() => {
         const fetchDependencies = async () => {
@@ -84,9 +88,9 @@ export default function NewMembroPage() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ 
-            ...prev, 
-            [name]: name === 'telefone' ? normalizePhoneNumber(value) : (value === '' ? null : value) 
+        setFormData(prev => ({
+            ...prev,
+            [name]: name === 'telefone' ? normalizePhoneNumber(value) : (value === '' ? null : value)
         }));
     };
 
@@ -139,22 +143,11 @@ export default function NewMembroPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             <div className="max-w-2xl mx-auto">
                 {loading ? (
-                    // CORREÇÃO AQUI: Envolver o LoadingSpinner em um fragmento ou div para o comentário
                     <>
                         <LoadingSpinner /> {/* Renderiza o LoadingSpinner quando `loading` é true */}
                     </>
@@ -170,12 +163,12 @@ export default function NewMembroPage() {
                                     </h1>
                                     <p className="text-indigo-100 mt-2">Preencha os detalhes para adicionar um novo membro à célula.</p>
                                 </div>
-                                <Link 
+                                <Link
                                     href="/membros"
                                     className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30"
                                 >
                                     <FaArrowLeft className="w-4 h-4 mr-2" />
-                                    Voltar
+                                    <span>Voltar</span>
                                 </Link>
                             </div>
                         </div>
@@ -211,7 +204,7 @@ export default function NewMembroPage() {
                                         id="telefone"
                                         name="telefone"
                                         type="tel"
-                                        value={formData.telefone || ''}
+                                        value={formData.telefone || ''} // Corrigido para lidar com null
                                         onChange={handleChange}
                                         placeholder="(XX) XXXXX-XXXX"
                                         maxLength={11}
@@ -229,7 +222,7 @@ export default function NewMembroPage() {
                                         id="endereco"
                                         name="endereco"
                                         type="text"
-                                        value={formData.endereco || ''}
+                                        value={formData.endereco || ''} // Corrigido para lidar com null
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         placeholder="Endereço completo do novo membro"
@@ -262,7 +255,7 @@ export default function NewMembroPage() {
                                             id="data_nascimento"
                                             name="data_nascimento"
                                             type="date"
-                                            value={formData.data_nascimento || ''}
+                                            value={formData.data_nascimento || ''} // Corrigido para lidar com null
                                             onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         />
@@ -319,16 +312,16 @@ export default function NewMembroPage() {
 
                                 {/* Botões de Ação */}
                                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-200">
-                                    <Link 
-                                        href="/membros" 
+                                    <Link
+                                        href="/membros"
                                         className="flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 font-medium w-full sm:w-auto"
                                     >
                                         <FaArrowLeft className="w-4 h-4" />
                                         <span>Cancelar</span>
                                     </Link>
-                                    
-                                    <button 
-                                        type="submit" 
+
+                                    <button
+                                        type="submit"
                                         disabled={submitting}
                                         className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg hover:shadow-xl w-full sm:w-auto"
                                     >

@@ -21,14 +21,20 @@ import {
     listarMembros,
     verificarDuplicidadeReuniao,
     uploadMaterialReuniao,
-    Membro,
-    ReuniaoFormData,
-    ReuniaoParaEdicao,
+    // Remover Membro, ReuniaoFormData, ReuniaoParaEdicao daqui, se são tipos
+    // Membro,
+    // ReuniaoFormData,
+    // ReuniaoParaEdicao,
 } from '@/lib/data';
+
+// Importar tipos de '@/lib/types'
+import { Membro, ReuniaoFormData, ReuniaoParaEdicao } from '@/lib/types';
+
 import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 
+// MUDANÇA AQUI: Remova a importação de Toast, use apenas useToast
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+
 
 export default function EditReuniaoPage() {
     const params = useParams();
@@ -43,7 +49,8 @@ export default function EditReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -200,18 +207,8 @@ export default function EditReuniaoPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             {/* Conteúdo Principal */}
             <div className="max-w-4xl mx-auto">
@@ -295,7 +292,7 @@ export default function EditReuniaoPage() {
                                         <FaFilePdf className="w-5 h-5" /> {/* Ícone de PDF */}
                                         Material da Reunião
                                     </h3>
-                                    {formData.caminho_pdf && (<div className="flex items-center justify-between p-4 bg-white rounded-lg border border-blue-200 mb-4"><div className="flex items-center space-x-3"><FaFilePdf className="w-8 h-8 text-red-500" /><div><p className="text-sm font-medium text-gray-900">Material atual disponível</p><p className="text-sm text-gray-500">Clique para visualizar ou baixar</p></div></div><a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>Abrir</a></div>)}
+                                    {formData.caminho_pdf && (<div className="flex items-center justify-between p-4 bg-white rounded-lg border border-blue-200 mb-4"><div className="flex items-center space-x-3"><FaFilePdf className="w-8 h-8 text-red-500" /><div><p className="text-sm font-medium text-gray-900">Material atual disponível</p><p className="text-sm text-gray-500">Clique para visualizar ou baixar</p></div></div><a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Abrir</a></div>)}
                                     <div className="space-y-4">
                                         <div>
                                             <label htmlFor="material_file" className="block text-sm font-semibold text-gray-700 mb-2">Upload novo material (PDF/PPT)</label>

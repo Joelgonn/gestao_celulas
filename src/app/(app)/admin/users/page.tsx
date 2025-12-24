@@ -19,7 +19,7 @@ import {
     FaUserTag
 } from 'react-icons/fa';
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 
 import {
     listAllProfiles,
@@ -28,9 +28,9 @@ import {
     deleteUserAndProfile,
     UserProfile,
 } from '@/app/api/admin/users/actions';
-import { listarCelulasParaAdmin, CelulaOption } from '@/lib/data';
-// CORREÇÃO AQUI: Adicionar 'from ' antes do caminho do arquivo
-import { formatDateForDisplay } from '@/utils/formatters'; // Corrigido
+import { listarCelulasParaAdmin } from '@/lib/data'; // CelulaOption não é mais exportada por data.ts
+import { CelulaOption } from '@/lib/types'; // Importar CelulaOption de types.ts
+import { formatDateForDisplay } from '@/utils/formatters'; 
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 
@@ -48,7 +48,8 @@ export default function AdminUsersPage() {
     const [submitting, setSubmitting] = useState(false);
 
     const router = useRouter();
-    const { toasts, addToast, removeToast } = useToast();
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -171,19 +172,8 @@ export default function AdminUsersPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
-            {/* NOVO: Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
-            {/* FIM NOVO: Container de Toasts */}
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             <div className="max-w-7xl mx-auto">
                 {/* Header */}

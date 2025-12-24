@@ -1,7 +1,7 @@
 // src/components/MainLayout.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
 import { usePathname, useRouter } from 'next/navigation';
@@ -22,53 +22,15 @@ import {
   FaUserCog 
 } from 'react-icons/fa';
 
-import type { ToastProps } from '@/components/ui/Toast';
+// --- REFATORAÇÃO: IMPORTAÇÃO DO HOOK USETOAST ---
+// Assume-se que este hook agora está definido externamente
+import useToast from '@/hooks/useToast'; 
+// Se o ToastContainer estiver em '@/components/ui/Toast', a chamada ao hook
+// já deve retornar o componente, como está no código.
+// --- FIM REFATORAÇÃO ---
 
-interface Toast extends Omit<ToastProps, 'onClose'> {
-  id: number;
-}
 
-const useToast = () => {
-  const [toasts, setToasts] = useState<Toast[]>([]); 
-
-  const addToast = useCallback((message: string, type: Toast['type'] = 'info', duration: number = 5000) => {
-    const id = Math.random();
-    const newToast: Toast = { id, message, type, duration };
-    
-    setToasts(prev => [...prev, newToast]);
-
-    if (duration > 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
-    }
-  }, []);
-
-  const removeToast = useCallback((id: number) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
-
-  const ToastContainer = () => {
-    const ToastComponent = require('@/components/ui/Toast').default; 
-    return (
-      <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm w-full">
-        {toasts.map((toast) => (
-          <ToastComponent
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-            duration={toast.duration}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  return { addToast, removeToast, ToastContainer };
-};
-
-// --- Componente NavItem ---
+// --- Componente NavItem (Inalterado) ---
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
@@ -102,7 +64,7 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   );
 };
 
-// --- Componente LogoutButton ---
+// --- Componente LogoutButton (Inalterado) ---
 const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const router = useRouter();
   
@@ -133,15 +95,18 @@ interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+  // --- HOOKS MOVIDOS PARA DENTRO DO COMPONENTE ---
   const pathname = usePathname();
   const router = useRouter();
+  const { addToast, ToastContainer } = useToast(); // CHAMA O HOOK AGORA IMPORTADO
+  // --- FIM HOOKS MOVIDOS ---
+  
   const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loadingRole, setLoadingRole] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const { addToast, ToastContainer } = useToast(); 
 
 
   useEffect(() => {
@@ -175,7 +140,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       }
     }
     fetchUserRole();
-  }, [addToast]);
+  }, [addToast]); // addToast é a dependência estável
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -293,7 +259,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     className="object-contain" 
                   />
                 </div>
-                {/* NOME ALTERADO AQUI */}
                 <h1 className="text-white text-lg font-bold truncate">Apascentar Células</h1>
               </div>
               <button
@@ -349,7 +314,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   className="object-contain" 
                 />
               </div>
-              {/* NOME ALTERADO AQUI */}
               <h1 className="text-white text-lg font-bold">Apascentar Células</h1>
             </div>
           </div>
@@ -377,7 +341,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               {filteredNavItems.map((item) => {
                 const label = userRole === 'admin' && ['/membros', '/visitantes', '/reunioes', '/relatorios'].includes(item.href)
                   ? `${item.label} (Auditoria)`
-                  : item.label;
+                    : item.label;
 
                 return (
                   <NavItem

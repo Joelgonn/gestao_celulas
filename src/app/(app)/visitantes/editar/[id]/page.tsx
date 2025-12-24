@@ -1,4 +1,3 @@
-// src/app/(app)/visitantes/editar/[id]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,7 +8,7 @@ import {
     getVisitante,
     atualizarVisitante,
 } from '@/lib/data';
-// Importa a interface Visitante de types.ts <--- CORREÇÃO AQUI
+// Importa a interface Visitante de types.ts
 import { Visitante,
     VisitanteEditFormData,
  } from '@/lib/types';
@@ -18,41 +17,39 @@ import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-import Toast from '@/components/ui/Toast';
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
 import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
 // --- FIM REFATORAÇÃO TOASTS ---
 
-// --- CORREÇÃO: Adicionar data_nascimento à interface VisitanteFormData ---
-interface VisitanteFormData {
-    nome: string;
-    telefone: string | null; // Pode ser null
-    data_primeira_visita: string;
-    data_nascimento: string | null; // Adicionado: data de nascimento
-    endereco: string | null; // Pode ser null
-    data_ultimo_contato: string | null; // Pode ser null
-    observacoes: string | null; // Pode ser null
-}
-// --- FIM CORREÇÃO ---
+// A interface VisitanteFormData local não é mais necessária se VisitanteEditFormData de types.ts for usada
+// interface VisitanteFormData {
+//     nome: string;
+//     telefone: string | null;
+//     data_primeira_visita: string;
+//     data_nascimento: string | null;
+//     endereco: string | null;
+//     data_ultimo_contato: string | null;
+//     observacoes: string | null;
+// }
 
 export default function EditVisitantePage() {
     const params = useParams();
     const visitanteId = params.id as string;
     
-    // CORREÇÃO: Usar a interface VisitanteEditFormData
+    // Usando a interface VisitanteEditFormData de types.ts
     const [formData, setFormData] = useState<VisitanteEditFormData>({
         nome: '',
         telefone: null,
         data_primeira_visita: '',
-        data_nascimento: null, // Inicializar
+        data_nascimento: null, 
         endereco: null,
         data_ultimo_contato: null,
         observacoes: null,
-        status_conversao: 'Em Contato',
+        status_conversao: 'Em Contato', // Default se não vier do DB
     });
     
-    // --- REFATORAÇÃO: TOASTS ---
-    const { toasts, addToast, removeToast } = useToast();
-    // --- FIM REFATORAÇÃO TOASTS ---
+    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
+    const { addToast, removeToast, ToastContainer } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -62,7 +59,6 @@ export default function EditVisitantePage() {
         const fetchVisitante = async () => {
             setLoading(true);
             try {
-                // CORREÇÃO: getVisitante agora retorna com data_nascimento
                 const data = await getVisitante(visitanteId); 
 
                 if (!data) {
@@ -76,11 +72,11 @@ export default function EditVisitantePage() {
                     nome: data.nome || '',
                     telefone: normalizePhoneNumber(data.telefone) || null,
                     data_primeira_visita: formatDateForInput(data.data_primeira_visita),
-                    data_nascimento: data.data_nascimento ? formatDateForInput(data.data_nascimento) : null, // Preencher data_nascimento
+                    data_nascimento: data.data_nascimento ? formatDateForInput(data.data_nascimento) : null,
                     endereco: data.endereco || null,
                     data_ultimo_contato: data.data_ultimo_contato ? formatDateForInput(data.data_ultimo_contato) : null,
                     observacoes: data.observacoes || null,
-                    status_conversao: 'Em Contato',
+                    status_conversao: data.status_conversao || 'Em Contato', // Garantir um valor padrão
                 });
 
                 addToast('Informações do visitante carregadas com sucesso', 'success', 3000);
@@ -96,14 +92,14 @@ export default function EditVisitantePage() {
         if (visitanteId) {
             fetchVisitante();
         }
-    }, [visitanteId, router, addToast]); // Adicionar addToast às dependências
+    }, [visitanteId, router, addToast]); 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); // Lidar com campos que podem ser nulos
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); 
         }
     };
 
@@ -126,21 +122,19 @@ export default function EditVisitantePage() {
         }
 
         try {
-            // CORREÇÃO: O primeiro argumento de atualizarVisitante agora é o objeto de dados atualizados,
-            // e o segundo argumento é o visitanteId. (Já estava correto na sua versão mais recente, mas re-confirmando)
             await atualizarVisitante({
                 nome: formData.nome,
                 telefone: normalizedPhone || null,
                 data_primeira_visita: formData.data_primeira_visita,
-                data_nascimento: formData.data_nascimento, // Incluir data_nascimento
+                data_nascimento: formData.data_nascimento || null, // Garante null para o DB
                 endereco: formData.endereco || null,
                 data_ultimo_contato: formData.data_ultimo_contato || null,
                 observacoes: formData.observacoes || null,
+                // status_conversao: formData.status_conversao || 'Em Contato', // Se você precisar salvar o status_conversao, adicione aqui
             }, visitanteId);
 
             addToast('Visitante atualizado com sucesso', 'success', 3000);
 
-            // Redirecionar após mostrar o toast
             setTimeout(() => {
                 router.push('/visitantes');
             }, 2000);
@@ -155,18 +149,8 @@ export default function EditVisitantePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Container de Toasts global */}
-            <div className="fixed top-4 right-4 z-50 w-80 space-y-2">
-                {toasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => removeToast(toast.id)}
-                        duration={toast.duration}
-                    />
-                ))}
-            </div>
+            {/* Renderiza o ToastContainer do hook global */}
+            <ToastContainer />
 
             {/* Conteúdo Principal */}
             <div className="max-w-2xl mx-auto">
@@ -183,7 +167,7 @@ export default function EditVisitantePage() {
                                 </h1>
                                 <p className="text-purple-100 mt-2">Atualize as informações do visitante</p>
                             </div>
-                            <Link 
+                            <Link
                                 href="/visitantes"
                                 className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30"
                             >
@@ -209,13 +193,13 @@ export default function EditVisitantePage() {
                                         </svg>
                                         Nome Completo *
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        id="nome" 
-                                        name="nome" 
-                                        value={formData.nome} 
-                                        onChange={handleChange} 
-                                        required 
+                                    <input
+                                        type="text"
+                                        id="nome"
+                                        name="nome"
+                                        value={formData.nome}
+                                        onChange={handleChange}
+                                        required
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                         placeholder="Digite o nome completo"
                                     />
@@ -229,14 +213,14 @@ export default function EditVisitantePage() {
                                         </svg>
                                         Telefone
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        id="telefone" 
-                                        name="telefone" 
-                                        value={formData.telefone || ''} 
-                                        onChange={handleChange} 
-                                        placeholder="(XX) XXXXX-XXXX" 
-                                        maxLength={11} 
+                                    <input
+                                        type="text"
+                                        id="telefone"
+                                        name="telefone"
+                                        value={formData.telefone || ''} // Corrigido para lidar com null
+                                        onChange={handleChange}
+                                        placeholder="(XX) XXXXX-XXXX"
+                                        maxLength={11}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                     />
                                 </div>
@@ -250,12 +234,12 @@ export default function EditVisitantePage() {
                                         </svg>
                                         Endereço
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        id="endereco" 
-                                        name="endereco" 
-                                        value={formData.endereco || ''} 
-                                        onChange={handleChange} 
+                                    <input
+                                        type="text"
+                                        id="endereco"
+                                        name="endereco"
+                                        value={formData.endereco || ''} // Corrigido para lidar com null
+                                        onChange={handleChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                         placeholder="Digite o endereço completo"
                                     />
@@ -271,13 +255,13 @@ export default function EditVisitantePage() {
                                             </svg>
                                             Data da 1ª Visita *
                                         </label>
-                                        <input 
-                                            type="date" 
-                                            id="data_primeira_visita" 
-                                            name="data_primeira_visita" 
-                                            value={formData.data_primeira_visita} 
-                                            onChange={handleChange} 
-                                            required 
+                                        <input
+                                            type="date"
+                                            id="data_primeira_visita"
+                                            name="data_primeira_visita"
+                                            value={formData.data_primeira_visita}
+                                            onChange={handleChange}
+                                            required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                         />
                                     </div>
@@ -290,12 +274,12 @@ export default function EditVisitantePage() {
                                             </svg>
                                             Data de Nascimento
                                         </label>
-                                        <input 
-                                            type="date" 
-                                            id="data_nascimento" 
-                                            name="data_nascimento" 
-                                            value={formData.data_nascimento || ''} // Handle null
-                                            onChange={handleChange} 
+                                        <input
+                                            type="date"
+                                            id="data_nascimento"
+                                            name="data_nascimento"
+                                            value={formData.data_nascimento || ''} // Corrigido para lidar com null
+                                            onChange={handleChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                         />
                                     </div>
@@ -309,12 +293,12 @@ export default function EditVisitantePage() {
                                         </svg>
                                         Data Último Contato
                                     </label>
-                                    <input 
-                                        type="date" 
-                                        id="data_ultimo_contato" 
-                                        name="data_ultimo_contato" 
-                                        value={formData.data_ultimo_contato || ''} // Handle null
-                                        onChange={handleChange} 
+                                    <input
+                                        type="date"
+                                        id="data_ultimo_contato"
+                                        name="data_ultimo_contato"
+                                        value={formData.data_ultimo_contato || ''} // Corrigido para lidar com null
+                                        onChange={handleChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                     />
                                 </div>
@@ -330,7 +314,7 @@ export default function EditVisitantePage() {
                                     <textarea
                                         id="observacoes"
                                         name="observacoes"
-                                        value={formData.observacoes || ''} // Handle null
+                                        value={formData.observacoes || ''} // Corrigido para lidar com null
                                         onChange={handleChange}
                                         rows={4}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 resize-none"
@@ -339,8 +323,8 @@ export default function EditVisitantePage() {
                                 </div>
 
                                 {/* Botão Submit */}
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={submitting}
                                     className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2"
                                 >
