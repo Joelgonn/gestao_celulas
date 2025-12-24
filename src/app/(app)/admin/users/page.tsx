@@ -19,8 +19,6 @@ import {
     FaUserTag
 } from 'react-icons/fa';
 import useToast from '@/hooks/useToast';
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
-
 import {
     listAllProfiles,
     updateUserProfile,
@@ -28,8 +26,8 @@ import {
     deleteUserAndProfile,
     UserProfile,
 } from '@/app/api/admin/users/actions';
-import { listarCelulasParaAdmin } from '@/lib/data'; // CelulaOption não é mais exportada por data.ts
-import { CelulaOption } from '@/lib/types'; // Importar CelulaOption de types.ts
+import { listarCelulasParaAdmin } from '@/lib/data';
+import { CelulaOption } from '@/lib/types'; 
 import { formatDateForDisplay } from '@/utils/formatters'; 
 
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -48,7 +46,6 @@ export default function AdminUsersPage() {
     const [submitting, setSubmitting] = useState(false);
 
     const router = useRouter();
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
     const { addToast, removeToast, ToastContainer } = useToast();
 
     const loadData = useCallback(async () => {
@@ -219,7 +216,7 @@ export default function AdminUsersPage() {
                         <span>Convidar Novo Líder / Reenviar Link</span>
                     </h2>
                     <form onSubmit={handleSendMagicLink} className="space-y-4">
-                        <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex flex-col sm:flex-row gap-4"> {/* sm:flex-row para alinhamento em telas maiores */}
                             <div className="flex-1">
                                 <input
                                     type="email"
@@ -299,7 +296,7 @@ export default function AdminUsersPage() {
                                                 </div>
                                             </div>
                                             
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6"> {/* Ajuste de espaçamento para mobile */}
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700 flex items-center space-x-2">
                                                         <FaUserTag className="text-gray-400 text-sm" />
@@ -335,10 +332,10 @@ export default function AdminUsersPage() {
                                                 </div>
                                             </div>
                                             
-                                            <div className="flex space-x-3 justify-end pt-4 border-t border-gray-200">
+                                            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end pt-4 border-t border-gray-200"> {/* Ajuste de responsividade aqui */}
                                                 <button
                                                     type="submit"
-                                                    className="flex items-center space-x-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
+                                                    className="flex items-center space-x-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 w-full sm:w-auto justify-center"
                                                     disabled={submitting}
                                                 >
                                                     <FaSave className="text-sm" />
@@ -347,7 +344,7 @@ export default function AdminUsersPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => setEditingUserId(null)}
-                                                    className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400"
+                                                    className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400 w-full sm:w-auto justify-center"
                                                     disabled={submitting}
                                                 >
                                                     <FaTimes className="text-sm" />
@@ -356,32 +353,32 @@ export default function AdminUsersPage() {
                                             </div>
                                         </form>
                                     ) : (
-                                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0"> {/* Layout responsivo da linha do usuário */}
+                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-x-4"> {/* Informações do usuário em grid responsivo */}
                                                 <div className="flex items-center space-x-3">
-                                                    <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                                    <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
                                                         {profile.email?.charAt(0).toUpperCase() || 'U'}
                                                     </div>
-                                                    <div>
-                                                        <h3 className="font-semibold text-gray-900">{profile.email}</h3>
-                                                        <p className="text-xs text-gray-500">ID: {profile.id.substring(0, 8)}...</p>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-semibold text-gray-900 truncate">{profile.email}</h3>
+                                                        <p className="text-xs text-gray-500 truncate">ID: {profile.id.substring(0, 8)}...</p>
                                                     </div>
                                                 </div>
                                                 
-                                                <div>
+                                                <div className="sm:col-span-1"> {/* Role */}
                                                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleBadge(profile.role || '')}`}>
                                                         {profile.role === 'admin' ? <FaUserCog className="mr-1" /> : <FaUserTag className="mr-1" />}
                                                         {profile.role || 'N/A'}
                                                     </span>
                                                 </div>
                                                 
-                                                <div>
+                                                <div className="sm:col-span-1"> {/* Célula */}
                                                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getCelulaBadge(profile.celula_nome ?? null)}`} >
                                                         {profile.celula_nome || 'Nenhuma célula'}
                                                     </span>
                                                 </div>
                                                 
-                                                <div className="space-y-1">
+                                                <div className="space-y-1 sm:col-span-2 lg:col-span-1"> {/* Datas */}
                                                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                                                         <FaCalendarAlt className="text-gray-400" />
                                                         <span>Último login: {formatDateForDisplay(profile.last_sign_in_at) || 'Nunca'}</span>
@@ -393,7 +390,7 @@ export default function AdminUsersPage() {
                                                 </div>
                                             </div>
                                             
-                                            <div className="flex items-center space-x-2">
+                                            <div className="flex flex-wrap gap-2 justify-end mt-4 md:mt-0"> {/* Botões de ação do usuário responsivos */}
                                                 <button
                                                     onClick={() => handleEditClick(profile)}
                                                     className="inline-flex items-center space-x-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
@@ -401,7 +398,7 @@ export default function AdminUsersPage() {
                                                     disabled={submitting}
                                                 >
                                                     <FaUserEdit className="text-sm" />
-                                                    <span className="text-sm">Editar</span>
+                                                    <span className="text-sm hidden sm:inline">Editar</span> {/* Texto visível em sm: e acima */}
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteUser(profile.id, profile.email)}
@@ -410,7 +407,7 @@ export default function AdminUsersPage() {
                                                     disabled={submitting}
                                                 >
                                                     <FaTrash className="text-sm" />
-                                                    <span className="text-sm">Excluir</span>
+                                                    <span className="text-sm hidden sm:inline">Excluir</span> {/* Texto visível em sm: e acima */}
                                                 </button>
                                             </div>
                                         </div>
