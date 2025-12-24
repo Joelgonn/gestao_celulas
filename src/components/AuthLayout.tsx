@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useRouter, usePathname } from 'next/navigation';
-import LoadingSpinner from './LoadingSpinner'; // Importe o LoadingSpinner
+import LoadingSpinner from '@/components/LoadingSpinner'; // Importação absoluta para padronizar
 
 // Rotas que exigem uma celula_id no perfil do usuário (APENAS PARA LÍDERES)
 const PROTECTED_ROUTES_FOR_APP_CONTENT = [
@@ -15,12 +15,11 @@ const PROTECTED_ROUTES_FOR_APP_CONTENT = [
     '/relatorios',
     '/profile',
     '/admin/celulas',
-    '/admin/users', // NOVO: Adicionado para garantir que admin/users é uma rota protegida
-    '/admin/palavra-semana' // NOVO: Adicionado para garantir que admin/palavra-semana é uma rota protegida
+    '/admin/users',
+    '/admin/palavra-semana'
 ];
 const AUTH_ROUTES = ['/login', '/'];
 const ACTIVATE_ACCOUNT_ROUTE = '/activate-account';
-
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(null);
@@ -39,13 +38,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         .single();
 
     if (fetchError && fetchError.code === 'PGRST116') {
-      // Perfil não encontrado, cria perfil básico (role 'líder' por padrão, celula_id nulo)
+      // Perfil não encontrado, cria perfil básico
       const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
           .insert({
               id: userId,
               email: userEmail || null,
-              role: 'líder', // Default role is 'líder'
+              role: 'líder', // Default role
               celula_id: null
           })
           .select('celula_id, role')
@@ -55,125 +54,106 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           console.error("AuthLayout: Erro ao criar perfil básico:", insertError);
           return null;
       }
-      return newProfile; // Retorna o perfil recém-criado
+      return newProfile;
     } else if (fetchError) {
       console.error("AuthLayout: Erro ao buscar perfil existente:", fetchError);
-      return null; // Erro genérico na busca
+      return null;
     }
-    return existingProfile; // Retorna o perfil encontrado
+    return existingProfile;
   }, []);
 
-  // Ref para armazenar a lógica de redirecionamento, para evitar reexecução em cada renderização
+  // Lógica de redirecionamento (useRef para evitar loops de dependência no useEffect)
   const handleRedirectRef = useRef(async (
       currentSession: any, 
       currentPath: string, 
       profile: { celula_id: string | null; role: 'admin' | 'líder' | null } | null
-  ): Promise<boolean> => { // Retorna boolean para indicar se um redirecionamento ocorreu
+  ): Promise<boolean> => {
     const isAuthRoute = AUTH_ROUTES.includes(currentPath);
     const isActivateRoute = currentPath === ACTIVATE_ACCOUNT_ROUTE;
-    const isAppContentRoute = PROTECTED_ROUTES_FOR_APP_CONTENT.some(route => currentPath.startsWith(route));
-
-    // 1. Se não está logado (sem sessão)
+    
+    // 1. Não logado
     if (!currentSession) {
-      if (!isAuthRoute) { // Se não está em uma rota de autenticação (login, /)
-        router.replace('/login'); // Redireciona para login
-        return true; // Indica que houve um redirecionamento
+      if (!isAuthRoute) {
+        router.replace('/login');
+        return true;
       }
-      return false; // Já está em uma rota de autenticação, permite renderizar (ex: login page)
+      return false;
     }
 
-    // 2. Se está logado, mas o perfil é null (pode acontecer logo após login, antes de createOrFetchProfile)
+    // 2. Logado, mas perfil null (erro ou delay)
     if (profile === null) {
-        // Se o usuário está na rota de ativação, permite que a página de ativação carregue.
-        // A página de ativação lidará com seu próprio estado de carregamento.
         if (isActivateRoute) {
-            setLoading(false); // Permite renderizar a página de ativação
-            return false; // Não redirecionar aqui
+            setLoading(false);
+            return false;
         }
-        // Se estiver em qualquer outra rota protegida e o perfil for null, assume que precisa ativar.
-        // Isso é uma salvaguarda.
         router.replace(ACTIVATE_ACCOUNT_ROUTE);
         return true;
     }
 
-    // 3. Se está logado E tem um perfil:
+    // 3. Logado e com perfil
     
-    // Redirecionamentos específicos para Admin
+    // Admin
     if (profile.role === 'admin') {
-        // Admins devem ser redirecionados de rotas de autenticação ou ativação
         if (isAuthRoute || isActivateRoute) {
             router.replace('/dashboard');
             return true;
         }
-        // Admins podem acessar rotas de admin
-        if (currentPath.startsWith('/admin')) {
-            return false; // Permite acesso
-        }
-        // Admins também podem acessar o conteúdo normal da aplicação (dashboard, membros, etc.)
-        return false; // Permite acesso ao resto da aplicação
+        return false; // Permite acesso a tudo
     }
 
-    // Redirecionamentos para Líder (ou qualquer usuário que não seja admin)
+    // Líder
     if (!profile.celula_id) {
-      // Se o usuário é líder (ou não admin) e NÃO tem celula_id no perfil
-      if (!isActivateRoute) { // E NÃO está na rota de ativação
-        router.replace(ACTIVATE_ACCOUNT_ROUTE); // Redireciona para a página de ativação
+      // Líder sem célula (não ativado)
+      if (!isActivateRoute) {
+        router.replace(ACTIVATE_ACCOUNT_ROUTE);
         return true;
       }
-      return false; // Já está na rota de ativação, permite renderizar
+      return false;
     } else {
-      // Se o usuário é líder E tem celula_id (ativado):
-      // Redireciona de rotas de autenticação ou ativação para o dashboard
+      // Líder ativado
       if (isActivateRoute || isAuthRoute) {
         router.replace('/dashboard');
         return true;
       }
-      // Líderes ATIVADOS NÃO DEVEM acessar rotas de admin
       if (currentPath.startsWith('/admin')) {
-        router.replace('/dashboard'); // Redireciona para o dashboard
+        router.replace('/dashboard');
         return true;
       }
-      return false; // Permite renderizar o conteúdo da aplicação
+      return false;
     }
   });
 
-  // Efeito para setup inicial e listener de autenticação
+  // Listener de Autenticação
   useEffect(() => {
-    let subscription: any; // Para guardar a assinatura do listener do Supabase
-    const currentHandleRedirect = handleRedirectRef.current; // Captura a referência da função
+    let subscription: any;
+    const currentHandleRedirect = handleRedirectRef.current;
 
     const setupAuthAndRedirect = async () => {
-      setLoading(true); // Inicia o carregamento
+      setLoading(true);
 
-      // Obtém a sessão atual
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        console.error("AuthLayout: Erro ao obter sessão inicial:", sessionError);
-      }
-      setSession(currentSession); // Atualiza o estado da sessão
+      if (sessionError) console.error("AuthLayout: Erro de sessão:", sessionError);
+      
+      setSession(currentSession);
 
-      // Tenta buscar ou criar o perfil do usuário
       let fetchedProfile = null;
       if (currentSession?.user) {
         fetchedProfile = await createOrFetchProfile(currentSession.user.id, currentSession.user.email);
-        setUserProfile(fetchedProfile); // Atualiza o estado do perfil
+        setUserProfile(fetchedProfile);
       } else {
-        setUserProfile(null); // Limpa o perfil se não houver sessão
+        setUserProfile(null);
       }
 
-      // Executa a lógica de redirecionamento com base no estado atual
       const needsRedirect = await currentHandleRedirect(currentSession, pathname, fetchedProfile);
 
       if (needsRedirect) {
-        setLoading(false); // Se houve redirecionamento, para o loading
-        return; // Não precisa configurar o listener ou continuar
+        setLoading(false);
+        return;
       }
 
-      // Se não houve redirecionamento imediato, configura o listener para mudanças de estado de autenticação
       const { data } = supabase.auth.onAuthStateChange(
         async (event, currentSession) => {
-          // console.log("Auth State Change:", event, currentSession?.user?.email); // Debug
-          setSession(currentSession); // Atualiza a sessão quando muda
+          setSession(currentSession);
           
           let updatedFetchedProfile = null;
           if (currentSession?.user) {
@@ -182,52 +162,41 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           } else {
             setUserProfile(null);
           }
-          // Reexecuta a lógica de redirecionamento após a mudança de estado
           await currentHandleRedirect(currentSession, pathname, updatedFetchedProfile);
         }
       );
-      subscription = data.subscription; // Guarda a função de unsubscribe
+      subscription = data.subscription;
 
-      setLoading(false); // Finaliza o carregamento inicial
+      setLoading(false);
     };
 
     setupAuthAndRedirect();
 
-    // Limpa o listener quando o componente é desmontado
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      if (subscription) subscription.unsubscribe();
     };
-  }, [pathname, createOrFetchProfile]); // Dependências do efeito
+  }, [pathname, createOrFetchProfile]);
 
 
-  // Lógica para renderizar o spinner de carregamento ou o conteúdo
-  // Se estiver carregando E não estivermos na rota de ativação E o perfil ainda não estiver ok: mostra o spinner.
-  // Se estiver na rota de ativação e perfil ainda não estiver ok, permite renderizar a página de ativação.
   const isLoggedIn = !!session?.user;
   const isActivateRoute = pathname === ACTIVATE_ACCOUNT_ROUTE;
-  const hasProfileData = userProfile !== null; // Verifica se o perfil foi obtido (mesmo que null, indica que a busca terminou)
+  const hasProfileData = userProfile !== null;
   const hasCelulaId = userProfile?.celula_id !== null && userProfile?.celula_id !== undefined;
   const isAdmin = userProfile?.role === 'admin';
 
-  // Renderiza o spinner se estivermos em carregamento E não nos cenários de exceção
+  // Renderiza spinner de TELA CHEIA durante verificação inicial
   if (loading && !(isLoggedIn && isActivateRoute && !hasProfileData)) {
-      return <LoadingSpinner />;
+      return <LoadingSpinner fullScreen text="Verificando acesso..." />;
   }
 
-  // Se estiver logado, na rota de ativação, e o perfil ainda não foi carregado ou não tem celula_id
-  // (o que significa que o usuário está no fluxo de ativação), renderiza os filhos (ActivateAccountPage).
+  // Renderização de conteúdo baseada no estado
   if (isLoggedIn && isActivateRoute && (!hasProfileData || !hasCelulaId && !isAdmin)) {
       return <>{children}</>;
   }
 
-  // Se não está logado E está em uma rota de autenticação (login, /), renderiza os filhos (AuthForm).
   if (!isLoggedIn && AUTH_ROUTES.includes(pathname)) {
       return <>{children}</>;
   }
 
-  // Se todas as verificações de redirecionamento foram satisfeitas e loading é falso, renderiza os filhos.
-  // Isso ocorre quando o usuário está logado e tem o perfil completo, ou quando está em uma rota pública.
   return <>{children}</>;
 }
