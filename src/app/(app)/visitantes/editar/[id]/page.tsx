@@ -1,42 +1,31 @@
+// src/app/(app)/visitantes/editar/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-// Importa funções de data.ts
-import {
-    getVisitante,
-    atualizarVisitante,
-} from '@/lib/data';
-// Importa a interface Visitante de types.ts
-import { Visitante,
-    VisitanteEditFormData,
- } from '@/lib/types';
-
+import { getVisitante, atualizarVisitante } from '@/lib/data';
+import { VisitanteEditFormData } from '@/lib/types';
 import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
-
-// --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
-import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
-// --- FIM REFATORAÇÃO TOASTS ---
+import LoadingSpinner from '@/components/LoadingSpinner';
 
-// A interface VisitanteFormData local não é mais necessária se VisitanteEditFormData de types.ts for usada
-// interface VisitanteFormData {
-//     nome: string;
-//     telefone: string | null;
-//     data_primeira_visita: string;
-//     data_nascimento: string | null;
-//     endereco: string | null;
-//     data_ultimo_contato: string | null;
-//     observacoes: string | null;
-// }
+import { 
+    FaUser, 
+    FaPhone, 
+    FaCalendarAlt, 
+    FaMapMarkerAlt, 
+    FaComment, 
+    FaClock, 
+    FaSave, 
+    FaArrowLeft,
+    FaUserEdit
+} from 'react-icons/fa';
 
 export default function EditVisitantePage() {
     const params = useParams();
     const visitanteId = params.id as string;
     
-    // Usando a interface VisitanteEditFormData de types.ts
     const [formData, setFormData] = useState<VisitanteEditFormData>({
         nome: '',
         telefone: null,
@@ -45,12 +34,10 @@ export default function EditVisitantePage() {
         endereco: null,
         data_ultimo_contato: null,
         observacoes: null,
-        status_conversao: 'Em Contato', // Default se não vier do DB
+        status_conversao: 'Em Contato',
     });
     
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
-    const { addToast, removeToast, ToastContainer } = useToast();
-
+    const { addToast, ToastContainer } = useToast();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
@@ -62,8 +49,7 @@ export default function EditVisitantePage() {
                 const data = await getVisitante(visitanteId); 
 
                 if (!data) {
-                    addToast('O visitante solicitado não existe ou você não tem permissão para acessá-lo', 'error');
-                    setLoading(false);
+                    addToast('Visitante não encontrado.', 'error');
                     setTimeout(() => router.replace('/visitantes'), 2000);
                     return;
                 }
@@ -76,14 +62,12 @@ export default function EditVisitantePage() {
                     endereco: data.endereco || null,
                     data_ultimo_contato: data.data_ultimo_contato ? formatDateForInput(data.data_ultimo_contato) : null,
                     observacoes: data.observacoes || null,
-                    status_conversao: data.status_conversao || 'Em Contato', // Garantir um valor padrão
+                    status_conversao: data.status_conversao || 'Em Contato',
                 });
 
-                addToast('Informações do visitante carregadas com sucesso', 'success', 3000);
-
             } catch (e: any) {
-                console.error("Erro ao buscar visitante:", e);
-                addToast(e.message || 'Erro desconhecido ao carregar dados do visitante', 'error');
+                console.error("Erro fetch:", e);
+                addToast('Erro ao carregar dados', 'error');
             } finally {
                 setLoading(false);
             }
@@ -94,256 +78,215 @@ export default function EditVisitantePage() {
         }
     }, [visitanteId, router, addToast]); 
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    // Otimização com useCallback
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (name === 'telefone') {
             setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value === '' ? null : value })); 
         }
-    };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
 
-        // Validações
         if (!formData.nome.trim()) {
-            addToast('O campo "Nome Completo" é obrigatório', 'error');
+            addToast('Nome é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
 
         const normalizedPhone = normalizePhoneNumber(formData.telefone);
         if (normalizedPhone && (normalizedPhone.length < 10 || normalizedPhone.length > 11)) {
-            addToast('O número de telefone deve ter 10 ou 11 dígitos (incluindo DDD)', 'error');
+            addToast('Telefone inválido', 'error');
             setSubmitting(false);
             return;
         }
 
         try {
             await atualizarVisitante({
-                nome: formData.nome,
+                ...formData,
                 telefone: normalizedPhone || null,
-                data_primeira_visita: formData.data_primeira_visita,
-                data_nascimento: formData.data_nascimento || null, // Garante null para o DB
-                endereco: formData.endereco || null,
-                data_ultimo_contato: formData.data_ultimo_contato || null,
-                observacoes: formData.observacoes || null,
-                // status_conversao: formData.status_conversao || 'Em Contato', // Se você precisar salvar o status_conversao, adicione aqui
             }, visitanteId);
 
-            addToast('Visitante atualizado com sucesso', 'success', 3000);
-
-            setTimeout(() => {
-                router.push('/visitantes');
-            }, 2000);
+            addToast('Visitante atualizado!', 'success', 3000);
+            setTimeout(() => router.push('/visitantes'), 1500);
 
         } catch (e: any) {
-            console.error("Erro ao atualizar visitante:", e);
-            addToast(e.message || 'Erro desconhecido ao atualizar visitante', 'error');
+            console.error("Erro update:", e);
+            addToast('Erro ao atualizar', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <LoadingSpinner />
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Renderiza o ToastContainer do hook global */}
+        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
             <ToastContainer />
 
-            {/* Conteúdo Principal */}
-            <div className="max-w-2xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-                    {/* Header com Gradiente */}
-                    <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-8">
-                        <div className="flex items-center justify-between">
+            <div className="max-w-2xl mx-auto mt-4 sm:mt-0">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    
+                    {/* Header Responsivo */}
+                    <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-6 sm:px-6 sm:py-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
-                                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
+                                    <FaUserEdit className="w-6 h-6 sm:w-8 sm:h-8" />
                                     Editar Visitante
                                 </h1>
-                                <p className="text-purple-100 mt-2">Atualize as informações do visitante</p>
+                                <p className="text-purple-100 mt-1 text-sm sm:text-base">
+                                    Atualize as informações do visitante
+                                </p>
                             </div>
                             <Link
                                 href="/visitantes"
-                                className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30"
+                                className="inline-flex justify-center items-center px-4 py-3 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/30 text-sm font-medium w-full sm:w-auto"
                             >
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                </svg>
+                                <FaArrowLeft className="w-3 h-3 mr-2" />
                                 Voltar
                             </Link>
                         </div>
                     </div>
 
                     {/* Formulário */}
-                    <div className="p-6 sm:p-8">
-                        {loading ? (
-                            <LoadingSpinner text="Carregando dados do visitante..." />
-                        ) : (
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                {/* Campo Nome */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="nome" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        Nome Completo *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="nome"
-                                        name="nome"
-                                        value={formData.nome}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                        placeholder="Digite o nome completo"
-                                    />
-                                </div>
+                    <div className="p-4 sm:p-8">
+                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+                            
+                            {/* Nome */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaUser className="text-purple-500" /> Nome Completo *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="nome"
+                                    value={formData.nome}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder:text-gray-400"
+                                    placeholder="Nome do visitante"
+                                />
+                            </div>
 
-                                {/* Campo Telefone */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="telefone" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                        </svg>
-                                        Telefone
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="telefone"
-                                        name="telefone"
-                                        value={formData.telefone || ''} // Corrigido para lidar com null
-                                        onChange={handleChange}
-                                        placeholder="(XX) XXXXX-XXXX"
-                                        maxLength={11}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                    />
-                                </div>
+                            {/* Telefone */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaPhone className="text-purple-500" /> Telefone
+                                </label>
+                                <input
+                                    type="tel"
+                                    name="telefone"
+                                    value={formData.telefone || ''}
+                                    onChange={handleChange}
+                                    placeholder="(XX) XXXXX-XXXX"
+                                    maxLength={11}
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder:text-gray-400"
+                                />
+                            </div>
 
-                                {/* Endereço */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="endereco" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        Endereço
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="endereco"
-                                        name="endereco"
-                                        value={formData.endereco || ''} // Corrigido para lidar com null
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                        placeholder="Digite o endereço completo"
-                                    />
-                                </div>
+                            {/* Endereço */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaMapMarkerAlt className="text-purple-500" /> Endereço
+                                </label>
+                                <input
+                                    type="text"
+                                    name="endereco"
+                                    value={formData.endereco || ''}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder:text-gray-400"
+                                    placeholder="Endereço completo"
+                                />
+                            </div>
 
-                                {/* Datas */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Data Primeira Visita */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="data_primeira_visita" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            Data da 1ª Visita *
-                                        </label>
-                                        <input
-                                            type="date"
-                                            id="data_primeira_visita"
-                                            name="data_primeira_visita"
-                                            value={formData.data_primeira_visita}
-                                            onChange={handleChange}
-                                            required
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                        />
-                                    </div>
-
-                                    {/* Data de Nascimento */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="data_nascimento" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            Data de Nascimento
-                                        </label>
-                                        <input
-                                            type="date"
-                                            id="data_nascimento"
-                                            name="data_nascimento"
-                                            value={formData.data_nascimento || ''} // Corrigido para lidar com null
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Data Último Contato */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="data_ultimo_contato" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        Data Último Contato
+                            {/* Datas */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <FaCalendarAlt className="text-purple-500" /> Data 1ª Visita *
                                     </label>
                                     <input
                                         type="date"
-                                        id="data_ultimo_contato"
-                                        name="data_ultimo_contato"
-                                        value={formData.data_ultimo_contato || ''} // Corrigido para lidar com null
+                                        name="data_primeira_visita"
+                                        value={formData.data_primeira_visita}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                                        required
+                                        className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                                     />
                                 </div>
 
-                                {/* Observações */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="observacoes" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        Observações
+                                <div className="space-y-1">
+                                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <FaCalendarAlt className="text-purple-500" /> Data Nascimento
                                     </label>
-                                    <textarea
-                                        id="observacoes"
-                                        name="observacoes"
-                                        value={formData.observacoes || ''} // Corrigido para lidar com null
+                                    <input
+                                        type="date"
+                                        name="data_nascimento"
+                                        value={formData.data_nascimento || ''}
                                         onChange={handleChange}
-                                        rows={4}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 resize-none"
-                                        placeholder="Adicione observações sobre o visitante..."
+                                        className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                                     />
                                 </div>
+                            </div>
 
-                                {/* Botão Submit */}
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                            Atualizando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            Atualizar Visitante
-                                        </>
-                                    )}
-                                </button>
-                            </form>
-                        )}
+                            {/* Último Contato */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaClock className="text-purple-500" /> Data Último Contato
+                                </label>
+                                <input
+                                    type="date"
+                                    name="data_ultimo_contato"
+                                    value={formData.data_ultimo_contato || ''}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            {/* Observações */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaComment className="text-purple-500" /> Observações
+                                </label>
+                                <textarea
+                                    name="observacoes"
+                                    value={formData.observacoes || ''}
+                                    onChange={handleChange}
+                                    rows={4}
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all resize-none placeholder:text-gray-400"
+                                    placeholder="Anotações sobre o visitante..."
+                                />
+                            </div>
+
+                            {/* Botão Submit */}
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 px-6 rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2 text-lg"
+                            >
+                                {submitting ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Atualizando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaSave /> Salvar Alterações
+                                    </>
+                                )}
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
