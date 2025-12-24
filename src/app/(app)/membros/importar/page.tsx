@@ -11,8 +11,13 @@ import { ImportMembroResult } from '@/lib/types';
 
 // --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Para o loading inicial, embora não usado diretamente aqui
-// --- FIM REFATORAÇÃO ---
+// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
+// (o ToastContainer do hook já importa e usa o componente Toast internamente)
+// import Toast from '@/components/ui/Toast';
+// --- FIM REFATORAÇÃO TOASTS ---
+
+// Importando ícones react-icons para consistência
+import { FaCloudUploadAlt, FaArrowLeft, FaFileCsv, FaInfoCircle, FaExclamationTriangle, FaCheckCircle, FaSpinner } from 'react-icons/fa';
 
 export default function ImportarMembrosPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -22,6 +27,7 @@ export default function ImportarMembrosPage() {
 
   const router = useRouter();
 
+  // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
   const { addToast, removeToast, ToastContainer } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,7 +38,7 @@ export default function ImportarMembrosPage() {
       setErrors([]);
       
       addToast(
-        `Arquivo selecionado: ${file.name} pronto para importação`,
+        `Arquivo selecionado: ${file.name}`,
         'success',
         3000
       );
@@ -61,7 +67,7 @@ export default function ImportarMembrosPage() {
 
         if (result.success) {
           addToast(
-            `${result.importedCount} membros importados com sucesso!`,
+            `${result.importedCount} membros importados!`,
             'success',
             4000
           );
@@ -91,7 +97,7 @@ export default function ImportarMembrosPage() {
     } catch (error: any) {
       console.error("Erro ao ler arquivo ou na importação:", error);
       addToast(
-        `Erro inesperado: ${error.message || "Erro desconhecido durante a importação"}`,
+        `Erro inesperado: ${error.message || "Erro desconhecido"}`,
         'error'
       );
       setLoading(false);
@@ -99,116 +105,121 @@ export default function ImportarMembrosPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
       {/* Renderiza o ToastContainer do hook global */}
       <ToastContainer />
 
       {/* Conteúdo Principal */}
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-          {/* Header com Gradiente */}
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-6 sm:py-8"> {/* Ajuste de padding aqui */}
-            <div className="flex items-center justify-between">
+      <div className="max-w-2xl mx-auto mt-4 sm:mt-0">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          
+          {/* Header Responsivo */}
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-6 sm:px-6 sm:py-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3"> {/* Ajuste de fonte */}
-                  <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ajuste de ícone */}
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                  </svg>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
+                  <FaCloudUploadAlt className="w-6 h-6 sm:w-8 sm:h-8" />
                   Importar Membros
                 </h1>
-                <p className="text-green-100 mt-2 text-sm sm:text-base">Importe membros em lote usando arquivo CSV</p> {/* Ajuste de fonte */}
+                <p className="text-green-100 mt-1 text-sm sm:text-base">Importe membros em lote via CSV</p>
               </div>
+              
               <Link 
                 href="/membros"
-                className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30 text-sm" // Ajuste de padding e fonte
+                className="inline-flex justify-center items-center px-4 py-3 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/30 text-sm font-medium w-full sm:w-auto"
               >
-                <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ajuste de ícone */}
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <FaArrowLeft className="w-3 h-3 mr-2" />
                 Voltar
               </Link>
             </div>
           </div>
 
           {/* Formulário */}
-          <div className="p-4 sm:p-6"> {/* Padding ajustado */}
-            <form onSubmit={handleImport} className="space-y-6">
-              {/* Upload de Arquivo */}
-              <div className="bg-gray-50 rounded-xl p-4 sm:p-6 border-2 border-dashed border-gray-300 hover:border-green-400 transition-all duration-200"> {/* Padding ajustado */}
-                <label htmlFor="csvFile" className="block text-center cursor-pointer">
-                  <svg className="w-10 h-10 sm:w-12 sm:h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ícone ajustado */}
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                  </svg>
-                  <span className="block text-base sm:text-sm font-semibold text-gray-700 mb-2"> {/* Fonte ajustada */}
-                    {fileName ? fileName : 'Selecione o arquivo CSV'}
-                  </span>
-                  <span className="block text-xs sm:text-sm text-gray-500 mb-4"> {/* Fonte ajustada */}
-                    Clique para selecionar ou arraste o arquivo
-                  </span>
-                  <input
-                    type="file"
-                    id="csvFile"
-                    accept=".csv"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    required
-                    disabled={loading}
-                  />
-                  <div className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"> {/* Padding e fonte ajustados */}
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ícone ajustado */}
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Selecionar Arquivo
-                  </div>
+          <div className="p-4 sm:p-8">
+            <form onSubmit={handleImport} className="space-y-6 sm:space-y-8">
+              
+              {/* Área de Upload */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Selecione o arquivo</label>
+                <label 
+                    htmlFor="csvFile" 
+                    className={`
+                        flex flex-col items-center justify-center w-full h-32 sm:h-40 
+                        border-2 border-dashed rounded-lg cursor-pointer transition-colors
+                        ${fileName ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}
+                    `}
+                >
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                        {fileName ? (
+                            <>
+                                <FaFileCsv className="w-8 h-8 text-green-600 mb-2" />
+                                <p className="text-sm text-green-700 font-medium break-all max-w-xs">{fileName}</p>
+                                <p className="text-xs text-green-600 mt-1">Clique para trocar</p>
+                            </>
+                        ) : (
+                            <>
+                                <FaCloudUploadAlt className="w-8 h-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-500 font-medium">Toque para selecionar o CSV</p>
+                                <p className="text-xs text-gray-400 mt-1">ou arraste e solte aqui</p>
+                            </>
+                        )}
+                    </div>
+                    <input
+                        type="file"
+                        id="csvFile"
+                        accept=".csv"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        required
+                        disabled={loading}
+                    />
                 </label>
               </div>
 
               {/* Instruções */}
-              <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200"> {/* Padding ajustado */}
-                <h3 className="text-base sm:text-lg font-semibold text-blue-800 mb-3 flex items-center gap-2"> {/* Fonte ajustada */}
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ícone ajustado */}
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Formato do CSV
+              <div className="bg-blue-50 rounded-xl p-4 sm:p-5 border border-blue-200 text-sm text-blue-800">
+                <h3 className="font-bold mb-3 flex items-center gap-2 text-base">
+                  <FaInfoCircle /> Formato Obrigatório
                 </h3>
-                <div className="space-y-2 text-sm text-blue-700">
-                  <p>O CSV deve ter os seguintes cabeçalhos (case-insensitive, ordem não importa):</p>
-                  <div className="bg-white rounded-lg p-2 sm:p-3 border border-blue-200"> {/* Padding ajustado */}
-                    <code className="text-xs sm:text-sm font-mono bg-blue-100 px-1.5 py-0.5 rounded"> {/* Fonte ajustada */}
-                      nome, telefone, data_ingresso, data_nascimento, endereco, status
-                    </code>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <p className="font-semibold text-sm">Campos obrigatórios:</p> {/* Fonte ajustada */}
-                    <ul className="list-disc list-inside ml-2 space-y-1 text-sm"> {/* Fonte ajustada */}
-                      <li><code className="bg-blue-100 px-1 rounded">nome</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">data_ingresso</code></li>
-                    </ul>
-                    <p className="font-semibold mt-2 text-sm">Status permitidos:</p> {/* Fonte ajustada */}
-                    <ul className="list-disc list-inside ml-2 text-sm"> {/* Fonte ajustada */}
-                      <li>Ativo, Inativo, Em transição</li>
-                    </ul>
-                  </div>
+                <p className="mb-3">O arquivo CSV deve conter os seguintes cabeçalhos:</p>
+                <div className="bg-white rounded-lg p-3 border border-blue-100 overflow-x-auto mb-4">
+                  <code className="font-mono text-xs sm:text-sm text-blue-700 whitespace-nowrap">
+                    nome, telefone, data_ingresso, data_nascimento, endereco, status
+                  </code>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <p className="font-semibold text-xs uppercase tracking-wide text-blue-600 mb-1">Obrigatórios</p>
+                        <ul className="list-disc list-inside space-y-0.5 ml-1">
+                            <li>nome</li>
+                            <li>data_ingresso</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-xs uppercase tracking-wide text-blue-600 mb-1">Status Válidos</p>
+                        <ul className="list-disc list-inside space-y-0.5 ml-1">
+                            <li>Ativo</li>
+                            <li>Inativo</li>
+                            <li>Em transição</li>
+                        </ul>
+                    </div>
                 </div>
               </div>
 
-              {/* Botão de Importação */}
+              {/* Botão de Ação */}
               <button
                 type="submit"
                 disabled={loading || !csvFile}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-5 sm:py-4 sm:px-6 rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2 text-base" // Padding e fonte ajustados
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white text-lg font-bold py-4 px-6 rounded-xl shadow-md active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div> {/* Ícone ajustado */}
-                    Importando...
+                    <FaSpinner className="animate-spin" /> Processando...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ícone ajustado */}
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Iniciar Importação
+                    <FaCheckCircle /> Iniciar Importação
                   </>
                 )}
               </button>
@@ -216,32 +227,27 @@ export default function ImportarMembrosPage() {
 
             {/* Lista de Erros */}
             {errors.length > 0 && (
-              <div className="mt-8 bg-red-50 border border-red-200 rounded-xl overflow-hidden">
-                <div className="bg-red-600 px-4 py-3 sm:px-6 sm:py-4"> {/* Padding ajustado */}
-                  <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2"> {/* Fonte ajustada */}
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"> {/* Ícone ajustado */}
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Erros na Importação ({errors.length})
-                  </h3>
-                </div>
-                <div className="max-h-80 overflow-y-auto p-3 sm:p-4"> {/* Padding ajustado */}
-                  <div className="space-y-3">
+              <div className="mt-8 animate-in slide-in-from-bottom duration-300">
+                <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-red-100 px-4 py-3 border-b border-red-200 flex justify-between items-center">
+                    <h3 className="font-bold text-red-800 flex items-center gap-2">
+                      <FaExclamationTriangle /> Erros ({errors.length})
+                    </h3>
+                  </div>
+                  
+                  <div className="max-h-60 overflow-y-auto divide-y divide-red-100">
                     {errors.map((err, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border border-red-200 shadow-sm"> {/* Padding ajustado */}
-                        <div className="flex items-start gap-2 sm:gap-3"> {/* Espaçamento ajustado */}
-                          <div className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold"> {/* Tamanho do círculo e fonte ajustados */}
+                      <div key={index} className="p-4 text-sm hover:bg-red-50/50 transition-colors">
+                        <div className="flex gap-3">
+                          <span className="flex-shrink-0 w-6 h-6 bg-red-200 text-red-700 rounded-full flex items-center justify-center text-xs font-bold">
                             {err.rowIndex}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-red-700 font-medium text-sm"> {err.error}</p> {/* Fonte ajustada */}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-red-700 font-medium mb-1">{err.error}</p>
                             {err.data && (
-                              <div className="mt-2 p-2 bg-gray-50 rounded border text-xs sm:text-sm"> {/* Fonte ajustada */}
-                                <span className="font-semibold text-gray-600">Dados:</span>
-                                <pre className="mt-1 text-gray-600 whitespace-pre-wrap">
-                                  {JSON.stringify(err.data, null, 2)}
-                                </pre>
-                              </div>
+                                <div className="bg-white border border-red-100 rounded p-2 text-xs font-mono text-gray-600 overflow-x-auto">
+                                    {JSON.stringify(err.data)}
+                                </div>
                             )}
                           </div>
                         </div>
