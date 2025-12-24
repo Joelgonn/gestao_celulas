@@ -1,18 +1,12 @@
+// src/app/(app)/profile/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// Importa funções de data.ts
-import {
-    getUserProfile,
-    updateUserProfileData,
-    updateUserPassword,
-} from '@/lib/data';
-// Importa a interface Profile de types.ts
+import { getUserProfile, updateUserProfileData, updateUserPassword } from '@/lib/data';
 import { Profile } from '@/lib/types';
-
-import { normalizePhoneNumber, formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters';
+import { normalizePhoneNumber, formatDateForDisplay } from '@/utils/formatters';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   FaUser,
@@ -21,20 +15,15 @@ import {
   FaCalendarAlt,
   FaPhone,
   FaLock,
-  FaCheckCircle,
   FaExclamationTriangle,
-  FaInfoCircle,
-  FaTimes,
   FaEdit,
   FaKey,
-  FaArrowLeft
+  FaArrowLeft,
+  FaSave,
+  FaSpinner
 } from 'react-icons/fa';
 
-// --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
-// --- FIM REFATORAÇÃO TOASTS ---
-
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -42,20 +31,18 @@ export default function ProfilePage() {
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
 
-    // Estados para o formulário de edição do perfil
+    // Formulário de perfil
     const [formData, setFormData] = useState({
-        nome_completo: '', // Profile.nome_completo é string | null, mas aqui o input espera string
-        telefone: '',      // Profile.telefone é string | null, mas aqui o input espera string
+        nome_completo: '', 
+        telefone: '',      
     });
 
-    // Estados para o formulário de troca de senha
+    // Formulário de senha
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const router = useRouter();
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
-    const { addToast, removeToast, ToastContainer } = useToast();
-
+    const { addToast, ToastContainer } = useToast();
 
     const fetchUserProfile = useCallback(async () => {
         setLoading(true);
@@ -64,16 +51,16 @@ export default function ProfilePage() {
             if (userProfileData) {
                 setProfile(userProfileData);
                 setFormData({
-                    nome_completo: userProfileData.nome_completo || '', // Garante string para o input
-                    telefone: normalizePhoneNumber(userProfileData.telefone) || '', // Garante string para o input
+                    nome_completo: userProfileData.nome_completo || '', 
+                    telefone: normalizePhoneNumber(userProfileData.telefone) || '', 
                 });
-                addToast('Perfil carregado com sucesso', 'success', 3000);
+                // addToast('Perfil carregado', 'success'); // Opcional
             } else {
-                addToast("Perfil não encontrado ou acesso negado.", 'error');
+                addToast("Perfil não encontrado.", 'error');
             }
         } catch (err: any) {
             console.error("Erro ao carregar perfil:", err);
-            addToast(err.message || "Falha ao carregar dados do perfil.", 'error');
+            addToast("Falha ao carregar perfil.", 'error');
         } finally {
             setLoading(false);
         }
@@ -94,21 +81,11 @@ export default function ProfilePage() {
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!profile) return;
         setSubmitting(true);
 
-        if (!profile) {
-            addToast("Nenhum perfil para atualizar.", 'error');
-            setSubmitting(false);
-            return;
-        }
         if (!formData.nome_completo.trim()) {
-            addToast("O campo 'Nome Completo' é obrigatório.", 'error');
-            setSubmitting(false);
-            return;
-        }
-        const normalizedPhone = normalizePhoneNumber(formData.telefone);
-        if (normalizedPhone && (normalizedPhone.length < 10 || normalizedPhone.length > 11)) {
-            addToast("Telefone inválido. Deve ter 10 ou 11 dígitos ou estar vazio.", 'error');
+            addToast("Nome é obrigatório.", 'error');
             setSubmitting(false);
             return;
         }
@@ -116,13 +93,13 @@ export default function ProfilePage() {
         try {
             await updateUserProfileData(profile.id, {
                 nome_completo: formData.nome_completo.trim(),
-                telefone: normalizedPhone || null, // Garante null para o DB se for vazio
+                telefone: formData.telefone || null, 
             });
-            addToast("Perfil atualizado com sucesso!", 'success');
-            fetchUserProfile(); // Re-fetch para atualizar os dados exibidos no perfil e na sidebar
+            addToast("Perfil atualizado!", 'success');
+            fetchUserProfile(); 
         } catch (err: any) {
-            console.error("Erro ao atualizar perfil:", err);
-            addToast(err.message || "Falha ao atualizar perfil.", 'error');
+            console.error("Erro update:", err);
+            addToast("Erro ao atualizar perfil.", 'error');
         } finally {
             setSubmitting(false);
         }
@@ -133,12 +110,12 @@ export default function ProfilePage() {
         setSubmitting(true);
 
         if (newPassword.length < 6) {
-            addToast("A senha deve ter no mínimo 6 caracteres.", 'error');
+            addToast("Senha deve ter min. 6 caracteres.", 'error');
             setSubmitting(false);
             return;
         }
         if (newPassword !== confirmPassword) {
-            addToast("As senhas não coincidem.", 'error');
+            addToast("Senhas não conferem.", 'error');
             setSubmitting(false);
             return;
         }
@@ -146,16 +123,16 @@ export default function ProfilePage() {
         try {
             const { success, message } = await updateUserPassword(newPassword);
             if (success) {
-                addToast(message, 'success');
+                addToast("Senha alterada com sucesso!", 'success');
                 setNewPassword('');
                 setConfirmPassword('');
-                setActiveTab('profile'); // Volta para a aba de perfil após sucesso
+                setActiveTab('profile'); 
             } else {
                 addToast(message, 'error');
             }
         } catch (err: any) {
-            console.error("Erro ao trocar senha:", err);
-            addToast(err.message || "Falha ao trocar senha.", 'error');
+            console.error("Erro senha:", err);
+            addToast("Erro ao trocar senha.", 'error');
         } finally {
             setSubmitting(false);
         }
@@ -163,7 +140,7 @@ export default function ProfilePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <LoadingSpinner />
             </div>
         );
@@ -171,16 +148,15 @@ export default function ProfilePage() {
 
     if (!profile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <FaExclamationTriangle className="text-2xl text-red-600" />
+                        <FaExclamationTriangle className="text-2xl text-red-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-red-600 mb-2">Perfil não encontrado</h2>
-                    <p className="text-gray-600 mb-6">Não foi possível carregar os dados do seu perfil.</p>
+                    <h2 className="text-xl font-bold text-gray-800 mb-2">Perfil não encontrado</h2>
                     <button
                         onClick={fetchUserProfile}
-                        className="bg-gradient-to-r from-red-600 to-orange-600 text-white py-3 px-6 rounded-xl hover:from-red-700 hover:to-orange-700 transition-all duration-200 font-medium"
+                        className="mt-4 w-full bg-red-600 text-white py-3 rounded-xl hover:bg-red-700 font-medium"
                     >
                         Tentar Novamente
                     </button>
@@ -190,231 +166,182 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-            <div className="max-w-4xl mx-auto">
-                {/* Header com gradiente */}
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-6 lg:space-y-0">
-                        <div className="flex items-center space-x-4">
-                            <Link
-                                href="/dashboard"
-                                className="bg-white bg-opacity-20 p-3 rounded-xl hover:bg-opacity-30 transition-all duration-200"
-                            >
-                                <FaArrowLeft className="text-lg" />
-                            </Link>
-                            <div>
-                                <h1 className="text-3xl lg:text-4xl font-bold mb-2">Meu Perfil</h1>
-                                <p className="text-purple-100 text-lg">Gerencie suas informações pessoais e segurança</p>
-                            </div>
-                        </div>
+        <div className="min-h-screen bg-gray-50 pb-20">
+            <ToastContainer />
 
-                        <div className="bg-white bg-opacity-20 rounded-xl p-4">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-12 h-12 bg-white bg-opacity-30 rounded-full flex items-center justify-center">
-                                    <FaUser className="text-xl" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold">{profile.nome_completo || 'Usuário'}</p>
-                                    <p className="text-purple-100 text-sm">{profile.role === 'admin' ? 'Administrador' : 'Líder'}</p>
-                                </div>
+            {/* Header Responsivo */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 shadow-lg px-4 py-6 sm:px-8 pb-16">
+                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <Link href="/dashboard" className="bg-white/20 p-3 rounded-xl text-white hover:bg-white/30 transition-colors">
+                            <FaArrowLeft />
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-white">Meu Perfil</h1>
+                            <p className="text-purple-100 text-sm">Gerencie seus dados</p>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex items-center gap-3 border border-white/20">
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white">
+                            <FaUser />
+                        </div>
+                        <div className="text-white">
+                            <p className="font-bold text-sm leading-tight">{profile.nome_completo || 'Usuário'}</p>
+                            <p className="text-xs text-purple-200 uppercase font-bold tracking-wide">
+                                {profile.role === 'admin' ? 'Administrador' : 'Líder'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto px-4 -mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Sidebar Navigation */}
+                <div className="lg:col-span-1 space-y-4">
+                    <div className="bg-white rounded-2xl shadow-md p-4 space-y-2">
+                        <button
+                            onClick={() => setActiveTab('profile')}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium text-sm ${
+                                activeTab === 'profile'
+                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-purple-200'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            <FaUser className={activeTab === 'profile' ? 'text-purple-600' : 'text-gray-400'} />
+                            Dados Pessoais
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('password')}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium text-sm ${
+                                activeTab === 'password'
+                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-purple-200'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            <FaLock className={activeTab === 'password' ? 'text-purple-600' : 'text-gray-400'} />
+                            Segurança
+                        </button>
+                    </div>
+
+                    {/* Info Célula */}
+                    <div className="bg-white rounded-2xl shadow-md p-5 border-l-4 border-blue-500">
+                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Célula Vinculada</h3>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <FaUsers />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-800">{profile.celula_nome || 'Nenhuma'}</p>
+                                {profile.celula_id === null && profile.role === 'líder' && (
+                                    <Link href="/activate-account" className="text-xs text-orange-600 underline font-medium">
+                                        Ativar agora
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Sidebar de Navegação */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-4">Navegação</h2>
-                            <nav className="space-y-2">
-                                <button
-                                    onClick={() => setActiveTab('profile')}
-                                    className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
-                                        activeTab === 'profile'
-                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200'
-                                            : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    <FaUser className={`text-lg ${activeTab === 'profile' ? 'text-purple-600' : 'text-gray-400'}`} />
-                                    <span className="font-medium">Informações Pessoais</span>
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('password')}
-                                    className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
-                                        activeTab === 'password'
-                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200'
-                                            : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    <FaLock className={`text-lg ${activeTab === 'password' ? 'text-purple-600' : 'text-gray-400'}`} />
-                                    <span className="font-medium">Alterar Senha</span>
-                                </button>
-                            </nav>
-
-                            {/* Informações da Célula */}
-                            <div className="mt-8 pt-6 border-t border-gray-200">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-3">Célula Vinculada</h3>
-                                <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
-                                    <FaUsers className="text-blue-600 text-lg" />
-                                    <div>
-                                        <p className="font-medium text-blue-800">{profile.celula_nome || 'Nenhuma célula'}</p>
-                                        {profile.celula_id === null && profile.role === 'líder' && (
-                                            <Link
-                                                href="/activate-account"
-                                                className="text-orange-600 hover:text-orange-700 text-sm font-medium underline mt-1 inline-block"
-                                            >
-                                                Ativar minha célula
-                                            </Link>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Conteúdo Principal */}
-                    <div className="lg:col-span-2">
+                {/* Conteúdo Principal */}
+                <div className="lg:col-span-2">
+                    <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
+                        
                         {activeTab === 'profile' ? (
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <div className="flex items-center space-x-3 mb-6">
-                                    <div className="w-10 h-10 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                        <FaUser className="text-purple-600 text-lg" />
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-gray-800">Informações Pessoais</h2>
-                                </div>
+                            <>
+                                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                    <FaUser className="text-purple-500" /> Informações
+                                </h2>
 
-                                {/* Informações do Perfil */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
-                                        <div className="flex items-center space-x-3 mb-2">
-                                            <FaEnvelope className="text-gray-500 text-lg" />
-                                            <span className="text-sm font-medium text-gray-700">Email</span>
+                                {/* Read-only Info Cards */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div className="flex items-center gap-2 text-gray-500 mb-1">
+                                            <FaEnvelope className="text-xs" /> <span className="text-xs font-bold uppercase">Email</span>
                                         </div>
-                                        <p className="text-gray-900 font-semibold">{profile.email}</p>
+                                        <p className="font-medium text-gray-900 truncate">{profile.email}</p>
                                     </div>
-
-                                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
-                                        <div className="flex items-center space-x-3 mb-2">
-                                            <FaUsers className="text-gray-500 text-lg" />
-                                            <span className="text-sm font-medium text-gray-700">Função</span>
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div className="flex items-center gap-2 text-gray-500 mb-1">
+                                            <FaCalendarAlt className="text-xs" /> <span className="text-xs font-bold uppercase">Membro Desde</span>
                                         </div>
-                                        <p className="text-gray-900 font-semibold">
-                                            {profile.role === 'admin' ? 'Administrador' : 'Líder'}
-                                        </p>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
-                                        <div className="flex items-center space-x-3 mb-2">
-                                            <FaCalendarAlt className="text-gray-500 text-lg" />
-                                            <span className="text-sm font-medium text-gray-700">Membro desde</span>
-                                        </div>
-                                        <p className="text-gray-900 font-semibold">{formatDateForDisplay(profile.created_at)}</p>
+                                        <p className="font-medium text-gray-900">{formatDateForDisplay(profile.created_at)}</p>
                                     </div>
                                 </div>
 
-                                {/* Formulário de Edição */}
                                 <form onSubmit={handleUpdateProfile} className="space-y-6">
-                                    <div>
-                                        <label htmlFor="nome_completo" className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Nome Completo *
-                                        </label>
+                                    <div className="space-y-1">
+                                        <label htmlFor="nome_completo" className="text-sm font-semibold text-gray-700">Nome Completo</label>
                                         <input
                                             type="text"
                                             id="nome_completo"
                                             name="nome_completo"
                                             value={formData.nome_completo}
                                             onChange={handleFormChange}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200"
+                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                                             required
                                             disabled={submitting}
-                                            placeholder="Digite seu nome completo"
                                         />
                                     </div>
 
-                                    <div>
-                                        <label htmlFor="telefone" className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <div className="flex items-center space-x-2">
-                                                <FaPhone className="text-gray-500" />
-                                                <span>Telefone</span>
-                                            </div>
-                                        </label>
+                                    <div className="space-y-1">
+                                        <label htmlFor="telefone" className="text-sm font-semibold text-gray-700">Telefone</label>
                                         <input
-                                            type="text"
+                                            type="tel"
                                             id="telefone"
                                             name="telefone"
-                                            value={formData.telefone || ''} // Corrigido para lidar com null
+                                            value={formData.telefone || ''}
                                             onChange={handleFormChange}
                                             placeholder="(XX) XXXXX-XXXX"
                                             maxLength={11}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200"
+                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                                             disabled={submitting}
                                         />
-                                        <p className="text-xs text-gray-500 mt-2">Apenas números, com DDD (10 ou 11 dígitos)</p>
                                     </div>
 
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 px-6 rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:from-purple-400 disabled:to-indigo-400 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+                                        className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
                                     >
-                                        <div className="flex items-center justify-center space-x-2">
-                                            {submitting ? (
-                                                <>
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    <span>Atualizando...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <FaEdit className="text-lg" />
-                                                    <span>Atualizar Perfil</span>
-                                                </>
-                                            )}
-                                        </div>
+                                        {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />}
+                                        Salvar Alterações
                                     </button>
                                 </form>
-                            </div>
+                            </>
                         ) : (
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <div className="flex items-center space-x-3 mb-6">
-                                    <div className="w-10 h-10 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                        <FaLock className="text-purple-600 text-lg" />
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-gray-800">Alterar Senha</h2>
-                                </div>
+                            <>
+                                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                    <FaKey className="text-purple-500" /> Alterar Senha
+                                </h2>
 
                                 <form onSubmit={handleChangePassword} className="space-y-6">
-                                    <div>
-                                        <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Nova Senha *
-                                        </label>
+                                    <div className="space-y-1">
+                                        <label htmlFor="newPassword" className="text-sm font-semibold text-gray-700">Nova Senha</label>
                                         <input
                                             type="password"
                                             id="newPassword"
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200"
+                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                                             required
                                             disabled={submitting}
-                                            placeholder="Digite a nova senha"
                                             minLength={6}
                                         />
-                                        <p className="text-xs text-gray-500 mt-2">Mínimo de 6 caracteres</p>
+                                        <p className="text-xs text-gray-500">Mínimo de 6 caracteres</p>
                                     </div>
 
-                                    <div>
-                                        <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Confirmar Nova Senha *
-                                        </label>
+                                    <div className="space-y-1">
+                                        <label htmlFor="confirmPassword" className="text-sm font-semibold text-gray-700">Confirmar Senha</label>
                                         <input
                                             type="password"
                                             id="confirmPassword"
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200"
+                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                                             required
                                             disabled={submitting}
-                                            placeholder="Confirme a nova senha"
                                             minLength={6}
                                         />
                                     </div>
@@ -422,31 +349,17 @@ export default function ProfilePage() {
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:from-green-400 disabled:to-emerald-400 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+                                        className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
                                     >
-                                        <div className="flex items-center justify-center space-x-2">
-                                            {submitting ? (
-                                                <>
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    <span>Alterando...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <FaKey className="text-lg" />
-                                                    <span>Alterar Senha</span>
-                                                </>
-                                            )}
-                                        </div>
+                                        {submitting ? <FaSpinner className="animate-spin" /> : <FaLock />}
+                                        Atualizar Senha
                                     </button>
                                 </form>
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
             </div>
-
-            {/* Renderiza o ToastContainer do hook global */}
-            <ToastContainer />
         </div>
     );
 }
