@@ -21,10 +21,6 @@ import {
     listarMembros,
     verificarDuplicidadeReuniao,
     uploadMaterialReuniao,
-    // Remover Membro, ReuniaoFormData, ReuniaoParaEdicao daqui, se são tipos
-    // Membro,
-    // ReuniaoFormData,
-    // ReuniaoParaEdicao,
 } from '@/lib/data';
 
 // Importar tipos de '@/lib/types'
@@ -32,7 +28,6 @@ import { Membro, ReuniaoFormData, ReuniaoParaEdicao } from '@/lib/types';
 
 import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 
-// MUDANÇA AQUI: Remova a importação de Toast, use apenas useToast
 import useToast from '@/hooks/useToast';
 
 
@@ -49,7 +44,6 @@ export default function EditReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
     const { addToast, removeToast, ToastContainer } = useToast();
 
     const [loading, setLoading] = useState(true);
@@ -105,7 +99,6 @@ export default function EditReuniaoPage() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        // CORREÇÃO: Garante que strings vazias de campos opcionais são convertidas para null.
         setFormData({ ...formData, [name]: value === '' ? null : value });
     };
 
@@ -132,7 +125,6 @@ export default function EditReuniaoPage() {
         try {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema, reuniaoId);
             if (isDuplicate) {
-                // CORREÇÃO: Usar concatenação de string simples para evitar o erro de parsing
                 addToast('Já existe outra reunião com o tema \'' + formData.tema + '\' na data ' + formatDateForDisplay(formData.data_reuniao), 'warning');
                 setSubmitting(false);
                 return;
@@ -214,24 +206,27 @@ export default function EditReuniaoPage() {
             <div className="max-w-4xl mx-auto">
                 <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
                     {/* Header com Gradiente */}
-                    <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-8">
+                    <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-6 sm:py-8"> {/* Padding ajustado */}
                         <div className="flex items-center justify-between">
                             <div>
-                                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3"> {/* Fonte ajustada */}
+                                    <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                     Editar Reunião
                                 </h1>
-                                <p className="text-teal-100 mt-2">Atualize as informações e o material da reunião</p>
+                                <p className="text-teal-100 mt-2 text-sm sm:text-base">Atualize as informações e o material da reunião</p> {/* Fonte ajustada */}
                             </div>
-                            <Link href="/reunioes" className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30">
-                                <FaArrowLeft className="w-4 h-4 mr-2" /> {/* Ícone de voltar */}
+                            <Link 
+                                href="/reunioes" 
+                                className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30 text-sm" // Padding e fonte ajustados
+                            >
+                                <FaArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-2" /> {/* Ícone ajustado */}
                                 Voltar
                             </Link>
                         </div>
                     </div>
 
                     {/* Formulário */}
-                    <div className="p-6 sm:p-8">
+                    <div className="p-4 sm:p-6"> {/* Padding ajustado */}
                         {loading ? (
                             <div className="text-center py-12">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
@@ -239,74 +234,85 @@ export default function EditReuniaoPage() {
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-x-4 sm:gap-y-4"> {/* Ajuste de responsividade */}
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="data_reuniao" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaCalendarAlt className="w-4 h-4 text-teal-500" /> {/* Ícone de calendário */}
+                                            <FaCalendarAlt className="w-4 h-4 text-teal-500" />
                                             Data da Reunião *
                                         </label>
-                                        <input type="date" id="data_reuniao" name="data_reuniao" value={formData.data_reuniao} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200"/>
+                                        <input type="date" id="data_reuniao" name="data_reuniao" value={formData.data_reuniao} onChange={handleChange} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 text-sm"/> {/* Padding e fonte ajustados */}
                                     </div>
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="tema" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaBookOpen className="w-4 h-4 text-teal-500" /> {/* Ícone de livro aberto */}
+                                            <FaBookOpen className="w-4 h-4 text-teal-500" />
                                             Tema / Palavra *
                                         </label>
-                                        <input type="text" id="tema" name="tema" value={formData.tema} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200" placeholder="Digite o tema ou palavra da reunião"/>
+                                        <input type="text" id="tema" name="tema" value={formData.tema} onChange={handleChange} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 text-sm" placeholder="Digite o tema ou palavra da reunião"/> {/* Padding e fonte ajustados */}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-x-4 sm:gap-y-4"> {/* Ajuste de responsividade */}
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="ministrador_principal" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaUser className="w-4 h-4 text-teal-500" /> {/* Ícone de usuário */}
+                                            <FaUser className="w-4 h-4 text-teal-500" />
                                             Ministrador Principal *
                                         </label>
-                                        <select id="ministrador_principal" name="ministrador_principal" value={formData.ministrador_principal || ''} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white">
+                                        <select id="ministrador_principal" name="ministrador_principal" value={formData.ministrador_principal || ''} onChange={handleChange} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white text-sm"> {/* Padding e fonte ajustados */}
                                             <option value="">-- Selecione um Membro --</option>
                                             {membros.map((membro) => (<option key={membro.id} value={membro.id}>{membro.nome}</option>))}
                                         </select>
                                     </div>
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="ministrador_secundario" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaUser className="w-4 h-4 text-teal-500" /> {/* Ícone de usuário */}
+                                            <FaUser className="w-4 h-4 text-teal-500" />
                                             Ministrador Secundário
                                         </label>
-                                        <select id="ministrador_secundario" name="ministrador_secundario" value={formData.ministrador_secundario || ''} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white">
+                                        <select id="ministrador_secundario" name="ministrador_secundario" value={formData.ministrador_secundario || ''} onChange={handleChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white text-sm"> {/* Padding e fonte ajustados */}
                                             <option value="">-- Selecione um Membro --</option>
                                             {membros.map((membro) => (<option key={membro.id} value={membro.id}>{membro.nome}</option>))}
                                         </select>
                                     </div>
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                         <label htmlFor="responsavel_kids" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaChild className="w-4 h-4 text-teal-500" /> {/* Ícone de criança */}
+                                            <FaChild className="w-4 h-4 text-teal-500" />
                                             Responsável Kids
                                         </label>
-                                        <select id="responsavel_kids" name="responsavel_kids" value={formData.responsavel_kids || ''} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white">
+                                        <select id="responsavel_kids" name="responsavel_kids" value={formData.responsavel_kids || ''} onChange={handleChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white text-sm"> {/* Padding e fonte ajustados */}
                                             <option value="">-- Selecione um Membro --</option>
                                             {membros.map((membro) => (<option key={membro.id} value={membro.id}>{membro.nome}</option>))}
                                         </select>
                                     </div>
                                 </div>
-                                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                                    <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
-                                        <FaFilePdf className="w-5 h-5" /> {/* Ícone de PDF */}
+                                <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200"> {/* Padding ajustado */}
+                                    <h3 className="text-base sm:text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2"> {/* Fonte ajustada */}
+                                        <FaFilePdf className="w-4 h-4 sm:w-5 sm:h-5" />
                                         Material da Reunião
                                     </h3>
-                                    {formData.caminho_pdf && (<div className="flex items-center justify-between p-4 bg-white rounded-lg border border-blue-200 mb-4"><div className="flex items-center space-x-3"><FaFilePdf className="w-8 h-8 text-red-500" /><div><p className="text-sm font-medium text-gray-900">Material atual disponível</p><p className="text-sm text-gray-500">Clique para visualizar ou baixar</p></div></div><a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Abrir</a></div>)}
+                                    {formData.caminho_pdf && (<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg border border-blue-200 mb-4 space-y-2 sm:space-y-0"> {/* Layout responsivo */}
+                                        <div className="flex items-center space-x-2 sm:space-x-3">
+                                            <FaFilePdf className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <p className="text-xs sm:text-sm font-medium text-gray-900">Material atual disponível</p>
+                                                <p className="text-xs sm:text-sm text-gray-500">Clique para visualizar ou baixar</p>
+                                            </div>
+                                        </div>
+                                        <a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"> {/* Padding e fonte ajustados */}
+                                            <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Abrir
+                                        </a>
+                                    </div>)}
                                     <div className="space-y-4">
                                         <div>
                                             <label htmlFor="material_file" className="block text-sm font-semibold text-gray-700 mb-2">Upload novo material (PDF/PPT)</label>
-                                            <input type="file" id="material_file" accept=".pdf,.ppt,.pptx" onChange={handleFileChange} disabled={uploading} className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                                            <input type="file" id="material_file" accept=".pdf,.ppt,.pptx" onChange={handleFileChange} disabled={uploading} className="w-full px-3 py-2.5 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 file:mr-2 sm:file:mr-4 file:py-1.5 file:px-3 sm:file:py-2 sm:file:px-4 file:rounded-lg file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm"/> {/* Padding e fonte ajustados */}
                                             {selectedFile && (<p className="mt-2 text-sm text-gray-600">Arquivo selecionado: {selectedFile.name}</p>)}
                                         </div>
                                         {uploading && (<div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}
-                                        <button type="button" onClick={handleFileUpload} disabled={uploading || !selectedFile} className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2">
-                                            {uploading ? (<><svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span>Enviando {uploadProgress}%...</span></>) : (<><FaUpload className="w-5 h-5" /><span>Enviar Material</span></>)} {/* Ícone de upload */}
+                                        <button type="button" onClick={handleFileUpload} disabled={uploading || !selectedFile} className="w-full bg-blue-600 text-white py-3 px-5 sm:py-3.5 sm:px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 text-base"> {/* Padding e fonte ajustados */}
+                                            {uploading ? (<><svg className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span>Enviando {uploadProgress}%...</span></>) : (<><FaUpload className="w-4 h-4 sm:w-5 sm:h-5" /><span>Enviar Material</span></>)}
                                         </button>
                                     </div>
                                 </div>
-                                <button type="submit" disabled={submitting || uploading} className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-teal-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2">
-                                    {submitting ? (<><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>Atualizando...</>) : (<><FaSave className="w-5 h-5" />Atualizar Reunião</>)} {/* Ícone de salvar */}
+                                <button type="submit" disabled={submitting || uploading} className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-teal-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2 text-base"> {/* Padding e fonte ajustados */}
+                                    {submitting ? (<><div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>Atualizando...</>) : (<><FaSave className="w-4 h-4 sm:w-5 sm:h-5" />Atualizar Reunião</>)}
                                 </button>
                             </form>
                         )}
