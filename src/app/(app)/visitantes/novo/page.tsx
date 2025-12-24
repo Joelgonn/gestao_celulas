@@ -1,23 +1,14 @@
+// src/app/(app)/visitantes/novo/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-    adicionarVisitante,
-    listarCelulasParaAdmin,
-} from '@/lib/data';
-
-// Importar tipos de '@/lib/types'
-import { CelulaOption, Visitante, NovoVisitanteFormData } from '@/lib/types'; // Adicionei NovoVisitanteFormData aqui
-
+import { adicionarVisitante, listarCelulasParaAdmin } from '@/lib/data';
+import { CelulaOption, NovoVisitanteFormData } from '@/lib/types';
 import { normalizePhoneNumber } from '@/utils/formatters';
-
-// --- REFATORAÇÃO: TOASTS (CORRETO AGORA) ---
-import useToast from '@/hooks/useToast'; // Importa o hook useToast global
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
-import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
-// --- FIM REFATORAÇÃO TOASTS ---
+import useToast from '@/hooks/useToast';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 import {
     FaUserPlus,
@@ -27,23 +18,150 @@ import {
     FaComments,
     FaArrowLeft,
     FaSave,
-    FaTimes
+    FaTimes,
+    FaClock,
+    FaChevronDown,
+    FaCheckCircle,
+    FaSearch
 } from 'react-icons/fa';
 
-// REMOVIDA: A interface NovoVisitanteFormData local, pois agora vem de '@/lib/types'
-// interface NovoVisitanteFormData {
-//     nome: string;
-//     telefone: string | null;
-//     data_primeira_visita: string;
-//     data_nascimento: string | null;
-//     endereco: string | null;
-//     data_ultimo_contato: string | null;
-//     observacoes: string | null;
-//     celula_id: string;
-// }
+// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
+interface CustomSelectSheetProps {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    options: { id: string; nome: string }[];
+    icon: React.ReactNode;
+    placeholder?: string;
+    searchable?: boolean;
+    required?: boolean;
+    error?: string | null;
+}
+
+const CustomSelectSheet = ({ 
+    label, 
+    value, 
+    onChange, 
+    options, 
+    icon, 
+    placeholder = "Selecione...",
+    searchable = false,
+    required = false,
+    error
+}: CustomSelectSheetProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    const selectedName = options.find(o => o.id === value)?.nome || null;
+
+    const filteredOptions = options.filter(option => 
+        option.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        else document.body.style.overflow = 'unset';
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
+    return (
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                {icon} {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className={`w-full pl-3 pr-3 py-3 border rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 transition-all duration-200 bg-white ${
+                    error
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+                }`}
+            >
+                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {selectedName || placeholder}
+                </span>
+                <FaChevronDown className="text-gray-400 text-xs ml-2" />
+            </button>
+            {error && (
+                <p className="text-red-600 text-sm flex items-center space-x-1">
+                    <FaTimes className="w-3 h-3" />
+                    <span>{error}</span>
+                </p>
+            )}
+
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                    <div 
+                        ref={modalRef}
+                        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300"
+                    >
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        {searchable && (
+                            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+                                <div className="relative">
+                                    <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Buscar..." 
+                                        autoFocus
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-base"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((option) => {
+                                    const isSelected = value === option.id;
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }}
+                                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            <span className="text-base">{option.nome}</span>
+                                            {isSelected && <FaCheckCircle className="text-emerald-500 text-lg" />}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    Nenhum item encontrado.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+// --- FIM COMPONENTE CUSTOMIZADO ---
+
 
 export default function NovoVisitantePage() {
-    // Usando a interface NovoVisitanteFormData de types.ts
     const [formData, setFormData] = useState<NovoVisitanteFormData>({
         nome: '',
         telefone: null,
@@ -58,13 +176,10 @@ export default function NovoVisitantePage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<string, boolean>>({});
-
     const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
 
     const router = useRouter();
-    // --- REFATORAÇÃO: TOASTS (USANDO O HOOK GLOBAL) ---
-    const { addToast, removeToast, ToastContainer } = useToast();
-    // --- FIM REFATORAÇÃO TOASTS ---
+    const { addToast, ToastContainer } = useToast();
 
     useEffect(() => {
         const fetchDependencies = async () => {
@@ -76,11 +191,9 @@ export default function NovoVisitantePage() {
                 if (cells.length === 1) {
                     setFormData(prev => ({ ...prev, celula_id: cells[0].id }));
                 }
-
-                addToast('Listas de células carregadas.', 'success', 3000);
             } catch (e: any) {
-                console.error("Erro ao carregar dependências para novo visitante:", e);
-                addToast(e.message || 'Erro ao carregar dados iniciais', 'error');
+                console.error("Erro fetch:", e);
+                addToast(e.message || 'Erro ao carregar dados', 'error');
             } finally {
                 setLoading(false);
             }
@@ -88,46 +201,34 @@ export default function NovoVisitantePage() {
         fetchDependencies();
     }, [addToast]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: name === 'telefone' ? normalizePhoneNumber(value) : (value === '' ? null : value)
+        }));
+        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
+    }, [touched]);
 
-        if (name === 'telefone') {
-            setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
-        }
-
-        if (!touched[name]) {
-            setTouched({ ...touched, [name]: true });
-        }
-    };
-
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name } = e.target;
-        if (!touched[name]) {
-            setTouched({ ...touched, [name]: true });
-        }
-    };
+        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
+    }, [touched]);
+
+    const handleSelectChange = useCallback((name: string, value: string) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
+    }, [touched]);
 
     const getFieldError = (fieldName: keyof NovoVisitanteFormData): string | null => {
         if (!touched[fieldName]) return null;
-
         const value = formData[fieldName];
-
         switch (fieldName) {
-            case 'nome':
-                return !value || !value.trim() ? 'Nome é obrigatório' : null;
-            case 'telefone':
-                if (value && (value.length < 10 || value.length > 11)) {
-                    return 'Telefone deve ter 10 ou 11 dígitos';
-                }
-                return null;
-            case 'data_primeira_visita':
-                return !value ? 'Data da primeira visita é obrigatória' : null;
-            case 'celula_id':
-                return !value ? 'Célula é obrigatória' : null;
-            default:
-                return null;
+            case 'nome': return !value || !value.trim() ? 'Nome é obrigatório' : null;
+            case 'telefone': return value && (value.length < 10 || value.length > 11) ? 'Telefone inválido' : null;
+            case 'data_primeira_visita': return !value ? 'Data obrigatória' : null;
+            case 'celula_id': return !value ? 'Célula obrigatória' : null;
+            default: return null;
         }
     };
 
@@ -140,7 +241,6 @@ export default function NovoVisitantePage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         const allTouched = Object.keys(formData).reduce((acc, key) => {
             acc[key as keyof NovoVisitanteFormData] = true;
             return acc;
@@ -148,90 +248,50 @@ export default function NovoVisitantePage() {
         setTouched(allTouched);
 
         if (hasErrors()) {
-            addToast('Por favor, corrija os erros no formulário', 'error');
+            addToast('Corrija os erros no formulário', 'error');
             return;
         }
 
         setSubmitting(true);
-
         try {
             await adicionarVisitante({
+                ...formData,
                 nome: formData.nome.trim(),
                 telefone: normalizePhoneNumber(formData.telefone) || null,
-                data_primeira_visita: formData.data_primeira_visita,
-                data_nascimento: formData.data_nascimento || null,
-                endereco: formData.endereco || null,
-                data_ultimo_contato: formData.data_ultimo_contato || null,
-                observacoes: formData.observacoes || null,
-                celula_id: formData.celula_id,
             });
-
-            addToast('Visitante adicionado com sucesso!', 'success', 3000);
-
-            setTimeout(() => {
-                router.push('/visitantes');
-            }, 1500);
-
+            addToast('Visitante adicionado!', 'success', 3000);
+            setTimeout(() => router.push('/visitantes'), 1500);
         } catch (e: any) {
-            console.error("Erro ao adicionar visitante:", e);
-            if (e.code === '23505') {
-                addToast('Já existe um visitante com este nome na sua célula', 'error');
-            } else {
-                addToast(`Falha ao adicionar: ${e.message || 'Erro desconhecido'}`, 'error');
-            }
+            console.error("Erro submit:", e);
+            if (e.code === '23505') addToast('Visitante já existe nesta célula', 'error');
+            else addToast(`Erro: ${e.message}`, 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const InputField = ({
-        label,
-        name,
-        type = 'text',
-        required = false,
-        icon: Icon,
-        placeholder,
-        maxLength,
-        rows
-    }: {
-        label: string;
-        name: keyof NovoVisitanteFormData; // Usar a nova interface
-        type?: string;
-        required?: boolean;
-        icon?: any;
-        placeholder?: string;
-        maxLength?: number;
-        rows?: number;
-    }) => {
+    const InputField = ({ label, name, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows }: any) => {
         const error = getFieldError(name);
         const isTextarea = type === 'textarea';
 
         return (
             <div className="space-y-2">
-                <label htmlFor={name} className="block text-sm font-medium text-gray-700">
+                <label htmlFor={name} className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                    {Icon && <Icon className={error ? "text-red-500" : "text-emerald-500"} />} 
                     {label} {required && <span className="text-red-500">*</span>}
                 </label>
-
                 <div className="relative">
-                    {Icon && (
-                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                            <Icon className="w-4 h-4" />
-                        </div>
-                    )}
-
                     {isTextarea ? (
                         <textarea
                             id={name}
                             name={name}
-                            value={(formData[name] as string) || ''} // Corrigido para lidar com null
+                            value={(formData[name as keyof NovoVisitanteFormData] as string) || ''}
                             onChange={handleChange}
                             onBlur={handleBlur}
                             rows={rows}
                             placeholder={placeholder}
-                            className={`w-full pl-${Icon ? '10' : '3'} pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                error
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
-                                    : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
+                            className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${
+                                error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-emerald-500'
                             }`}
                         />
                     ) : (
@@ -239,25 +299,21 @@ export default function NovoVisitantePage() {
                             type={type}
                             id={name}
                             name={name}
-                            value={(formData[name] as string) || ''} // Corrigido para lidar com null
+                            value={(formData[name as keyof NovoVisitanteFormData] as string) || ''}
                             onChange={handleChange}
                             onBlur={handleBlur}
                             required={required}
                             placeholder={placeholder}
                             maxLength={maxLength}
-                            className={`w-full pl-${Icon ? '10' : '3'} pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                error
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
-                                    : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
+                            className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
+                                error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-emerald-500'
                             }`}
                         />
                     )}
                 </div>
-
                 {error && (
                     <p className="text-red-600 text-sm flex items-center space-x-1">
-                        <FaTimes className="w-3 h-3" />
-                        <span>{error}</span>
+                        <FaTimes className="w-3 h-3" /> <span>{error}</span>
                     </p>
                 )}
             </div>
@@ -265,171 +321,150 @@ export default function NovoVisitantePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Renderiza o ToastContainer do hook global */}
+        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
             <ToastContainer />
 
-            {/* Conteúdo Principal */}
-            <div className="max-w-2xl mx-auto">
-                <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
-                    <div className="flex items-center space-x-4">
+            <div className="max-w-2xl mx-auto mt-4 sm:mt-0">
+                <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-xl sm:rounded-2xl shadow-lg p-6 mb-6 text-white">
+                    <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
                             <FaUserPlus className="text-2xl" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold">Adicionar Novo Visitante</h1>
-                            <p className="text-emerald-100 mt-2">Cadastre um novo visitante na célula</p>
+                            <h1 className="text-2xl sm:text-3xl font-bold">Novo Visitante</h1>
+                            <p className="text-emerald-100 text-sm mt-1">Cadastre um novo visitante</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 gap-6">
-                            <InputField
-                                label="Nome Completo"
-                                name="nome"
-                                required={true}
-                                icon={FaUserPlus}
-                                placeholder="Digite o nome completo do visitante"
+
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-md border border-gray-200 overflow-hidden">
+                    {loading ? (
+                        <div className="py-12 flex justify-center">
+                            <LoadingSpinner />
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-6">
+                            
+                            {/* Nome */}
+                            <InputField 
+                                label="Nome Completo" 
+                                name="nome" 
+                                required 
+                                icon={FaUserPlus} 
+                                placeholder="Ex: Maria Souza" 
                             />
 
-                            <InputField
-                                label="Telefone"
-                                name="telefone"
-                                icon={FaPhone}
-                                placeholder="(XX) XXXXX-XXXX"
-                                maxLength={11}
+                            {/* Telefone */}
+                            <InputField 
+                                label="Telefone" 
+                                name="telefone" 
+                                icon={FaPhone} 
+                                placeholder="(XX) XXXXX-XXXX" 
+                                maxLength={11} 
                             />
 
+                            {/* Datas */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField
-                                    label="Data da 1ª Visita"
-                                    name="data_primeira_visita"
-                                    type="date"
-                                    required={true}
-                                    icon={FaCalendar}
+                                <InputField 
+                                    label="Data da 1ª Visita" 
+                                    name="data_primeira_visita" 
+                                    type="date" 
+                                    required 
+                                    icon={FaCalendar} 
                                 />
-
-                                <InputField
-                                    label="Data de Nascimento"
-                                    name="data_nascimento"
-                                    type="date"
-                                    icon={FaCalendar}
+                                <InputField 
+                                    label="Data de Nascimento" 
+                                    name="data_nascimento" 
+                                    type="date" 
+                                    icon={FaCalendar} 
                                 />
                             </div>
 
-                            {/* Campo de seleção de Célula (apenas para admins) */}
+                            {/* Célula (Admin) - Usando CustomSelectSheet */}
                             {celulasOptions.length > 1 && (
-                                <div className="space-y-2">
-                                    <label htmlFor="celula_id" className="block text-sm font-medium text-gray-700">
-                                        Célula <span className="text-red-500">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                                            <FaMapMarkerAlt className="w-4 h-4" />
-                                        </div>
-                                        <select
-                                            id="celula_id"
-                                            name="celula_id"
-                                            required
-                                            value={formData.celula_id}
-                                            onChange={handleChange}
-                                            onBlur={handleBlur}
-                                            className={`w-full pl-10 pr-3 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${
-                                                getFieldError('celula_id')
-                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
-                                                    : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400'
-                                            }`}
-                                        >
-                                            <option value="">-- Selecione a Célula --</option>
-                                            {celulasOptions.map(celula => (
-                                                <option key={celula.id} value={celula.id}>{celula.nome}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    {getFieldError('celula_id') && (
-                                        <p className="text-red-600 text-sm flex items-center space-x-1">
-                                            <FaTimes className="w-3 h-3" />
-                                            <span>{getFieldError('celula_id')}</span>
-                                        </p>
-                                    )}
-                                </div>
+                                <CustomSelectSheet
+                                    label="Célula"
+                                    icon={<FaMapMarkerAlt className="text-emerald-500" />}
+                                    value={formData.celula_id}
+                                    onChange={(val) => handleSelectChange('celula_id', val)}
+                                    options={celulasOptions}
+                                    required
+                                    placeholder="Selecione a Célula"
+                                    searchable
+                                    error={getFieldError('celula_id')}
+                                />
+                            )}
+                            
+                            {/* Campo oculto se for líder (célula única) */}
+                            {celulasOptions.length === 1 && (
+                                <input type="hidden" name="celula_id" value={formData.celula_id} />
                             )}
 
-                            <InputField
-                                label="Endereço"
-                                name="endereco"
-                                icon={FaMapMarkerAlt}
-                                placeholder="Digite o endereço completo"
+                            {/* Endereço */}
+                            <InputField 
+                                label="Endereço" 
+                                name="endereco" 
+                                icon={FaMapMarkerAlt} 
+                                placeholder="Rua, número, bairro..." 
                             />
 
-                            <InputField
-                                label="Data Último Contato"
-                                name="data_ultimo_contato"
-                                type="date"
-                                icon={FaCalendar}
+                            {/* Último Contato */}
+                            <InputField 
+                                label="Data Último Contato" 
+                                name="data_ultimo_contato" 
+                                type="date" 
+                                icon={FaClock} 
                             />
 
-                            <InputField
-                                label="Observações"
-                                name="observacoes"
-                                type="textarea"
-                                icon={FaComments}
-                                placeholder="Adicione observações sobre o visitante..."
-                                rows={4}
+                            {/* Observações */}
+                            <InputField 
+                                label="Observações" 
+                                name="observacoes" 
+                                type="textarea" 
+                                icon={FaComments} 
+                                placeholder="Detalhes importantes..." 
+                                rows={4} 
                             />
-                        </div>
 
-                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-200">
-                            <div className="text-sm text-gray-500">
-                                Campos marcados com <span className="text-red-500">*</span> são obrigatórios
-                            </div>
-
-                            <div className="flex space-x-3 w-full sm:w-auto">
+                            {/* Botões */}
+                            <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-100">
                                 <Link
                                     href="/visitantes"
-                                    className="flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 font-medium w-full sm:w-auto"
+                                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
                                 >
-                                    <FaArrowLeft className="w-4 h-4" />
-                                    <span>Voltar</span>
+                                    <FaArrowLeft /> Cancelar
                                 </Link>
 
                                 <button
                                     type="submit"
-                                    disabled={submitting || loading || hasErrors()}
-                                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-xl hover:from-emerald-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg hover:shadow-xl w-full sm:w-auto"
+                                    disabled={submitting || hasErrors()}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-xl hover:from-emerald-700 hover:to-green-600 disabled:opacity-70 disabled:cursor-not-allowed transition-all font-bold shadow-md active:scale-95"
                                 >
                                     {submitting ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            <span>Adicionando...</span>
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            <span>Salvando...</span>
                                         </>
                                     ) : (
                                         <>
-                                            <FaSave className="w-4 h-4" />
-                                            <span>Adicionar Visitante</span>
+                                            <FaSave /> Salvar Visitante
                                         </>
                                     )}
                                 </button>
                             </div>
-                        </div>
-                    </form>
+                        </form>
+                    )}
                 </div>
 
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                    <div className="flex items-start space-x-3">
-                        <div className="bg-blue-100 p-2 rounded-lg">
-                            <FaComments className="text-blue-600 w-4 h-4" />
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-medium text-blue-800">Dicas para cadastro</h3>
-                            <ul className="text-sm text-blue-600 mt-1 space-y-1">
-                                <li>• Preencha o nome completo para facilitar a identificação</li>
-                                <li>• O telefone deve incluir DDD (10 ou 11 dígitos)</li>
-                                <li>• Registre observações importantes sobre o visitante</li>
-                                <li>• Mantenha a data do último contato atualizada</li>
-                            </ul>
-                        </div>
+                <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3 text-sm text-blue-800">
+                    <FaComments className="mt-1 flex-shrink-0" />
+                    <div>
+                        <p className="font-bold mb-1">Dicas:</p>
+                        <ul className="list-disc list-inside space-y-1 text-blue-700">
+                            <li>Preencha o nome completo para identificação.</li>
+                            <li>Use DDD no telefone (10 ou 11 dígitos).</li>
+                            <li>Registre observações para facilitar o acompanhamento.</li>
+                        </ul>
                     </div>
                 </div>
             </div>
