@@ -1,7 +1,7 @@
 // src/app/(app)/relatorios/page.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 import {
@@ -64,9 +64,142 @@ import {
     FaFilePdf,
     FaFileCsv,
     FaSearch,
-    FaDownload,
-    FaChartBar
+    FaChartBar,
+    FaChevronDown,
+    FaTimes,
+    FaCheckCircle
 } from 'react-icons/fa';
+
+// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
+interface CustomSelectSheetProps {
+    label: string;
+    value: string | null;
+    onChange: (value: string) => void;
+    options: { id: string; nome: string }[];
+    icon: React.ReactNode;
+    placeholder?: string;
+    searchable?: boolean;
+    disabled?: boolean;
+}
+
+const CustomSelectSheet = ({ 
+    label, 
+    value, 
+    onChange, 
+    options, 
+    icon, 
+    placeholder = "Selecione...",
+    searchable = false,
+    disabled = false
+}: CustomSelectSheetProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    const selectedName = options.find(o => o.id === value)?.nome || null;
+
+    const filteredOptions = options.filter(option => 
+        option.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        else document.body.style.overflow = 'unset';
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
+    const handleSelect = (id: string) => {
+        onChange(id);
+        setIsOpen(false);
+        setSearchTerm('');
+    };
+
+    return (
+        <div className={`space-y-1 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}>
+            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                {icon} {label}
+            </label>
+            <button
+                type="button"
+                onClick={() => !disabled && setIsOpen(true)}
+                disabled={disabled}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none text-left"
+            >
+                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {selectedName || placeholder}
+                </span>
+                <FaChevronDown className="text-gray-400 text-xs ml-2" />
+            </button>
+
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                    <div 
+                        ref={modalRef}
+                        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300"
+                    >
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        {searchable && (
+                            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+                                <div className="relative">
+                                    <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Buscar..." 
+                                        autoFocus
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-base"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((option) => {
+                                    const isSelected = value === option.id;
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => handleSelect(option.id)}
+                                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            <span className="text-base truncate pr-2">{option.nome}</span>
+                                            {isSelected && <FaCheckCircle className="text-emerald-500 text-lg flex-shrink-0" />}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    Nenhum item encontrado.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+// --- FIM COMPONENTE CUSTOMIZADO ---
+
 
 type ReportContent = ReportDataPresencaReuniao | ReportDataPresencaMembro | ReportDataFaltososPeriodo | ReportDataVisitantesPeriodo | ReportDataAniversariantes | ReportDataAlocacaoLideres | ReportDataChavesAtivacao;
 
@@ -102,10 +235,27 @@ export default function RelatoriosPage() {
 
     const { addToast, ToastContainer } = useToast();
 
-    const months = Array.from({ length: 12 }, (_, i) => ({
-        value: (i + 1).toString(),
-        label: new Date(0, i).toLocaleString('pt-BR', { month: 'long' }),
+    // Mapeamento dos meses para o CustomSelectSheet
+    const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+        id: (i + 1).toString(),
+        nome: new Date(0, i).toLocaleString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase()),
     }));
+
+    // Mapeamento dos tipos de relatório para o CustomSelectSheet
+    const getReportTypeOptions = () => {
+        const options = [
+            { id: 'presenca_reuniao', nome: 'Presença por Reunião' },
+            { id: 'presenca_membro', nome: 'Histórico de Membro' },
+            { id: 'faltosos', nome: 'Membros Faltosos' },
+            { id: 'visitantes_periodo', nome: 'Visitantes no Período' },
+            { id: 'aniversariantes_mes', nome: 'Aniversariantes' },
+        ];
+        if (userRole === 'admin') {
+            options.push({ id: 'alocacao_lideres', nome: 'Alocação de Líderes' });
+            options.push({ id: 'chaves_ativacao', nome: 'Chaves de Ativação' });
+        }
+        return options;
+    };
 
     useEffect(() => {
         async function fetchUserRoleOnMount() {
@@ -161,7 +311,6 @@ export default function RelatoriosPage() {
 
             if (filterUpdatedThisCycle) {
                 setSelectedFilterCelulaId(effectiveFilterCelulaId);
-                // addToast("Filtro de célula ajustado.", 'info'); // Opcional para não poluir a tela
                 return;
             }
 
@@ -265,14 +414,13 @@ export default function RelatoriosPage() {
                 return;
             }
 
-            // Construção do título
             const today = formatDateForDisplay(new Date().toISOString().split('T')[0]);
             switch (selectedReportType) {
                 case 'presenca_reuniao': reportTitle = `Presença - ${formatDateForDisplay((result as ReportDataPresencaReuniao).reuniao_detalhes.data_reuniao)}`; break;
                 case 'presenca_membro': reportTitle = `Histórico - ${(result as ReportDataPresencaMembro).membro_data.nome}`; break;
                 case 'faltosos': reportTitle = `Faltosos (${formatDateForDisplay(startDate)} a ${formatDateForDisplay(endDate)})`; break;
                 case 'visitantes_periodo': reportTitle = `Visitantes (${formatDateForDisplay(startDate)} a ${formatDateForDisplay(endDate)})`; break;
-                case 'aniversariantes_mes': reportTitle = `Aniversariantes de ${months.find(m => m.value === selectedBirthdayMonth)?.label}`; break;
+                case 'aniversariantes_mes': reportTitle = `Aniversariantes de ${monthOptions.find(m => m.id === selectedBirthdayMonth)?.nome}`; break;
                 case 'alocacao_lideres': reportTitle = `Alocação de Líderes (${today})`; break;
                 case 'chaves_ativacao': reportTitle = `Chaves de Ativação (${today})`; break;
             }
@@ -405,93 +553,105 @@ export default function RelatoriosPage() {
                     
                     <form onSubmit={handleGenerateReport} className="space-y-5">
                         
-                        {/* Filtro de Célula (Admin) */}
+                        {/* Filtro de Célula (Admin) - Usando CustomSelectSheet */}
                         {userRole !== null && (userRole === 'admin' || (userRole === 'líder' && celulasFilterOptions.length === 1)) && (
                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Filtrar por Célula</label>
-                                <select
+                                <CustomSelectSheet
+                                    label="Filtrar por Célula"
+                                    icon={<FaFilter className="text-gray-500" />}
                                     value={selectedFilterCelulaId}
-                                    onChange={(e) => setSelectedFilterCelulaId(e.target.value)}
-                                    className="w-full text-base border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 transition-all bg-white"
+                                    onChange={(val) => setSelectedFilterCelulaId(val)}
+                                    options={userRole === 'admin' ? [{ id: '', nome: 'Todas as Células' }, ...celulasFilterOptions] : celulasFilterOptions}
                                     disabled={loadingReport || ['alocacao_lideres', 'chaves_ativacao'].includes(selectedReportType || '') || userRole === 'líder'}
-                                >
-                                    {userRole === 'admin' && <option value="">Todas as Células</option>}
-                                    {celulasFilterOptions.map((celula) => (<option key={celula.id} value={celula.id}>{celula.nome}</option>))}
-                                </select>
+                                    searchable={userRole === 'admin'}
+                                />
+                                
                                 {['alocacao_lideres', 'chaves_ativacao'].includes(selectedReportType || '') && (
                                     <p className="mt-2 text-xs text-gray-500 flex items-center gap-1"><FaUsers /> Relatório global.</p>
                                 )}
                             </div>
                         )}
 
-                        {/* Tipo de Relatório */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Relatório</label>
-                            <select 
-                                value={selectedReportType || ''} 
-                                onChange={(e) => { 
-                                    setSelectedReportType(e.target.value as ReportTypeEnum); 
-                                    setSelectedReuniaoId(''); 
-                                    setSelectedMembroId(''); 
-                                    setStartDate(new Date().toISOString().split('T')[0]); 
-                                    setEndDate(new Date().toISOString().split('T')[0]); 
-                                    setSelectedBirthdayMonth(''); 
-                                }} 
-                                className="w-full text-base border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 bg-white" 
-                                required
-                            >
-                                <option value="">-- Selecione --</option>
-                                <option value="presenca_reuniao">Presença por Reunião</option>
-                                <option value="presenca_membro">Histórico de Membro</option>
-                                <option value="faltosos">Membros Faltosos</option>
-                                <option value="visitantes_periodo">Visitantes no Período</option>
-                                <option value="aniversariantes_mes">Aniversariantes</option>
-                                {userRole === 'admin' && (<><option value="alocacao_lideres">Alocação de Líderes</option><option value="chaves_ativacao">Chaves de Ativação</option></>)}
-                            </select>
-                        </div>
+                        {/* Tipo de Relatório - Usando CustomSelectSheet */}
+                        <CustomSelectSheet
+                            label="Tipo de Relatório"
+                            icon={<FaFileAlt className="text-green-600" />}
+                            value={selectedReportType || ''}
+                            onChange={(val) => {
+                                setSelectedReportType(val as ReportTypeEnum);
+                                setSelectedReuniaoId('');
+                                setSelectedMembroId('');
+                                setStartDate(new Date().toISOString().split('T')[0]);
+                                setEndDate(new Date().toISOString().split('T')[0]);
+                                setSelectedBirthdayMonth('');
+                            }}
+                            options={getReportTypeOptions()}
+                            placeholder="Selecione o tipo..."
+                        />
 
-                        {/* Campos Dinâmicos Baseados no Tipo */}
+                        {/* Campos Dinâmicos - Usando CustomSelectSheet onde aplicável */}
                         {selectedReportType === 'presenca_reuniao' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Reunião</label>
-                                <select value={selectedReuniaoId} onChange={(e) => setSelectedReuniaoId(e.target.value)} className="w-full text-base border-gray-300 rounded-lg p-3 bg-white" required>
-                                    <option value="">-- Selecione --</option>
-                                    {reunioesOptions.map((r) => (<option key={r.id} value={r.id}>{formatDateForDisplay(r.data_reuniao)} - {r.tema}</option>))}
-                                </select>
-                            </div>
+                            <CustomSelectSheet
+                                label="Reunião"
+                                icon={<FaCalendarAlt className="text-blue-600" />}
+                                value={selectedReuniaoId}
+                                onChange={(val) => setSelectedReuniaoId(val)}
+                                options={reunioesOptions.map(r => ({ id: r.id, nome: `${formatDateForDisplay(r.data_reuniao)} - ${r.tema}` }))}
+                                placeholder="Selecione a reunião"
+                                searchable
+                            />
                         )}
 
                         {selectedReportType === 'presenca_membro' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Membro</label>
-                                <select value={selectedMembroId} onChange={(e) => setSelectedMembroId(e.target.value)} className="w-full text-base border-gray-300 rounded-lg p-3 bg-white" required>
-                                    <option value="">-- Selecione --</option>
-                                    {membrosOptions.map((m) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
-                                </select>
-                            </div>
+                            <CustomSelectSheet
+                                label="Membro"
+                                icon={<FaUser className="text-purple-600" />}
+                                value={selectedMembroId}
+                                onChange={(val) => setSelectedMembroId(val)}
+                                options={membrosOptions}
+                                placeholder="Selecione o membro"
+                                searchable
+                            />
                         )}
 
                         {['faltosos', 'visitantes_periodo'].includes(selectedReportType || '') && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Início</label>
-                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full text-base border-gray-300 rounded-lg p-3 bg-white" required />
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                        <FaCalendarAlt className="text-orange-600" /> Início
+                                    </label>
+                                    <input 
+                                        type="date" 
+                                        value={startDate} 
+                                        onChange={(e) => setStartDate(e.target.value)} 
+                                        className="w-full text-base border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none" 
+                                        required 
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Fim</label>
-                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full text-base border-gray-300 rounded-lg p-3 bg-white" required />
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                        <FaCalendarAlt className="text-orange-600" /> Fim
+                                    </label>
+                                    <input 
+                                        type="date" 
+                                        value={endDate} 
+                                        onChange={(e) => setEndDate(e.target.value)} 
+                                        className="w-full text-base border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none" 
+                                        required 
+                                    />
                                 </div>
                             </div>
                         )}
 
                         {selectedReportType === 'aniversariantes_mes' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Mês</label>
-                                <select value={selectedBirthdayMonth} onChange={(e) => setSelectedBirthdayMonth(e.target.value)} className="w-full text-base border-gray-300 rounded-lg p-3 bg-white" required>
-                                    <option value="">-- Selecione --</option>
-                                    {months.map(m => (<option key={m.value} value={m.value}>{m.label}</option>))}
-                                </select>
-                            </div>
+                            <CustomSelectSheet
+                                label="Mês"
+                                icon={<FaBirthdayCake className="text-pink-600" />}
+                                value={selectedBirthdayMonth}
+                                onChange={(val) => setSelectedBirthdayMonth(val)}
+                                options={monthOptions}
+                                placeholder="Selecione o mês"
+                            />
                         )}
 
                         <button 
