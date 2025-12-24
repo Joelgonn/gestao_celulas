@@ -156,7 +156,6 @@ export default function ConverterVisitantePage() {
                     celula_id: data.celula_id,
                 });
 
-                // addToast('Dados carregados.', 'success');
             } catch (e: any) {
                 console.error("Erro fetch:", e);
                 addToast('Erro ao carregar visitante', 'error');
@@ -229,11 +228,12 @@ export default function ConverterVisitantePage() {
         { id: 'Em transição', nome: 'Em transição' },
     ];
 
+    // --- CORREÇÃO DO SPINNER DUPLICADO ---
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                {/* Removemos o texto extra <p> para evitar duplicação se o componente já tiver texto */}
                 <LoadingSpinner />
-                <p className="mt-4 text-gray-500 font-medium animate-pulse">Carregando dados...</p>
             </div>
         );
     }
