@@ -1,28 +1,109 @@
+// src/app/(app)/visitantes/converter/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-
-// Importa funções de data.ts
-import {
-    getVisitante,
-    converterVisitanteEmMembro,
-} from '@/lib/data';
-
-// Importa interfaces de types.ts
-import {
-    Visitante,
-    Membro,
-} from '@/lib/types';
-
+import { getVisitante, converterVisitanteEmMembro } from '@/lib/data';
+import { Visitante, Membro } from '@/lib/types';
 import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
-
-// --- REFATORAÇÃO: TOASTS ---
 import useToast from '@/hooks/useToast';
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
-import LoadingSpinner from '@/components/ui/LoadingSpinner'; // Para o loading inicial
-// --- FIM REFATORAÇÃO TOASTS ---
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+import {
+    FaUserPlus,
+    FaPhone,
+    FaMapMarkerAlt,
+    FaCalendarAlt,
+    FaUserTag,
+    FaArrowLeft,
+    FaCheckCircle,
+    FaInfoCircle,
+    FaChevronDown,
+    FaTimes
+} from 'react-icons/fa';
+
+// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
+interface CustomSelectSheetProps {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    options: { id: string; nome: string }[];
+    icon: React.ReactNode;
+}
+
+const CustomSelectSheet = ({ label, value, onChange, options, icon }: CustomSelectSheetProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    const selectedName = options.find(o => o.id === value)?.nome || value;
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        else document.body.style.overflow = 'unset';
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
+    return (
+        <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                {icon} {label}
+            </label>
+            <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-shadow outline-none text-left"
+            >
+                <span className="text-base text-gray-900">{selectedName}</span>
+                <FaChevronDown className="text-gray-400 text-xs ml-2" />
+            </button>
+
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                    <div 
+                        ref={modalRef}
+                        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300"
+                    >
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
+                            {options.map((option) => {
+                                const isSelected = value === option.id;
+                                return (
+                                    <button
+                                        key={option.id}
+                                        type="button"
+                                        onClick={() => { onChange(option.id); setIsOpen(false); }}
+                                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-orange-50 text-orange-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                                    >
+                                        <span className="text-base">{option.nome}</span>
+                                        {isSelected && <FaCheckCircle className="text-orange-500 text-lg" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+// --- FIM COMPONENTE CUSTOMIZADO ---
+
 
 interface MembroConversionFormData {
     nome: string;
@@ -48,9 +129,7 @@ export default function ConverterVisitantePage() {
         celula_id: '',
     });
 
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
-    const { addToast, removeToast, ToastContainer } = useToast();
-
+    const { addToast, ToastContainer } = useToast();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
@@ -62,7 +141,7 @@ export default function ConverterVisitantePage() {
                 const data = await getVisitante(visitanteId);
 
                 if (!data) {
-                    addToast('O visitante solicitado não existe ou você não tem permissão para acessá-lo', 'error');
+                    addToast('Visitante não encontrado.', 'error');
                     setTimeout(() => router.replace('/visitantes'), 2000);
                     return;
                 }
@@ -77,11 +156,10 @@ export default function ConverterVisitantePage() {
                     celula_id: data.celula_id,
                 });
 
-                addToast('Informações do visitante carregadas para conversão', 'success', 3000);
-
+                // addToast('Dados carregados.', 'success');
             } catch (e: any) {
-                console.error("Erro ao buscar visitante para conversão:", e);
-                addToast(e.message || 'Erro desconhecido ao carregar dados do visitante', 'error');
+                console.error("Erro fetch:", e);
+                addToast('Erro ao carregar visitante', 'error');
                 setTimeout(() => router.replace('/visitantes'), 2000);
             } finally {
                 setLoading(false);
@@ -93,271 +171,216 @@ export default function ConverterVisitantePage() {
         }
     }, [visitanteId, router, addToast]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        if (name === 'telefone') {
-            setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
-        }
-    };
+        setFormData(prev => ({
+            ...prev,
+            [name]: name === 'telefone' ? normalizePhoneNumber(value) : (value === '' ? null : value)
+        }));
+    }, []);
+
+    const handleSelectChange = useCallback((name: string, value: string) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
 
-        // Validações
         if (!formData.nome.trim()) {
-            addToast('O campo "Nome Completo" é obrigatório', 'error');
+            addToast('Nome é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.data_ingresso) {
-            addToast('O campo "Data de Ingresso" é obrigatório', 'error');
+            addToast('Data de ingresso é obrigatória', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.celula_id) {
-            addToast('O ID da célula não está disponível para conversão.', 'error');
-            setSubmitting(false);
-            return;
-        }
-
-        const normalizedPhone = normalizePhoneNumber(formData.telefone);
-        if (normalizedPhone && (normalizedPhone.length < 10 || normalizedPhone.length > 11)) {
-            addToast('O número de telefone deve ter 10 ou 11 dígitos (incluindo DDD).', 'error');
+            addToast('Célula não identificada.', 'error');
             setSubmitting(false);
             return;
         }
 
         try {
             const { success, message } = await converterVisitanteEmMembro(visitanteId, {
-                nome: formData.nome,
-                telefone: normalizedPhone || null,
-                data_ingresso: formData.data_ingresso,
-                data_nascimento: formData.data_nascimento || null,
-                endereco: formData.endereco || null,
-                status: formData.status,
-                celula_id: formData.celula_id,
+                ...formData,
+                telefone: normalizePhoneNumber(formData.telefone) || null,
             });
 
             if (success) {
-                addToast('Visitante convertido em membro com sucesso!', 'success', 4000);
-
-                setTimeout(() => {
-                    router.push('/membros');
-                }, 2000);
+                addToast('Visitante convertido com sucesso!', 'success', 4000);
+                setTimeout(() => router.push('/membros'), 2000);
             } else {
-                addToast(message || 'Erro desconhecido ao converter visitante', 'error');
+                addToast(message || 'Erro na conversão', 'error');
             }
         } catch (e: any) {
-            console.error("Erro na conversão de visitante:", e);
-            addToast(e.message || 'Erro desconhecido durante a conversão', 'error');
+            console.error("Erro submit:", e);
+            addToast('Erro inesperado', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
+    const statusOptions = [
+        { id: 'Ativo', nome: 'Ativo' },
+        { id: 'Inativo', nome: 'Inativo' },
+        { id: 'Em transição', nome: 'Em transição' },
+    ];
+
     if (loading) {
-        return <LoadingSpinner text="Carregando dados do visitante..." fullScreen={true} />;
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <LoadingSpinner />
+                <p className="mt-4 text-gray-500 font-medium animate-pulse">Carregando dados...</p>
+            </div>
+        );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Renderiza o ToastContainer do hook global */}
+        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
             <ToastContainer />
 
-            {/* Conteúdo Principal */}
-            <div className="max-w-2xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-                    {/* Header com Gradiente */}
-                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-8">
-                        <div className="flex items-center justify-between">
+            <div className="max-w-2xl mx-auto mt-4 sm:mt-0">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    
+                    {/* Header Responsivo */}
+                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-6 sm:px-6 sm:py-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
-                                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                    </svg>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
+                                    <FaUserPlus className="w-6 h-6 sm:w-8 sm:h-8" />
                                     Converter Visitante
                                 </h1>
-                                <p className="text-orange-100 mt-2">Transforme este visitante em um membro da célula</p>
+                                <p className="text-orange-100 mt-1 text-sm sm:text-base">
+                                    Transforme este visitante em membro
+                                </p>
                             </div>
                             <Link
                                 href="/visitantes"
-                                className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30"
+                                className="inline-flex justify-center items-center px-4 py-3 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/30 text-sm font-medium w-full sm:w-auto"
                             >
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                </svg>
+                                <FaArrowLeft className="w-3 h-3 mr-2" />
                                 Voltar
                             </Link>
                         </div>
                     </div>
 
                     {/* Formulário */}
-                    <div className="p-6 sm:p-8">
-                        {loading ? (
-                            <LoadingSpinner text="Carregando dados do visitante..." />
-                        ) : (
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                {/* Informações Básicas */}
-                                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                                    <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Informações do Visitante
-                                    </h3>
-                                    <p className="text-sm text-blue-700">
-                                        Os dados abaixo foram preenchidos automaticamente a partir do cadastro do visitante.
-                                        Você pode ajustá-los conforme necessário para o cadastro como membro.
-                                    </p>
-                                </div>
+                    <div className="p-4 sm:p-8">
+                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+                            
+                            {/* Info Box */}
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 sm:p-5">
+                                <h3 className="text-blue-800 font-bold flex items-center gap-2 mb-2 text-sm sm:text-base">
+                                    <FaInfoCircle /> Revisão de Dados
+                                </h3>
+                                <p className="text-blue-700 text-xs sm:text-sm">
+                                    Confirme os dados abaixo para efetivar o cadastro como membro.
+                                </p>
+                            </div>
 
-                                {/* Campo Nome */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="nome" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        Nome Completo *
+                            {/* Nome */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaUserPlus className="text-orange-500" /> Nome Completo *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="nome"
+                                    value={formData.nome}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            {/* Telefone */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaPhone className="text-orange-500" /> Telefone
+                                </label>
+                                <input
+                                    type="tel"
+                                    name="telefone"
+                                    value={formData.telefone || ''}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                    placeholder="(XX) XXXXX-XXXX"
+                                />
+                            </div>
+
+                            {/* Endereço */}
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <FaMapMarkerAlt className="text-orange-500" /> Endereço
+                                </label>
+                                <input
+                                    type="text"
+                                    name="endereco"
+                                    value={formData.endereco || ''}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            {/* Datas */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <FaCalendarAlt className="text-orange-500" /> Data Ingresso *
                                     </label>
                                     <input
-                                        type="text"
-                                        id="nome"
-                                        name="nome"
-                                        value={formData.nome}
+                                        type="date"
+                                        name="data_ingresso"
+                                        value={formData.data_ingresso}
                                         onChange={handleChange}
                                         required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                                        placeholder="Nome completo do novo membro"
+                                        className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
                                     />
                                 </div>
-
-                                {/* Campo Telefone */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="telefone" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                        </svg>
-                                        Telefone
+                                <div className="space-y-1">
+                                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <FaCalendarAlt className="text-orange-500" /> Data Nascimento
                                     </label>
                                     <input
-                                        type="text"
-                                        id="telefone"
-                                        name="telefone"
-                                        value={formData.telefone || ''} // Corrigido para lidar com null
+                                        type="date"
+                                        name="data_nascimento"
+                                        value={formData.data_nascimento || ''}
                                         onChange={handleChange}
-                                        placeholder="(XX) XXXXX-XXXX"
-                                        maxLength={11}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                                        className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
                                     />
                                 </div>
+                            </div>
 
-                                {/* Endereço */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="endereco" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        Endereço
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="endereco"
-                                        name="endereco"
-                                        value={formData.endereco || ''} // Corrigido para lidar com null
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                                        placeholder="Endereço completo do novo membro"
-                                    />
-                                </div>
+                            {/* Status - Select Customizado */}
+                            <CustomSelectSheet
+                                label="Status *"
+                                icon={<FaUserTag className="text-orange-500" />}
+                                value={formData.status}
+                                onChange={(val) => handleSelectChange('status', val)}
+                                options={statusOptions}
+                            />
 
-                                {/* Datas */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Data Ingresso */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="data_ingresso" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            Data de Ingresso *
-                                        </label>
-                                        <input
-                                            type="date"
-                                            id="data_ingresso"
-                                            name="data_ingresso"
-                                            value={formData.data_ingresso}
-                                            onChange={handleChange}
-                                            required
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                                        />
-                                    </div>
-
-                                    {/* Data Nascimento */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="data_nascimento" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            Data de Nascimento
-                                        </label>
-                                        <input
-                                            type="date"
-                                            id="data_nascimento"
-                                            name="data_nascimento"
-                                            value={formData.data_nascimento || ''} // Corrigido para lidar com null
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Campo Status */}
-                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                    <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.279A8.958 8.958 0 0112 3a8.998 8.998 0 017.708 4.717m-1.956 0h.001M12 21a9 9 0 01-8.618-4.279m1.956 0h-.001" />
-                                        </svg>
-                                        Status *
-                                    </label>
-                                    <select
-                                        id="status"
-                                        name="status"
-                                        value={formData.status}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
-                                    >
-                                        <option value="Ativo">Ativo</option>
-                                        <option value="Inativo">Inativo</option>
-                                        <option value="Em transição">Em transição</option>
-                                    </select>
-                                </div>
-
-                                {/* Botão Submit */}
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                            Convertendo...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                            </svg>
-                                            Converter em Membro
-                                        </>
-                                    )}
-                                </button>
-                            </form>
-                        )}
+                            {/* Botão Submit */}
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2 text-lg"
+                            >
+                                {submitting ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Convertendo...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaCheckCircle /> Confirmar Conversão
+                                    </>
+                                )}
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
