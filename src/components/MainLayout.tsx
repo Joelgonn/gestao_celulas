@@ -23,10 +23,7 @@ import {
 } from 'react-icons/fa';
 
 // --- REFATORAÇÃO: IMPORTAÇÃO DO HOOK USETOAST ---
-// Assume-se que este hook agora está definido externamente
 import useToast from '@/hooks/useToast'; 
-// Se o ToastContainer estiver em '@/components/ui/Toast', a chamada ao hook
-// já deve retornar o componente, como está no código.
 // --- FIM REFATORAÇÃO ---
 
 
@@ -95,11 +92,9 @@ interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  // --- HOOKS MOVIDOS PARA DENTRO DO COMPONENTE ---
   const pathname = usePathname();
   const router = useRouter();
-  const { addToast, ToastContainer } = useToast(); // CHAMA O HOOK AGORA IMPORTADO
-  // --- FIM HOOKS MOVIDOS ---
+  const { addToast, ToastContainer } = useToast(); 
   
   const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -140,7 +135,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       }
     }
     fetchUserRole();
-  }, [addToast]); // addToast é a dependência estável
+  }, [addToast]); 
 
 
   useEffect(() => {
@@ -155,14 +150,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userDropdownOpen) {
+    const handleClickOutsideDropdown = (event: MouseEvent) => { // Renomeado para evitar conflito
+      if (userDropdownOpen) { // Só fecha se estiver aberto
         setUserDropdownOpen(false);
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    // Adiciona listener ao body apenas quando o dropdown está aberto
+    if (userDropdownOpen) {
+      document.addEventListener('click', handleClickOutsideDropdown);
+    }
+    return () => document.removeEventListener('click', handleClickOutsideDropdown);
   }, [userDropdownOpen]);
 
   const navItems = [
@@ -238,14 +236,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return false;
   });
 
+  // Título da página atual para exibir no header
+  const currentPageTitle = filteredNavItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard';
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={() => setSidebarOpen(false)}> {/* Fechar ao clicar no overlay */}
           <div 
             ref={sidebarRef}
             className="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-orange-600 to-orange-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50"
+            onClick={(e) => e.stopPropagation()} // Impede o fechamento ao clicar na sidebar
           >
             {/* Sidebar Header Mobile */}
             <div className="flex items-center justify-between h-16 px-4 bg-gradient-to-r from-orange-700 to-orange-900 border-b border-orange-700">
@@ -263,10 +265,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="text-orange-200 hover:text-white transition-colors duration-200"
+                className="text-orange-200 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-orange-800" // Adicionado padding e hover
               >
                 <FaTimes className="text-lg" />
               </button>
+            </div>
+
+            {/* User Info na Sidebar Mobile (se não estiver na top bar) */}
+            <div className="px-4 py-4 border-b border-orange-700 md:hidden"> {/* Oculta em desktop, visível em mobile */}
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
+                  <FaUser className="text-white text-sm" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium text-sm truncate">
+                    {userProfile?.nome_completo || 'Usuário'}
+                  </p>
+                  <p className="text-orange-200 text-xs truncate">
+                    {userRole === 'admin' ? 'Administrador' : 'Líder'}
+                  </p>
+                </div>
+              </div>
             </div>
             
             {/* Navigation */}
@@ -291,6 +310,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 })}
               </nav>
               
+              <div className="px-4 py-2"> {/* Ítem de perfil no mobile */}
+                <NavItem
+                  href="/profile"
+                  icon={<FaUser className="text-lg" />}
+                  isActive={pathname === '/profile'}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Meu Perfil
+                </NavItem>
+              </div>
+
               <div className="px-4 py-4 border-t border-orange-700 mt-auto">
                 <LogoutButton onLogout={() => setSidebarOpen(false)} />
               </div>
@@ -318,7 +348,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </div>
           </div>
           
-          {/* User Info */}
+          {/* User Info (Desktop only) */}
           <div className="px-4 py-4 border-b border-orange-700">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
@@ -382,34 +412,42 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <button
               onClick={() => setSidebarOpen(true)}
               className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-200"
+              aria-label="Abrir menu de navegação" // Acessibilidade
             >
               <FaBars className="text-lg" />
             </button>
 
-            {/* Page Title */}
-            <div className="flex-1 md:flex-none">
-              <h1 className="text-xl font-semibold text-gray-800 text-center md:text-left">
-                {filteredNavItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard'}
-              </h1>
-            </div>
+            {/* Page Title (visível em desktop, oculto quando sidebar mobile está aberta) */}
+            {/* Para mobile, o título da página é ocultado se a sidebar estiver aberta, para evitar sobreposição */}
+            {!sidebarOpen && ( 
+                <div className="flex-1 text-center md:text-left md:flex-none">
+                <h1 className="text-xl font-semibold text-gray-800 truncate"> {/* Truncate para nomes longos */}
+                    {currentPageTitle}
+                </h1>
+                </div>
+            )}
+
 
             {/* User Dropdown */}
-            <div className="relative">
+            <div className="relative ml-auto md:ml-0"> {/* Alinha à direita no mobile, mantém no lugar em desktop */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setUserDropdownOpen(!userDropdownOpen);
                 }}
                 className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                aria-label="Abrir menu de usuário" // Acessibilidade
+                aria-haspopup="true"
+                aria-expanded={userDropdownOpen}
               >
                 <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
                   <FaUser className="text-white text-xs" />
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-medium text-gray-700 truncate"> {/* Truncate */}
                     {userProfile?.nome_completo || 'Usuário'}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 truncate"> {/* Truncate */}
                     {userRole === 'admin' ? 'Administrador' : 'Líder'}
                   </p>
                 </div>
@@ -417,7 +455,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </button>
 
               {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-40">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50"> {/* Z-index ajustado */}
                   <Link
                     href="/profile"
                     onClick={() => setUserDropdownOpen(false)}
