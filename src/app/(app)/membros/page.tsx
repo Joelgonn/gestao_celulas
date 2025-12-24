@@ -22,8 +22,7 @@ import {
 
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters'; 
 
-// Importe useToast corretamente (sem a desestruturação de 'toasts' no retorno)
-import useToast from '@/hooks/useToast'; // Remova a linha 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
+import useToast from '@/hooks/useToast'; 
 import LoadingSpinner from '@/components/LoadingSpinner'; 
 
 export default function MembrosPage() {
@@ -40,13 +39,11 @@ export default function MembrosPage() {
     const [submitting, setSubmitting] = useState(false); 
     const [exporting, setExporting] = useState(false); 
 
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
     const { addToast, removeToast, ToastContainer } = useToast();
 
-    // 1. Efeito para buscar o userRole UMA ÚNICA VEZ na montagem inicial
     useEffect(() => {
         async function fetchInitialUserRole() {
-            setLoading(true); // Ativa o loading
+            setLoading(true);
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 let fetchedRole: 'admin' | 'líder' | null = null;
@@ -69,40 +66,29 @@ export default function MembrosPage() {
         fetchInitialUserRole();
     }, [addToast]);
 
-    // 2. useCallback para carregar opções de célula e membros.
-    // Esta função consolida a busca de dados e reage aos filtros e ao role.
     const loadAllData = useCallback(async () => { 
-        if (userRole === null) return; // Aguarda userRole ser definido
+        if (userRole === null) return;
 
         setLoading(true);
         try {
-            // -- Parte 1: Carregar opções de Célula (apenas para Admin) --
             if (userRole === 'admin') {
                 const celulasData = await listarCelulasParaAdmin();
                 setCelulasOptions(celulasData);
-                // Se o selectedCelulaId atual não é válido para as novas opções, reseta.
                 if (selectedCelulaId !== "" && !celulasData.some(c => c.id === selectedCelulaId)) {
                     setSelectedCelulaId("");
                     addToast("Filtro de célula resetado para o admin.", 'info');
-                    // Não precisa de return aqui, a função continuará com o novo selectedCelulaId (vazio)
-                    // e loadAllData será chamado novamente devido à dependência.
                 }
             } else if (userRole === 'líder') {
-                 setCelulasOptions([]); // Garante que o dropdown de células do admin não apareça para o líder
-                 // Para líder, o filtro será sempre a sua própria célula (lógica interna do listarMembros)
+                 setCelulasOptions([]);
             }
 
-            // -- Parte 2: Carregar Membros com base nos filtros e role --
             let celulaIdForMembrosFetch: string | null = null;
             if (userRole === 'admin') {
                 celulaIdForMembrosFetch = selectedCelulaId === "" ? null : selectedCelulaId;
             } else if (userRole === 'líder') {
-                // Para líder, passamos null, e a Server Action `listarMembros` (em lib/data.ts)
-                // internamente usará o celulaId do perfil do líder.
                 celulaIdForMembrosFetch = null; 
             }
 
-            // Passar o searchTerm para a Server Action
             const membrosData = await listarMembros(
                 celulaIdForMembrosFetch, 
                 searchTerm, 
@@ -120,7 +106,6 @@ export default function MembrosPage() {
         }
     }, [userRole, selectedCelulaId, searchTerm, selectedBirthdayMonth, selectedStatusFilter, addToast]); 
 
-    // 3. Efeito para disparar `loadAllData` quando as dependências mudam
     useEffect(() => {
         loadAllData();
     }, [loadAllData]);
@@ -142,8 +127,6 @@ export default function MembrosPage() {
         }
     };
 
-    // `filteredMembros` agora é apenas um alias para `membros`, já que a filtragem `searchTerm`
-    // e de célula ocorrem no servidor via `listarMembros`.
     const filteredMembros = useMemo(() => {
         return membros; 
     }, [membros]); 
@@ -151,7 +134,6 @@ export default function MembrosPage() {
     const handleExportCSV = async () => {
         setExporting(true); 
         try {
-            // A exportação CSV usa os mesmos parâmetros de filtro da listagem
             const csv = await exportarMembrosCSV(
                 selectedCelulaId === "" ? null : selectedCelulaId, 
                 searchTerm, 
@@ -182,7 +164,7 @@ export default function MembrosPage() {
         }
     };
 
-    if (userRole === null) { // Mostra o spinner inicial enquanto espera o role ser carregado
+    if (userRole === null) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
                 <div className="max-w-7xl mx-auto px-4">
@@ -202,7 +184,7 @@ export default function MembrosPage() {
         );
     }
 
-    if (loading) { // Mostra o spinner se as opções estiverem sendo carregadas após o role já ter sido definido
+    if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
                 <div className="max-w-7xl mx-auto px-4">
@@ -242,34 +224,34 @@ export default function MembrosPage() {
             {/* Renderiza o ToastContainer do hook */}
             <ToastContainer /> 
             
-            <div className="max-w-7xl mx-auto px-4">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> {/* Ajuste de padding para telas menores */}
                 {/* Header com Gradiente */}
-                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
-                    <div className="flex items-center justify-between">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow-xl p-6 sm:p-8 mb-8 text-white"> {/* Padding ajustado */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0"> {/* Ajuste para empilhar em mobile */}
                         <div>
-                            <h1 className="text-3xl font-bold mb-2">
+                            <h1 className="text-2xl sm:text-3xl font-bold mb-2"> {/* Tamanho da fonte ajustado */}
                                 {userRole === 'admin' ? 'Todos os Membros' : 'Meus Membros'}
                             </h1>
-                            <div className="flex items-center space-x-4 text-green-100">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-green-100 text-sm"> {/* Ajuste de responsividade */}
                                 <div className="flex items-center space-x-2">
-                                    <FaUsers className="w-5 h-5" />
-                                    <span>{membros.length} membro(s) encontrado(s)</span>
+                                    <FaUsers className="w-4 h-4" /> {/* Ícone menor */}
+                                    <span>{membros.length} membro(s)</span> {/* Texto mais compacto */}
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"> {/* Ícone menor */}
                                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                     </svg>
-                                    <span>Gerencie os membros da célula</span>
+                                    <span>Gerencie a célula</span> {/* Texto mais compacto */}
                                 </div>
                             </div>
                         </div>
                         {userRole === 'admin' && (
-                            <div className="bg-green-400 text-green-900 px-4 py-2 rounded-full font-semibold">
+                            <div className="bg-green-400 text-green-900 px-3 py-1.5 rounded-full font-semibold text-sm"> {/* Padding e tamanho da fonte ajustados */}
                                 Administrador
                             </div>
                         )}
                         {userRole === 'líder' && (
-                            <div className="bg-blue-400 text-blue-900 px-4 py-2 rounded-full font-semibold">
+                            <div className="bg-blue-400 text-blue-900 px-3 py-1.5 rounded-full font-semibold text-sm"> {/* Padding e tamanho da fonte ajustados */}
                                 Líder
                             </div>
                         )}
@@ -277,8 +259,8 @@ export default function MembrosPage() {
                 </div>
 
                 {/* Filtros e Ações */}
-                <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-8"> {/* Padding ajustado */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"> {/* Ajuste de responsividade para filtros */}
                         {/* Pesquisa */}
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -289,7 +271,7 @@ export default function MembrosPage() {
                                 placeholder="Pesquisar nome ou telefone..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                                className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 sm:p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm" // Padding e texto ajustados
                             />
                         </div>
 
@@ -302,7 +284,7 @@ export default function MembrosPage() {
                                 <select
                                     value={selectedCelulaId}
                                     onChange={(e) => setSelectedCelulaId(e.target.value)}
-                                    className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                                    className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 sm:p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white text-sm" // Padding e texto ajustados
                                 >
                                     <option value="">Todas as Células</option>
                                     {celulasOptions.map(celula => ( 
@@ -322,7 +304,7 @@ export default function MembrosPage() {
                             <select
                                 value={selectedBirthdayMonth}
                                 onChange={(e) => setSelectedBirthdayMonth(e.target.value)}
-                                className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white"
+                                className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 sm:p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white text-sm" // Padding e texto ajustados
                             >
                                 <option value="">Aniversário (Mês)</option>
                                 {months.map(month => ( 
@@ -343,7 +325,7 @@ export default function MembrosPage() {
                             <select
                                 value={selectedStatusFilter}
                                 onChange={(e) => setSelectedStatusFilter(e.target.value as Membro['status'] | 'all')}
-                                className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
+                                className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 sm:p-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white text-sm" // Padding e texto ajustados
                             >
                                 <option value="all">Todos os Status</option>
                                 <option value="Ativo">Ativo</option>
@@ -354,21 +336,21 @@ export default function MembrosPage() {
                     </div>
 
                     {/* Botões de Ação */}
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start"> {/* Centraliza em mobile */}
                         {userRole === 'admin' ? (
                             <Link 
                                 href="/admin/users" 
-                                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-6 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 font-medium"
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 px-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 font-medium text-sm w-full sm:w-auto justify-center" // Ajuste de padding, texto e largura
                             >
-                                <FaUserCog /> 
+                                <FaUserCog className="text-base" /> 
                                 <span>Gerenciar Perfis</span>
                             </Link>
                         ) : ( 
                             <Link 
                                 href="/membros/novo" 
-                                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 font-medium"
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2.5 px-4 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 font-medium text-sm w-full sm:w-auto justify-center" // Ajuste de padding, texto e largura
                             >
-                                <FaPlus /> 
+                                <FaPlus className="text-base" /> 
                                 <span>Novo Membro</span>
                             </Link>
                         )}
@@ -376,9 +358,9 @@ export default function MembrosPage() {
                         {userRole === 'líder' && (
                             <Link 
                                 href="/membros/importar" 
-                                className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 px-6 rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 font-medium"
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 px-4 rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 font-medium text-sm w-full sm:w-auto justify-center" // Ajuste de padding, texto e largura
                             >
-                                <FaFileImport /> 
+                                <FaFileImport className="text-base" /> 
                                 <span>Importar</span>
                             </Link>
                         )}
@@ -386,16 +368,16 @@ export default function MembrosPage() {
                         <button
                             onClick={handleExportCSV}
                             disabled={exporting || (membros.length === 0 && !searchTerm && !selectedCelulaId && selectedBirthdayMonth === "" && selectedStatusFilter === "all")} 
-                            className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center space-x-2 font-medium"
+                            className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-2.5 px-4 rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:hover:shadow-lg flex items-center space-x-2 font-medium text-sm w-full sm:w-auto justify-center" // Ajuste de padding, texto e largura
                         >
                             {exporting ? (
                                 <>
-                                    <FaSpinner className="animate-spin" /> 
+                                    <FaSpinner className="animate-spin text-base" /> 
                                     <span>Exportando...</span>
                                 </>
                             ) : (
                                 <>
-                                    <FaFileExport /> 
+                                    <FaFileExport className="text-base" /> 
                                     <span>Exportar CSV</span>
                                 </>
                             )}
@@ -405,36 +387,36 @@ export default function MembrosPage() {
 
                 {/* Lista de Membros */}
                 {membros.length === 0 && !searchTerm && !selectedCelulaId && selectedBirthdayMonth === "" && selectedStatusFilter === "all" ? ( 
-                    <div className="text-center p-12 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl">
+                    <div className="text-center p-8 sm:p-12 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl"> {/* Padding ajustado */}
                         <div className="max-w-md mx-auto">
-                            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FaUsers className="text-2xl text-indigo-600" />
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4"> {/* Tamanho do ícone ajustado */}
+                                <FaUsers className="text-xl sm:text-2xl text-indigo-600" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2"> {/* Tamanho da fonte ajustado */}
                                 {userRole === 'admin' ? 'Nenhum membro encontrado' : 'Nenhum membro em sua célula'}
                             </h3>
-                            <p className="text-gray-500 mb-6">
+                            <p className="text-sm sm:text-base text-gray-500 mb-6"> {/* Tamanho da fonte ajustado */}
                                 {userRole !== 'admin' ? 'Adicione o primeiro membro da sua célula!' : 'Os membros aparecerão aqui quando forem cadastrados.'}
                             </p>
                             {userRole !== 'admin' && (
                                 <Link 
                                     href="/membros/novo" 
-                                    className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-3 rounded-xl hover:from-indigo-700 hover:to-indigo-800 transition-all duration-300 font-medium inline-flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                                    className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl hover:from-indigo-700 hover:to-indigo-800 transition-all duration-300 font-medium inline-flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-1 text-sm" // Ajuste de padding, texto
                                 >
-                                    <FaPlus />
+                                    <FaPlus className="text-sm" />
                                     <span>Adicionar Primeiro Membro</span>
                                 </Link>
                             )}
                         </div>
                     </div>
                 ) : membros.length === 0 && (searchTerm || selectedCelulaId || selectedBirthdayMonth !== "" || selectedStatusFilter !== "all") ? ( 
-                    <div className="text-center p-12 bg-yellow-50 border border-yellow-200 rounded-2xl">
+                    <div className="text-center p-8 sm:p-12 bg-yellow-50 border border-yellow-200 rounded-2xl"> {/* Padding ajustado */}
                         <div className="max-w-md mx-auto">
-                            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FaUsers className="text-2xl text-yellow-600" />
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FaUsers className="text-xl sm:text-2xl text-yellow-600" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">Nenhum membro encontrado</h3>
-                            <p className="text-gray-500">Tente ajustar os filtros de pesquisa</p>
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Nenhum membro encontrado</h3>
+                            <p className="text-sm sm:text-base text-gray-500">Tente ajustar os filtros de pesquisa</p>
                         </div>
                     </div>
                 ) : (
@@ -443,72 +425,83 @@ export default function MembrosPage() {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                     <tr>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Nome</th>
+                                        <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Nome</th>
                                         {userRole === 'admin' && (
-                                            <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Célula</th>
+                                            <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 hidden sm:table-cell">
+                                                Célula {/* Oculta em mobile */}
+                                            </th>
                                         )}
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Telefone</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Ingresso</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Nascimento</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Status</th>
-                                        <th scope="col" className="py-4 px-6 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
+                                        <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">Telefone</th>
+                                        <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 hidden md:table-cell">Ingresso</th> {/* Oculta em sm: */}
+                                        <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 hidden lg:table-cell">Nascimento</th> {/* Oculta em md: */}
+                                        {/* APLICAR A MESMA CONDICIONAL PARA O STATUS */}
+                                        {userRole === 'admin' && ( // Se o status também é para ser condicionalmente visível para admin
+                                            <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 hidden sm:table-cell">
+                                                Status {/* Oculta em mobile */}
+                                            </th>
+                                        )}
+                                        {/* Se o status não é exclusivo de admin, apenas o hidden sm:table-cell é suficiente */}
+                                        {/* <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 hidden sm:table-cell">Status</th> */}
+                                        <th scope="col" className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {membros.map((membro) => (
                                         <tr key={membro.id} className="hover:bg-gray-50 transition-colors duration-150">
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
+                                            <td className="py-3 px-4 whitespace-nowrap border-r border-gray-100 text-sm"> {/* Padding e texto ajustados */}
                                                 <span className="font-medium text-gray-900">{membro.nome}</span>
                                             </td>
                                             {userRole === 'admin' && ( 
-                                                <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                <td className="py-3 px-4 whitespace-nowrap border-r border-gray-100 hidden sm:table-cell text-sm"> {/* Oculta em mobile */}
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                         {membro.celula_nome || 'N/A'}
                                                     </span>
                                                 </td>
                                             )}
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <div className="flex items-center space-x-2">
+                                            <td className="py-3 px-4 whitespace-nowrap border-r border-gray-100 text-sm"> {/* Padding e texto ajustados */}
+                                                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-2"> {/* Ajuste responsivo para telefone */}
                                                     <span className="text-gray-700">{formatPhoneNumberDisplay(membro.telefone)}</span>
                                                     {membro.telefone && (userRole === 'líder' || (userRole === 'admin' && selectedCelulaId)) && (
                                                         <div className="flex space-x-1">
                                                             <a href={'tel:' + membro.telefone} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors">
-                                                                <FaPhone className="text-sm" />
+                                                                <FaPhone className="text-xs" />
                                                             </a>
                                                             <a href={'https://wa.me/' + membro.telefone} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-700 p-1 rounded hover:bg-green-50 transition-colors">
-                                                                <FaWhatsapp className="text-sm" />
+                                                                <FaWhatsapp className="text-xs" />
                                                             </a>
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
+                                            <td className="py-3 px-4 whitespace-nowrap border-r border-gray-100 hidden md:table-cell text-sm"> {/* Oculta em sm: */}
                                                 <span className="text-gray-700">{formatDateForDisplay(membro.data_ingresso)}</span>
                                             </td>
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
+                                            <td className="py-3 px-4 whitespace-nowrap border-r border-gray-100 hidden lg:table-cell text-sm"> {/* Oculta em md: */}
                                                 <span className="text-gray-700">{formatDateForDisplay(membro.data_nascimento)}</span>
                                             </td>
-                                            <td className="py-4 px-6 whitespace-nowrap border-r border-gray-100">
-                                                <span className={'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ' + getStatusBadge(membro.status)}>
+                                            <td className="py-3 px-4 whitespace-nowrap border-r border-gray-100 hidden sm:table-cell text-sm"> {/* Oculta em mobile */}
+                                                <span className={'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ' + getStatusBadge(membro.status)}>
                                                     {membro.status || 'N/A'}
                                                 </span>
                                             </td>
-                                            <td className="py-4 px-6 whitespace-nowrap">
-                                                <div className="flex items-center justify-start space-x-2">
+                                            <td className="py-3 px-4 whitespace-nowrap text-sm"> {/* Padding e texto ajustados */}
+                                                <div className="flex flex-wrap gap-1 justify-center sm:justify-start"> {/* Botões de ação responsivos */}
                                                     <Link 
                                                         href={'/membros/editar/' + membro.id}
-                                                        className="inline-flex items-center space-x-1 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                                                        className="inline-flex items-center space-x-1 p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                                                         title="Editar Membro"
                                                     >
-                                                        <FaEdit className="text-sm" />
+                                                        <FaEdit className="text-xs" />
+                                                        <span className="hidden sm:inline">Editar</span> {/* Texto visível em sm: e acima */}
                                                     </Link>
                                                     <button 
                                                         onClick={() => handleDelete(membro.id, membro.nome)}
-                                                        className="inline-flex items-center space-x-1 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="inline-flex items-center space-x-1 p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                         title="Excluir Membro"
                                                         disabled={submitting} 
                                                     >
-                                                        <FaTrash className="text-sm" />
+                                                        <FaTrash className="text-xs" />
+                                                        <span className="hidden sm:inline">Excluir</span> {/* Texto visível em sm: e acima */}
                                                     </button>
                                                 </div>
                                             </td>
