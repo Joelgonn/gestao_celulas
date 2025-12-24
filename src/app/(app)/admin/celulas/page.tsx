@@ -22,11 +22,9 @@ import {
     FaUserCog // Ícone para Gerenciar Usuários
 } from 'react-icons/fa';
 
-// Importações do novo sistema de toasts
 import useToast from '@/hooks/useToast';
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
+// REMOVIDA: import Toast from '@/components/ui/Toast'; (já que ToastContainer é usado)
 
-// Importações das Server Actions para gerenciamento de células
 import { 
     fetchCelulasAdmin, 
     createCelulaAdmin, 
@@ -35,7 +33,6 @@ import {
     Celula 
 } from '@/app/api/admin/celulas/actions'; 
 
-// Importações das Server Actions para gerenciamento de chaves de ativação
 import { createChaveAtivacaoAdmin, listChavesAtivacaoAdmin } from '@/app/api/admin/chaves-ativacao/actions'; 
 import { ChaveAtivacao } from '@/lib/types'; 
 
@@ -59,17 +56,14 @@ export default function AdminCelulasPage() {
     const [chavesAtivacao, setChavesAtivacao] = useState<ChaveAtivacao[]>([]);
     const [loadingChaves, setLoadingChaves] = useState(false);
     
-    // Estado para armazenar o userRole, necessário para renderizar o botão "Gerenciar Usuários"
     const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
 
     const router = useRouter();
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
     const { addToast, removeToast, ToastContainer } = useToast();
 
-    // Efeito para buscar a role do usuário no carregamento inicial
     useEffect(() => {
         async function fetchUserRole() {
-            const { supabase } = await import('@/utils/supabase/client'); // Importação dinâmica do cliente de browser
+            const { supabase } = await import('@/utils/supabase/client');
             const { data: { user }, error } = await supabase.auth.getUser();
             if (user && !error) {
                 const { data: profile, error: profileError } = await supabase
@@ -267,7 +261,7 @@ export default function AdminCelulasPage() {
                         </div>
                         {/* BOTÕES DE NAVEGAÇÃO NO HEADER */}
                         <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
-                            {userRole === 'admin' && ( // Mostra o botão apenas para administradores
+                            {userRole === 'admin' && (
                                 <Link 
                                     href="/admin/users"
                                     className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
@@ -308,7 +302,7 @@ export default function AdminCelulasPage() {
                         <span>Adicionar Nova Célula</span>
                     </h2>
                     <form onSubmit={handleCreateCelula} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6"> {/* Ajuste de espaçamento para mobile */}
                             <div className="space-y-2">
                                 <label htmlFor="newCelulaName" className="block text-sm font-medium text-gray-700">
                                     Nome da Célula <span className="text-red-500">*</span>
@@ -400,7 +394,7 @@ export default function AdminCelulasPage() {
                                 <div key={celula.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
                                     {editingCelulaId === celula.id ? (
                                         <form onSubmit={handleUpdateCelula} className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"> {/* Ajuste de responsividade aqui */}
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700">Nome da Célula</label>
                                                     <input
@@ -437,10 +431,10 @@ export default function AdminCelulasPage() {
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="flex space-x-3 justify-end">
+                                            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end mt-4 pt-4 border-t border-gray-200"> {/* Ajuste de responsividade aqui */}
                                                 <button
                                                     type="submit"
-                                                    className="flex items-center space-x-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
+                                                    className="flex items-center space-x-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 w-full sm:w-auto justify-center"
                                                     disabled={submitting}
                                                 >
                                                     <FaSave className="text-sm" />
@@ -449,7 +443,7 @@ export default function AdminCelulasPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => setEditingCelulaId(null)}
-                                                    className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400"
+                                                    className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400 w-full sm:w-auto justify-center"
                                                     disabled={submitting}
                                                 >
                                                     <FaTimes className="text-sm" />
@@ -458,8 +452,8 @@ export default function AdminCelulasPage() {
                                             </div>
                                         </form>
                                     ) : (
-                                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0"> {/* Layout responsivo da linha da célula */}
+                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"> {/* Informações da célula em grid responsivo */}
                                                 <div>
                                                     <h3 className="font-semibold text-gray-900 text-lg">{celula.nome}</h3>
                                                     <p className="text-xs text-gray-500 mt-1">ID: {celula.id.substring(0, 8)}...</p>
@@ -475,7 +469,7 @@ export default function AdminCelulasPage() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center space-x-2">
+                                            <div className="flex flex-wrap gap-2 justify-end mt-4 md:mt-0"> {/* Botões de ação da célula responsivos */}
                                                 <button
                                                     onClick={() => handleEditClick(celula)}
                                                     className="inline-flex items-center space-x-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
@@ -483,7 +477,7 @@ export default function AdminCelulasPage() {
                                                     disabled={submitting}
                                                 >
                                                     <FaEdit className="text-sm" />
-                                                    <span className="text-sm">Editar</span>
+                                                    <span className="text-sm hidden sm:inline">Editar</span> {/* Texto visível em sm: e acima */}
                                                 </button>
                                                 <button
                                                     onClick={() => handleGenerateKey(celula.id, celula.nome)}
@@ -492,7 +486,7 @@ export default function AdminCelulasPage() {
                                                     disabled={submitting}
                                                 >
                                                     <FaKey className="text-sm" />
-                                                    <span className="text-sm">Chave</span>
+                                                    <span className="text-sm hidden sm:inline">Chave</span> {/* Texto visível em sm: e acima */}
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteCelula(celula.id, celula.nome)}
@@ -501,7 +495,7 @@ export default function AdminCelulasPage() {
                                                     disabled={submitting}
                                                 >
                                                     <FaTrash className="text-sm" />
-                                                    <span className="text-sm">Excluir</span>
+                                                    <span className="text-sm hidden sm:inline">Excluir</span> {/* Texto visível em sm: e acima */}
                                                 </button>
                                             </div>
                                         </div>
