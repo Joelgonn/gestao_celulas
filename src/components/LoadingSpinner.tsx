@@ -1,55 +1,65 @@
 // src/components/LoadingSpinner.tsx
 import React from 'react';
 
+// Expandindo as cores para aceitar strings genéricas (para compatibilidade com classes Tailwind diretas)
+// ou mantendo o mapeamento estrito se preferir.
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
-  color?: 'indigo' | 'green' | 'blue' | 'purple' | 'red' | 'gray';
+  // Aceita as cores pré-definidas OU qualquer string (para passar classes como 'text-white')
+  color?: 'indigo' | 'green' | 'blue' | 'purple' | 'red' | 'gray' | 'white' | string;
   text?: string;
   fullScreen?: boolean;
   overlay?: boolean;
+  className?: string; // Adicionado para classes extras
 }
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
   size = 'md', 
   color = 'indigo', 
   text, 
-  fullScreen = true,
-  overlay = false
+  fullScreen = false, // Mudado padrão para false para evitar ocupar tela inteira acidentalmente em componentes menores
+  overlay = false,
+  className = ''
 }) => {
   // Tamanhos do spinner
   const sizeClasses = {
-    sm: 'h-8 w-8 border-2',
-    md: 'h-16 w-16 border-t-4 border-b-4',
-    lg: 'h-24 w-24 border-t-4 border-b-4',
-    xl: 'h-32 w-32 border-t-4 border-b-4'
+    sm: 'h-6 w-6 border-2',
+    md: 'h-12 w-12 border-4',
+    lg: 'h-16 w-16 border-4',
+    xl: 'h-24 w-24 border-4'
   };
 
-  // Cores do spinner
-  const colorClasses = {
+  // Mapeamento de cores pré-definidas para classes de borda
+  const colorMap: Record<string, string> = {
     indigo: 'border-indigo-500',
-    green: 'border-green-500',
+    green: 'border-emerald-500', // Atualizado para emerald para consistência com o app
     blue: 'border-blue-500',
     purple: 'border-purple-500',
     red: 'border-red-500',
-    gray: 'border-gray-500'
+    gray: 'border-gray-500',
+    white: 'border-white'
   };
+
+  // Se a cor passada não estiver no mapa, assume que é uma classe CSS direta (ex: 'text-white')
+  // Se for uma classe de texto, tentamos converter para borda ou usamos como está se não for mapeada
+  const borderColorClass = colorMap[color] || (color.startsWith('text-') ? color.replace('text-', 'border-') : color);
 
   // Textos padrão baseados no contexto
   const defaultTexts = {
     sm: 'Carregando...',
     md: 'Carregando dados...',
-    lg: 'Processando sua solicitação...',
-    xl: 'Carregando dados da sessão...'
+    lg: 'Processando...',
+    xl: 'Aguarde...'
   };
 
-  const displayText = text || defaultTexts[size];
+  const displayText = text !== undefined ? text : defaultTexts[size];
 
   // Container principal
   const Container = ({ children }: { children: React.ReactNode }) => {
     if (overlay) {
       return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 transform transition-all duration-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 animate-in zoom-in duration-200">
             {children}
           </div>
         </div>
@@ -58,14 +68,14 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
     if (fullScreen) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50/90 backdrop-blur-sm z-40 fixed inset-0">
           {children}
         </div>
       );
     }
 
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className={`flex items-center justify-center p-4 ${className}`}>
         {children}
       </div>
     );
@@ -73,109 +83,37 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   return (
     <Container>
-      <div className="flex flex-col items-center space-y-4">
-        {/* Spinner principal com animação suave */}
-        <div className={`animate-spin rounded-full ${sizeClasses[size]} ${colorClasses[color]} relative`}>
-          {/* Efeito de brilho interno */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-pulse"></div>
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative">
+          {/* Spinner Fundo (track) */}
+          <div className={`rounded-full border-gray-200 opacity-30 absolute inset-0 ${sizeClasses[size]}`} style={{ borderWidth: 'inherit' }}></div>
+          
+          {/* Spinner Principal (animado) */}
+          <div className={`animate-spin rounded-full border-t-transparent border-l-transparent ${sizeClasses[size]} ${borderColorClass}`}></div>
         </div>
         
         {/* Texto de loading */}
         {displayText && (
-          <div className="text-center space-y-2">
-            <p className="text-gray-700 font-medium text-lg animate-pulse">
+          <div className="text-center">
+            <p className="text-gray-600 font-medium text-sm animate-pulse">
               {displayText}
             </p>
-            {/* Pontinhos animados */}
-            <div className="flex justify-center space-x-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
           </div>
-        )}
-        
-        {/* Mensagem adicional para tamanhos maiores */}
-        {(size === 'lg' || size === 'xl') && (
-          <p className="text-gray-500 text-sm text-center max-w-sm">
-            Isso pode levar alguns instantes. Por favor, aguarde.
-          </p>
         )}
       </div>
     </Container>
   );
 };
 
-// Componente de loading inline para uso em botões ou elementos pequenos
-export const InlineSpinner: React.FC<{ size?: 'xs' | 'sm'; color?: string }> = ({ 
-  size = 'xs', 
-  color = 'currentColor' 
+// Componente de loading inline para botões (mantido e melhorado)
+export const InlineSpinner: React.FC<{ size?: 'sm' | 'md'; className?: string }> = ({ 
+  size = 'sm',
+  className = ''
 }) => {
-  const sizeClasses = {
-    xs: 'h-4 w-4 border',
-    sm: 'h-5 w-5 border-2'
-  };
-
+  const sizeClass = size === 'sm' ? 'h-4 w-4 border-[2px]' : 'h-5 w-5 border-2';
+  
   return (
-    <div className={`animate-spin rounded-full ${sizeClasses[size]} border-current border-t-transparent`} 
-         style={{ color }} />
-  );
-};
-
-// Componente de loading para cards/seções
-export const SectionLoader: React.FC<{ message?: string }> = ({ message = 'Carregando conteúdo...' }) => {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 px-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
-      <p className="text-gray-600 text-center">{message}</p>
-    </div>
-  );
-};
-
-// Componente de loading skeleton para carregamento de conteúdo
-export const SkeletonLoader: React.FC<{ type?: 'card' | 'list' | 'text'; lines?: number }> = ({ 
-  type = 'card', 
-  lines = 3 
-}) => {
-  if (type === 'card') {
-    return (
-      <div className="animate-pulse bg-white rounded-2xl shadow-lg p-6 space-y-4">
-        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        <div className="space-y-2">
-          {Array.from({ length: lines }).map((_, i) => (
-            <div key={i} className="h-3 bg-gray-200 rounded" style={{ width: `${100 - (i * 10)}%` }}></div>
-          ))}
-        </div>
-        <div className="flex space-x-2 pt-2">
-          <div className="h-8 bg-gray-200 rounded w-20"></div>
-          <div className="h-8 bg-gray-200 rounded w-16"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (type === 'list') {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: lines }).map((_, i) => (
-          <div key={i} className="animate-pulse flex items-center space-x-4 p-4 bg-white rounded-xl shadow">
-            <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="animate-pulse space-y-2">
-      {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-4 bg-gray-200 rounded" style={{ width: `${100 - (i * 15)}%` }}></div>
-      ))}
-    </div>
+    <div className={`animate-spin rounded-full border-current border-t-transparent ${sizeClass} ${className}`} />
   );
 };
 
