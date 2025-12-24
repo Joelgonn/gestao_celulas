@@ -1,7 +1,7 @@
 // src/app/(app)/reunioes/novo/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -14,7 +14,10 @@ import {
     FaChild,
     FaFilePdf,
     FaCheckCircle,
-    FaSave
+    FaSave,
+    FaChevronDown,
+    FaSearch,
+    FaTimes
 } from 'react-icons/fa';
 
 import {
@@ -31,6 +34,162 @@ import {
 
 import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
+
+// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
+interface CustomSelectSheetProps {
+    label: string;
+    value: string | null;
+    onChange: (value: string | null) => void;
+    options: Membro[];
+    icon: React.ReactNode;
+    placeholder?: string;
+    allowNone?: boolean; // Para permitir selecionar "Nenhum"
+}
+
+const CustomSelectSheet = ({ 
+    label, 
+    value, 
+    onChange, 
+    options, 
+    icon, 
+    placeholder = "Selecione...",
+    allowNone = false
+}: CustomSelectSheetProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    // Encontra o nome do selecionado para exibir no botão
+    const selectedName = options.find(o => o.id === value)?.nome || (value ? "Item não encontrado" : null);
+
+    // Filtra opções baseado na busca
+    const filteredOptions = options.filter(option => 
+        option.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Fecha ao clicar fora
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    // Bloqueia o scroll do corpo quando aberto
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
+    const handleSelect = (id: string | null) => {
+        onChange(id);
+        setIsOpen(false);
+        setSearchTerm('');
+    };
+
+    return (
+        <div className="space-y-1">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                {icon} {label}
+            </label>
+            
+            {/* Botão Gatilho (Parece um input) */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none text-left"
+            >
+                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {selectedName || placeholder}
+                </span>
+                <FaChevronDown className="text-gray-400 text-xs ml-2" />
+            </button>
+
+            {/* Modal / Bottom Sheet */}
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                    <div 
+                        ref={modalRef}
+                        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300"
+                    >
+                        {/* Header do Modal */}
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
+                            <button 
+                                onClick={() => setIsOpen(false)}
+                                className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        {/* Barra de Busca */}
+                        <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+                            <div className="relative">
+                                <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar membro..." 
+                                    autoFocus
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-base"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Lista de Opções */}
+                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
+                            {allowNone && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelect(null)}
+                                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${!value ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    <span>Nenhum / Selecione...</span>
+                                    {!value && <FaCheckCircle className="text-emerald-500" />}
+                                </button>
+                            )}
+
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((membro) => {
+                                    const isSelected = value === membro.id;
+                                    return (
+                                        <button
+                                            key={membro.id}
+                                            type="button"
+                                            onClick={() => handleSelect(membro.id)}
+                                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="text-base">{membro.nome}</span>
+                                                {/* Se tiver cargo ou info extra, pode por aqui */}
+                                            </div>
+                                            {isSelected && <FaCheckCircle className="text-emerald-500 text-lg" />}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    Nenhum membro encontrado com "{searchTerm}"
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+// --- FIM COMPONENTE CUSTOMIZADO ---
+
 
 export default function NovaReuniaoPage() {
     // Estado inicial
@@ -70,9 +229,14 @@ export default function NovaReuniaoPage() {
     }, [addToast]);
 
     // Otimização: useCallback para evitar recriação da função durante a digitação
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
+    }, []);
+
+    // Handler específico para o Select Customizado
+    const handleSelectChange = useCallback((name: string, value: string | null) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
 
     const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,7 +289,6 @@ export default function NovaReuniaoPage() {
                 setUploading(true);
                 setUploadProgress(0);
 
-                // Simulação visual de progresso para melhor UX
                 const interval = setInterval(() => {
                     setUploadProgress((prev) => (prev >= 90 ? 90 : prev + 10));
                 }, 200);
@@ -139,7 +302,6 @@ export default function NovaReuniaoPage() {
                 addToast('Reunião salva com sucesso!', 'success', 3000);
             }
 
-            // Delay para leitura do toast e redirecionamento
             setTimeout(() => {
                 router.push('/reunioes');
             }, 1500);
@@ -208,7 +370,6 @@ export default function NovaReuniaoPage() {
                                             value={formData.data_reuniao}
                                             onChange={handleChange}
                                             required
-                                            // 'text-base' previne zoom no iOS ao focar
                                             className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none"
                                         />
                                     </div>
@@ -231,68 +392,44 @@ export default function NovaReuniaoPage() {
                                     </div>
                                 </div>
 
-                                {/* Bloco: Liderança */}
+                                {/* Bloco: Liderança - USANDO NOVO SELECT CUSTOMIZADO */}
                                 <div className="space-y-4">
                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2">Liderança & Apoio</h3>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                                        {/* Principal */}
-                                        <div className="space-y-1">
-                                            <label htmlFor="ministrador_principal" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FaUser className="text-emerald-500" /> Ministrador Principal *
-                                            </label>
-                                            <select
-                                                id="ministrador_principal"
-                                                name="ministrador_principal"
-                                                value={formData.ministrador_principal || ''}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 text-base bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none"
-                                            >
-                                                <option value="">Selecione...</option>
-                                                {membros.map(m => (
-                                                    <option key={m.id} value={m.id}>{m.nome}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        
+                                        {/* Ministrador Principal (Select Customizado) */}
+                                        <CustomSelectSheet
+                                            label="Ministrador Principal *"
+                                            icon={<FaUser className="text-emerald-500" />}
+                                            value={formData.ministrador_principal}
+                                            onChange={(val) => handleSelectChange('ministrador_principal', val)}
+                                            options={membros}
+                                            placeholder="Selecione o líder..."
+                                        />
 
-                                        {/* Secundário */}
-                                        <div className="space-y-1">
-                                            <label htmlFor="ministrador_secundario" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FaUser className="text-gray-400" /> Min. Secundário
-                                            </label>
-                                            <select
-                                                id="ministrador_secundario"
-                                                name="ministrador_secundario"
-                                                value={formData.ministrador_secundario || ''}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 text-base bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none"
-                                            >
-                                                <option value="">Nenhum</option>
-                                                {membros.map(m => (
-                                                    <option key={m.id} value={m.id}>{m.nome}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        {/* Ministrador Secundário (Select Customizado) */}
+                                        <CustomSelectSheet
+                                            label="Min. Secundário"
+                                            icon={<FaUser className="text-gray-400" />}
+                                            value={formData.ministrador_secundario}
+                                            onChange={(val) => handleSelectChange('ministrador_secundario', val)}
+                                            options={membros}
+                                            allowNone={true}
+                                            placeholder="Selecione (opcional)"
+                                        />
 
-                                        {/* Kids */}
-                                        <div className="space-y-1">
-                                            <label htmlFor="responsavel_kids" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FaChild className="text-blue-400" /> Resp. Kids
-                                            </label>
-                                            <select
-                                                id="responsavel_kids"
-                                                name="responsavel_kids"
-                                                value={formData.responsavel_kids || ''}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 text-base bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none"
-                                            >
-                                                <option value="">Nenhum</option>
-                                                {membros.map(m => (
-                                                    <option key={m.id} value={m.id}>{m.nome}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        {/* Kids (Select Customizado) */}
+                                        <CustomSelectSheet
+                                            label="Resp. Kids"
+                                            icon={<FaChild className="text-blue-400" />}
+                                            value={formData.responsavel_kids}
+                                            onChange={(val) => handleSelectChange('responsavel_kids', val)}
+                                            options={membros}
+                                            allowNone={true}
+                                            placeholder="Selecione (opcional)"
+                                        />
+
                                     </div>
                                 </div>
 
@@ -370,7 +507,7 @@ export default function NovaReuniaoPage() {
                                     >
                                         {submitting ? (
                                             <>
-                                                {/* Spinner CSS puro para garantir cor branca sem conflito de tipos */}
+                                                {/* Spinner CSS puro */}
                                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                                 <span className="animate-pulse">
                                                     {selectedFile ? 'Enviando...' : 'Salvando...'}
