@@ -17,17 +17,14 @@ import {
     FaBookOpen,
     FaFileDownload
 } from 'react-icons/fa';
-// ADICIONAR ESTAS DUAS LINHAS:
 import useToast from '@/hooks/useToast';
-// REMOVA 'import Toast from '@/components/ui/Toast';' se não for mais usado diretamente
-
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
     uploadPalavraDaSemana, 
     getPalavraDaSemana, 
     deletePalavraDaSemana, 
 } from '@/lib/data';
-import { PalavraDaSemana } from '@/lib/types'; // <--- ADICIONE ESTA LINHA para importar do types.ts
+import { PalavraDaSemana } from '@/lib/types';
 import { formatDateForDisplay, formatDateForInput } from '@/utils/formatters';
 
 export default function AdminPalavraSemanaPage() {
@@ -41,14 +38,12 @@ export default function AdminPalavraSemanaPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const [currentPalavra, setCurrentPalavra] = useState<PalavraDaSemana | null>(null);
-    // MUDANÇA AQUI: Desestruture ToastContainer, não toasts
     const { addToast, removeToast, ToastContainer } = useToast();
 
-    // Calcula a data da segunda-feira da semana atual para o input padrão
     const getDefaultDateForWeek = useMemo(() => {
         const today = new Date();
-        const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Ajusta para a segunda-feira
+        const dayOfWeek = today.getDay(); 
+        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
         const monday = new Date(today.setDate(diff));
         return formatDateForInput(monday.toISOString());
     }, []);
@@ -63,11 +58,10 @@ export default function AdminPalavraSemanaPage() {
                 setDescricao(palavra.descricao || '');
                 setDataSemana(palavra.data_semana);
             } else {
-                // Se não há palavra, reseta o formulário para um novo post
                 setTitulo('');
                 setDescricao('');
                 setDataSemana(getDefaultDateForWeek);
-                setSelectedFile(null); // Garante que o arquivo selecionado é limpo para um novo post
+                setSelectedFile(null);
                 if (document.getElementById('file')) {
                     (document.getElementById('file') as HTMLInputElement).value = '';
                 }
@@ -87,10 +81,9 @@ export default function AdminPalavraSemanaPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            // Verifica o tipo do arquivo (apenas PDF ou PPT/PPTX)
             if (!['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'].includes(file.type)) {
                 addToast('Por favor, selecione um arquivo PDF, PPT ou PPTX.', 'error');
-                e.target.value = ''; // Limpa o input
+                e.target.value = '';
                 setSelectedFile(null);
                 return;
             }
@@ -253,7 +246,7 @@ export default function AdminPalavraSemanaPage() {
                         <span>{currentPalavra ? 'Atualizar Palavra da Semana' : 'Publicar Nova Palavra da Semana'}</span>
                     </h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-y-4 sm:gap-x-4"> {/* Ajuste de responsividade aqui */}
                             <div className="space-y-2">
                                 <label htmlFor="dataSemana" className="block text-sm font-medium text-gray-700">
                                     Data da Semana <span className="text-red-500">*</span>
@@ -292,7 +285,7 @@ export default function AdminPalavraSemanaPage() {
                             <textarea
                                 id="descricao"
                                 placeholder="Breve descrição sobre a mensagem"
-                                value={descricao}
+                                value={descricao || ''} // Corrigido para lidar com null
                                 onChange={(e) => setDescricao(e.target.value)}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400 h-20 resize-none"
                                 disabled={submitting}
@@ -358,7 +351,7 @@ export default function AdminPalavraSemanaPage() {
                                 <p className="text-gray-700 text-sm">{currentPalavra.descricao || 'Nenhuma descrição.'}</p>
                                 <p className="text-gray-500 text-xs">Por: {currentPalavra.created_by_email || 'Admin'}</p>
                             </div>
-                            <div className="flex items-center space-x-3">
+                            <div className="flex flex-wrap gap-2 justify-end mt-4 md:mt-0"> {/* Ajuste de responsividade aqui */}
                                 <a 
                                     href={currentPalavra.url_arquivo} 
                                     target="_blank" 
@@ -367,16 +360,16 @@ export default function AdminPalavraSemanaPage() {
                                     title="Baixar PDF"
                                 >
                                     <FaFileDownload className="text-lg" />
-                                    <span className="text-sm">Baixar</span>
-                                </a
-                                ><button
+                                    <span className="text-sm hidden sm:inline">Baixar</span> {/* Texto visível em sm: e acima */}
+                                </a>
+                                <button
                                     onClick={() => handleDelete(currentPalavra.id)}
                                     className="inline-flex items-center space-x-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200"
                                     title="Excluir Palavra"
                                     disabled={submitting}
                                 >
                                     <FaRegTrashAlt className="text-lg" />
-                                    <span className="text-sm">Excluir</span>
+                                    <span className="text-sm hidden sm:inline">Excluir</span> {/* Texto visível em sm: e acima */}
                                 </button>
                             </div>
                         </div>
