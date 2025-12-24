@@ -1,7 +1,7 @@
 // src/app/(app)/reunioes/editar/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -12,9 +12,13 @@ import {
     FaFilePdf,
     FaUpload,
     FaSave,   
-    FaBookOpen  
+    FaBookOpen,
+    FaChevronDown,
+    FaSearch,
+    FaTimes,
+    FaCheckCircle
 } from 'react-icons/fa';
-// Importa funções de data.ts
+
 import {
     getReuniao,
     atualizarReuniao,
@@ -23,12 +27,144 @@ import {
     uploadMaterialReuniao,
 } from '@/lib/data';
 
-// Importar tipos de '@/lib/types'
-import { Membro, ReuniaoFormData, ReuniaoParaEdicao } from '@/lib/types';
-
+import { Membro, ReuniaoFormData } from '@/lib/types';
 import { formatDateForInput, formatDateForDisplay } from '@/utils/formatters';
-
 import useToast from '@/hooks/useToast';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
+// (Reutilizado da página 'Nova Reunião' para consistência)
+interface CustomSelectSheetProps {
+    label: string;
+    value: string | null;
+    onChange: (value: string | null) => void;
+    options: Membro[];
+    icon: React.ReactNode;
+    placeholder?: string;
+    allowNone?: boolean;
+}
+
+const CustomSelectSheet = ({ 
+    label, 
+    value, 
+    onChange, 
+    options, 
+    icon, 
+    placeholder = "Selecione...",
+    allowNone = false
+}: CustomSelectSheetProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    const selectedName = options.find(o => o.id === value)?.nome || (value ? "Item não encontrado" : null);
+
+    const filteredOptions = options.filter(option => 
+        option.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        else document.body.style.overflow = 'unset';
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
+    const handleSelect = (id: string | null) => {
+        onChange(id);
+        setIsOpen(false);
+        setSearchTerm('');
+    };
+
+    return (
+        <div className="space-y-1">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                {icon} {label}
+            </label>
+            <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow outline-none text-left"
+            >
+                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {selectedName || placeholder}
+                </span>
+                <FaChevronDown className="text-gray-400 text-xs ml-2" />
+            </button>
+
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                    <div 
+                        ref={modalRef}
+                        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300"
+                    >
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+                            <div className="relative">
+                                <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar membro..." 
+                                    autoFocus
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-base"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
+                            {allowNone && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelect(null)}
+                                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${!value ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    <span>Nenhum / Remover seleção</span>
+                                    {!value && <FaCheckCircle className="text-teal-500" />}
+                                </button>
+                            )}
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((membro) => {
+                                    const isSelected = value === membro.id;
+                                    return (
+                                        <button
+                                            key={membro.id}
+                                            type="button"
+                                            onClick={() => handleSelect(membro.id)}
+                                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-teal-50 text-teal-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            <span className="text-base">{membro.nome}</span>
+                                            {isSelected && <FaCheckCircle className="text-teal-500 text-lg" />}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    Nenhum membro encontrado.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+// --- FIM COMPONENTE CUSTOMIZADO ---
 
 
 export default function EditReuniaoPage() {
@@ -44,7 +180,7 @@ export default function EditReuniaoPage() {
         caminho_pdf: null,
     });
     const [membros, setMembros] = useState<Membro[]>([]);
-    const { addToast, removeToast, ToastContainer } = useToast();
+    const { addToast, ToastContainer } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -66,7 +202,7 @@ export default function EditReuniaoPage() {
                 setMembros(membrosData);
 
                 if (!reuniaoDataFromLib) {
-                    addToast('A reunião solicitada não existe ou você não tem permissão para acessá-la', 'error');
+                    addToast('Reunião não encontrada ou acesso negado', 'error');
                     setTimeout(() => router.replace('/reunioes'), 2000);
                     return;
                 }
@@ -81,11 +217,10 @@ export default function EditReuniaoPage() {
                     celula_id: reuniaoDataFromLib.celula_id,
                 });
 
-                addToast('Informações da reunião carregadas com sucesso', 'success', 3000);
-
+                // addToast('Informações carregadas', 'success'); // Opcional para não poluir
             } catch (e: any) {
-                console.error("Erro ao buscar dados para edição da reunião:", e);
-                addToast(e.message || 'Erro desconhecido ao carregar dados da reunião', 'error');
+                console.error("Erro ao buscar dados:", e);
+                addToast(e.message || 'Erro ao carregar dados', 'error');
                 setTimeout(() => router.replace('/reunioes'), 2000);
             } finally {
                 setLoading(false);
@@ -97,27 +232,32 @@ export default function EditReuniaoPage() {
         }
     }, [reuniaoId, router, addToast]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value === '' ? null : value });
-    };
+        setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
+    }, []);
+
+    // Handler para o Custom Select
+    const handleSelectChange = useCallback((name: string, value: string | null) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
 
         if (!formData.tema.trim()) {
-            addToast('O campo "Tema / Palavra" é obrigatório', 'error');
+            addToast('Tema é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.ministrador_principal) {
-            addToast('O campo "Ministrador Principal" é obrigatório', 'error');
+            addToast('Ministrador Principal é obrigatório', 'error');
             setSubmitting(false);
             return;
         }
         if (!formData.data_reuniao) {
-            addToast('O campo "Data da Reunião" é obrigatório', 'error');
+            addToast('Data é obrigatória', 'error');
             setSubmitting(false);
             return;
         }
@@ -125,29 +265,20 @@ export default function EditReuniaoPage() {
         try {
             const isDuplicate = await verificarDuplicidadeReuniao(formData.data_reuniao, formData.tema, reuniaoId);
             if (isDuplicate) {
-                addToast('Já existe outra reunião com o tema \'' + formData.tema + '\' na data ' + formatDateForDisplay(formData.data_reuniao), 'warning');
+                addToast(`Já existe reunião com tema '${formData.tema}' nesta data`, 'warning');
                 setSubmitting(false);
                 return;
             }
-        } catch (e: any) {
-            console.error("Erro ao verificar duplicidade:", e);
-            addToast(e.message || 'Erro ao verificar duplicidade da reunião', 'error');
-            setSubmitting(false);
-            return;
-        }
 
-        try {
             await atualizarReuniao(reuniaoId, formData);
-
             addToast('Reunião atualizada com sucesso', 'success', 3000);
-
             setTimeout(() => {
                 router.push('/reunioes');
-            }, 2000);
+            }, 1500);
 
         } catch (e: any) {
-            console.error("Erro ao atualizar reunião:", e);
-            addToast(e.message || 'Erro desconhecido ao atualizar reunião', 'error');
+            console.error("Erro ao atualizar:", e);
+            addToast(e.message || 'Erro ao atualizar reunião', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -161,11 +292,11 @@ export default function EditReuniaoPage() {
 
     const handleFileUpload = async () => {
         if (!selectedFile) {
-            addToast('Por favor, selecione um arquivo para upload', 'error');
+            addToast('Selecione um arquivo primeiro', 'error');
             return;
         }
         if (!reuniaoId) {
-            addToast('ID da reunião não disponível para upload', 'error');
+            addToast('ID inválido', 'error');
             return;
         }
 
@@ -186,11 +317,11 @@ export default function EditReuniaoPage() {
             setFormData(prev => ({ ...prev, caminho_pdf: publicUrl }));
             setSelectedFile(null);
 
-            addToast('Material da reunião enviado e vinculado com sucesso', 'success', 4000);
+            addToast('Material enviado com sucesso!', 'success', 4000);
 
         } catch (e: any) {
-            console.error("Erro ao fazer upload do material:", e);
-            addToast(e.message || 'Erro desconhecido ao fazer upload do material', 'error');
+            console.error("Erro upload:", e);
+            addToast(e.message || 'Erro no upload', 'error');
             setUploadProgress(0);
         } finally {
             setUploading(false);
@@ -198,121 +329,228 @@ export default function EditReuniaoPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-            {/* Renderiza o ToastContainer do hook global */}
+        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
             <ToastContainer />
 
-            {/* Conteúdo Principal */}
-            <div className="max-w-4xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-                    {/* Header com Gradiente */}
-                    <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-6 sm:py-8"> {/* Padding ajustado */}
-                        <div className="flex items-center justify-between">
+            <div className="max-w-4xl mx-auto mt-4 sm:mt-0">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    
+                    {/* Header Responsivo */}
+                    <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-6 sm:px-6 sm:py-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3"> {/* Fonte ajustada */}
-                                    <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
+                                    <FaCalendarAlt className="w-6 h-6 sm:w-8 sm:h-8" />
                                     Editar Reunião
                                 </h1>
-                                <p className="text-teal-100 mt-2 text-sm sm:text-base">Atualize as informações e o material da reunião</p> {/* Fonte ajustada */}
+                                <p className="text-teal-100 mt-1 text-sm sm:text-base">
+                                    Atualize as informações da célula
+                                </p>
                             </div>
+                            
                             <Link 
                                 href="/reunioes" 
-                                className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/30 text-sm" // Padding e fonte ajustados
+                                className="inline-flex justify-center items-center px-4 py-3 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/30 text-sm font-medium w-full sm:w-auto"
                             >
-                                <FaArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-2" /> {/* Ícone ajustado */}
+                                <FaArrowLeft className="w-3 h-3 mr-2" />
                                 Voltar
                             </Link>
                         </div>
                     </div>
 
                     {/* Formulário */}
-                    <div className="p-4 sm:p-6"> {/* Padding ajustado */}
+                    <div className="p-4 sm:p-8">
                         {loading ? (
-                            <div className="text-center py-12">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-                                <p className="mt-4 text-gray-600 font-medium">Carregando dados da reunião e membros...</p>
+                            <div className="text-center py-16">
+                                <LoadingSpinner />
+                                <p className="mt-4 text-gray-500 font-medium animate-pulse">Carregando dados...</p>
                             </div>
                         ) : (
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-x-4 sm:gap-y-4"> {/* Ajuste de responsividade */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="data_reuniao" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaCalendarAlt className="w-4 h-4 text-teal-500" />
-                                            Data da Reunião *
+                            <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+                                
+                                {/* Bloco: Dados Principais */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                    <div className="space-y-1">
+                                        <label htmlFor="data_reuniao" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                            <FaCalendarAlt className="text-teal-500" /> Data *
                                         </label>
-                                        <input type="date" id="data_reuniao" name="data_reuniao" value={formData.data_reuniao} onChange={handleChange} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 text-sm"/> {/* Padding e fonte ajustados */}
+                                        <input
+                                            type="date"
+                                            id="data_reuniao"
+                                            name="data_reuniao"
+                                            value={formData.data_reuniao}
+                                            onChange={handleChange}
+                                            required
+                                            // 'text-base' previne zoom no iOS
+                                            className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow outline-none"
+                                        />
                                     </div>
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="tema" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaBookOpen className="w-4 h-4 text-teal-500" />
-                                            Tema / Palavra *
+                                    
+                                    <div className="space-y-1">
+                                        <label htmlFor="tema" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                            <FaBookOpen className="text-teal-500" /> Tema / Palavra *
                                         </label>
-                                        <input type="text" id="tema" name="tema" value={formData.tema} onChange={handleChange} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 text-sm" placeholder="Digite o tema ou palavra da reunião"/> {/* Padding e fonte ajustados */}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-x-4 sm:gap-y-4"> {/* Ajuste de responsividade */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="ministrador_principal" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaUser className="w-4 h-4 text-teal-500" />
-                                            Ministrador Principal *
-                                        </label>
-                                        <select id="ministrador_principal" name="ministrador_principal" value={formData.ministrador_principal || ''} onChange={handleChange} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white text-sm"> {/* Padding e fonte ajustados */}
-                                            <option value="">-- Selecione um Membro --</option>
-                                            {membros.map((membro) => (<option key={membro.id} value={membro.id}>{membro.nome}</option>))}
-                                        </select>
-                                    </div>
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="ministrador_secundario" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaUser className="w-4 h-4 text-teal-500" />
-                                            Ministrador Secundário
-                                        </label>
-                                        <select id="ministrador_secundario" name="ministrador_secundario" value={formData.ministrador_secundario || ''} onChange={handleChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white text-sm"> {/* Padding e fonte ajustados */}
-                                            <option value="">-- Selecione um Membro --</option>
-                                            {membros.map((membro) => (<option key={membro.id} value={membro.id}>{membro.nome}</option>))}
-                                        </select>
-                                    </div>
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                        <label htmlFor="responsavel_kids" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                            <FaChild className="w-4 h-4 text-teal-500" />
-                                            Responsável Kids
-                                        </label>
-                                        <select id="responsavel_kids" name="responsavel_kids" value={formData.responsavel_kids || ''} onChange={handleChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 bg-white text-sm"> {/* Padding e fonte ajustados */}
-                                            <option value="">-- Selecione um Membro --</option>
-                                            {membros.map((membro) => (<option key={membro.id} value={membro.id}>{membro.nome}</option>))}
-                                        </select>
+                                        <input
+                                            type="text"
+                                            id="tema"
+                                            name="tema"
+                                            value={formData.tema}
+                                            onChange={handleChange}
+                                            required
+                                            placeholder="Digite o tema"
+                                            className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow outline-none"
+                                        />
                                     </div>
                                 </div>
-                                <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200"> {/* Padding ajustado */}
-                                    <h3 className="text-base sm:text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2"> {/* Fonte ajustada */}
-                                        <FaFilePdf className="w-4 h-4 sm:w-5 sm:h-5" />
-                                        Material da Reunião
+
+                                {/* Bloco: Liderança com Selects Customizados */}
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2">Liderança & Apoio</h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                                        <CustomSelectSheet
+                                            label="Ministrador Principal *"
+                                            icon={<FaUser className="text-teal-500" />}
+                                            value={formData.ministrador_principal}
+                                            onChange={(val) => handleSelectChange('ministrador_principal', val)}
+                                            options={membros}
+                                            placeholder="Selecione..."
+                                        />
+
+                                        <CustomSelectSheet
+                                            label="Min. Secundário"
+                                            icon={<FaUser className="text-gray-400" />}
+                                            value={formData.ministrador_secundario}
+                                            onChange={(val) => handleSelectChange('ministrador_secundario', val)}
+                                            options={membros}
+                                            allowNone={true}
+                                            placeholder="Opcional"
+                                        />
+
+                                        <CustomSelectSheet
+                                            label="Resp. Kids"
+                                            icon={<FaChild className="text-blue-400" />}
+                                            value={formData.responsavel_kids}
+                                            onChange={(val) => handleSelectChange('responsavel_kids', val)}
+                                            options={membros}
+                                            allowNone={true}
+                                            placeholder="Opcional"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Bloco: Upload / Material */}
+                                <div className="bg-blue-50/80 rounded-xl p-4 sm:p-6 border border-blue-200">
+                                    <h3 className="text-base sm:text-lg font-bold text-blue-800 mb-4 flex items-center gap-2">
+                                        <FaFilePdf /> Material da Reunião
                                     </h3>
-                                    {formData.caminho_pdf && (<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg border border-blue-200 mb-4 space-y-2 sm:space-y-0"> {/* Layout responsivo */}
-                                        <div className="flex items-center space-x-2 sm:space-x-3">
-                                            <FaFilePdf className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 flex-shrink-0" />
-                                            <div className="flex-1">
-                                                <p className="text-xs sm:text-sm font-medium text-gray-900">Material atual disponível</p>
-                                                <p className="text-xs sm:text-sm text-gray-500">Clique para visualizar ou baixar</p>
+                                    
+                                    {/* Exibição do Material Atual */}
+                                    {formData.caminho_pdf && (
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white rounded-lg border border-blue-100 mb-5 shadow-sm gap-3">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="p-2 bg-red-50 rounded-lg">
+                                                    <FaFilePdf className="w-6 h-6 text-red-500" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900">Arquivo Atual</p>
+                                                    <p className="text-xs text-gray-500">Toque para visualizar</p>
+                                                </div>
                                             </div>
+                                            <a 
+                                                href={formData.caminho_pdf} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="w-full sm:w-auto text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                            >
+                                                Visualizar
+                                            </a>
                                         </div>
-                                        <a href={formData.caminho_pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"> {/* Padding e fonte ajustados */}
-                                            <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Abrir
-                                        </a>
-                                    </div>)}
+                                    )}
+
+                                    {/* Área de Upload */}
                                     <div className="space-y-4">
                                         <div>
-                                            <label htmlFor="material_file" className="block text-sm font-semibold text-gray-700 mb-2">Upload novo material (PDF/PPT)</label>
-                                            <input type="file" id="material_file" accept=".pdf,.ppt,.pptx" onChange={handleFileChange} disabled={uploading} className="w-full px-3 py-2.5 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 file:mr-2 sm:file:mr-4 file:py-1.5 file:px-3 sm:file:py-2 sm:file:px-4 file:rounded-lg file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm"/> {/* Padding e fonte ajustados */}
-                                            {selectedFile && (<p className="mt-2 text-sm text-gray-600">Arquivo selecionado: {selectedFile.name}</p>)}
+                                            <label htmlFor="material_file" className="block text-sm font-semibold text-gray-700 mb-2">
+                                                {formData.caminho_pdf ? 'Substituir arquivo (PDF/PPT)' : 'Enviar novo arquivo (PDF/PPT)'}
+                                            </label>
+                                            
+                                            <label 
+                                                htmlFor="material_file" 
+                                                className={`
+                                                    flex flex-col items-center justify-center w-full h-24 sm:h-28
+                                                    border-2 border-dashed rounded-lg cursor-pointer transition-colors
+                                                    ${selectedFile ? 'border-teal-400 bg-teal-50' : 'border-blue-300 bg-white hover:bg-blue-50'}
+                                                `}
+                                            >
+                                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                    {selectedFile ? (
+                                                        <>
+                                                            <FaCheckCircle className="w-6 h-6 text-teal-500 mb-1" />
+                                                            <p className="text-sm text-teal-700 font-medium px-2 text-center truncate w-full max-w-[250px]">
+                                                                {selectedFile.name}
+                                                            </p>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <p className="text-sm text-gray-500 font-medium">Toque para selecionar</p>
+                                                            <p className="text-xs text-gray-400">PDF ou PPT</p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <input 
+                                                    type="file" 
+                                                    id="material_file" 
+                                                    accept=".pdf,.ppt,.pptx" 
+                                                    onChange={handleFileChange} 
+                                                    disabled={uploading} 
+                                                    className="hidden"
+                                                />
+                                            </label>
                                         </div>
-                                        {uploading && (<div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}
-                                        <button type="button" onClick={handleFileUpload} disabled={uploading || !selectedFile} className="w-full bg-blue-600 text-white py-3 px-5 sm:py-3.5 sm:px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 text-base"> {/* Padding e fonte ajustados */}
-                                            {uploading ? (<><svg className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span>Enviando {uploadProgress}%...</span></>) : (<><FaUpload className="w-4 h-4 sm:w-5 sm:h-5" /><span>Enviar Material</span></>)}
+
+                                        {uploading && (
+                                            <div className="space-y-1">
+                                                <div className="w-full bg-blue-200 rounded-full h-2">
+                                                    <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                                                </div>
+                                                <p className="text-xs text-center text-blue-700">Enviando... {uploadProgress}%</p>
+                                            </div>
+                                        )}
+                                        
+                                        <button 
+                                            type="button" 
+                                            onClick={handleFileUpload} 
+                                            disabled={uploading || !selectedFile} 
+                                            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                                        >
+                                            {uploading ? (
+                                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                            ) : (
+                                                <FaUpload />
+                                            )}
+                                            {uploading ? 'Enviando...' : 'Fazer Upload do Material'}
                                         </button>
                                     </div>
                                 </div>
-                                <button type="submit" disabled={submitting || uploading} className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-teal-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 flex items-center justify-center gap-2 text-base"> {/* Padding e fonte ajustados */}
-                                    {submitting ? (<><div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>Atualizando...</>) : (<><FaSave className="w-4 h-4 sm:w-5 sm:h-5" />Atualizar Reunião</>)}
+
+                                {/* Botão Submit */}
+                                <button 
+                                    type="submit" 
+                                    disabled={submitting || uploading} 
+                                    className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-lg font-bold py-4 px-6 rounded-xl shadow-md active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {submitting ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                            Atualizando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaSave />
+                                            Salvar Alterações
+                                        </>
+                                    )}
                                 </button>
                             </form>
                         )}
