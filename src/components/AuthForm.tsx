@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import useToast from '@/hooks/useToast'; // Importando o hook global
+import useToast from '@/hooks/useToast'; 
 import { 
   FaEnvelope, 
   FaMagic, 
@@ -13,6 +13,8 @@ import {
   FaShieldAlt,
   FaKey,
   FaLock,
+  FaEye,      // NOVO: Ícone de olho
+  FaEyeSlash, // NOVO: Ícone de olho riscado
   FaSpinner,
   FaSignInAlt
 } from 'react-icons/fa';
@@ -23,6 +25,8 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [authMethod, setAuthMethod] = useState<'magic_link' | 'password'>('magic_link');
+  // NOVO ESTADO: Visibilidade da senha
+  const [showPassword, setShowPassword] = useState(false); 
 
   const router = useRouter();
   const { addToast, ToastContainer } = useToast();
@@ -33,7 +37,6 @@ export default function AuthForm() {
     try {
       setLoading(true);
 
-      // Validação básica
       if (!email.trim().includes('@')) {
         addToast('Insira um email válido.', 'error');
         setLoading(false);
@@ -41,7 +44,6 @@ export default function AuthForm() {
       }
 
       if (authMethod === 'magic_link') {
-        // --- LOGIN COM LINK MÁGICO ---
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim(),
           options: {
@@ -55,7 +57,6 @@ export default function AuthForm() {
         addToast('Link enviado com sucesso!', 'success');
 
       } else {
-        // --- LOGIN COM SENHA ---
         if (!password) {
             addToast('Digite sua senha.', 'warning');
             setLoading(false);
@@ -78,7 +79,7 @@ export default function AuthForm() {
       let msg = error.message;
       if (msg.includes('Invalid login')) msg = 'Credenciais incorretas.';
       addToast(msg, 'error');
-      setLoading(false); // Garante que o loading pare se der erro
+      setLoading(false); 
     }
   };
 
@@ -87,9 +88,9 @@ export default function AuthForm() {
     setPassword('');
     setStep('form');
     setLoading(false);
+    setShowPassword(false); // NOVO: Reseta a visibilidade também
   };
 
-  // TELA DE SUCESSO (LINK MÁGICO)
   if (step === 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 p-4">
@@ -122,7 +123,6 @@ export default function AuthForm() {
     );
   }
 
-  // TELA DE FORMULÁRIO
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 p-4">
       <ToastContainer />
@@ -187,6 +187,7 @@ export default function AuthForm() {
                 </div>
               </div>
 
+              {/* Campo de Senha (Condicional e com Toggle) */}
               {authMethod === 'password' && (
                 <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
                   <label className="text-sm font-bold text-gray-700 ml-1">Senha</label>
@@ -195,14 +196,25 @@ export default function AuthForm() {
                       <FaLock />
                     </div>
                     <input
-                      type="password"
+                      id="password"
+                      // NOVO: Tipo de input dinâmico
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400"
+                      className="w-full pl-11 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400"
                       required
                       disabled={loading}
                     />
+                    {/* NOVO: Botão de toggle da senha */}
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+                    >
+                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
                   </div>
                 </div>
               )}
@@ -237,6 +249,12 @@ export default function AuthForm() {
                 </p>
             </div>
           </div>
+        </div>
+
+        <div className="text-center mt-6">
+          <p className="text-gray-500 text-sm">
+            Apascentar Células &copy; 2025
+          </p>
         </div>
       </div>
     </div>

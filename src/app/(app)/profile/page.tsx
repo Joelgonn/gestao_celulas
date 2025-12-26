@@ -20,7 +20,9 @@ import {
   FaKey,
   FaArrowLeft,
   FaSave,
-  FaSpinner
+  FaSpinner,
+  FaEye,      // NOVO: Ícone de olho
+  FaEyeSlash  // NOVO: Ícone de olho riscado
 } from 'react-icons/fa';
 
 import useToast from '@/hooks/useToast';
@@ -40,6 +42,9 @@ export default function ProfilePage() {
     // Formulário de senha
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    // NOVO ESTADO: Visibilidade da senha (para as duas senhas)
+    const [showNewPassword, setShowNewPassword] = useState(false); 
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const router = useRouter();
     const { addToast, ToastContainer } = useToast();
@@ -54,7 +59,6 @@ export default function ProfilePage() {
                     nome_completo: userProfileData.nome_completo || '', 
                     telefone: normalizePhoneNumber(userProfileData.telefone) || '', 
                 });
-                // addToast('Perfil carregado', 'success'); // Opcional
             } else {
                 addToast("Perfil não encontrado.", 'error');
             }
@@ -126,6 +130,8 @@ export default function ProfilePage() {
                 addToast("Senha alterada com sucesso!", 'success');
                 setNewPassword('');
                 setConfirmPassword('');
+                setShowNewPassword(false); // NOVO: Esconde a senha
+                setShowConfirmPassword(false); // NOVO: Esconde a senha
                 setActiveTab('profile'); 
             } else {
                 addToast(message, 'error');
@@ -182,16 +188,8 @@ export default function ProfilePage() {
                         </div>
                     </div>
                     
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex items-center gap-3 border border-white/20">
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white">
-                            <FaUser />
-                        </div>
-                        <div className="text-white">
-                            <p className="font-bold text-sm leading-tight">{profile.nome_completo || 'Usuário'}</p>
-                            <p className="text-xs text-purple-200 uppercase font-bold tracking-wide">
-                                {profile.role === 'admin' ? 'Administrador' : 'Líder'}
-                            </p>
-                        </div>
+                    <div className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs font-bold uppercase">
+                        {profile.role === 'admin' ? 'Administrador' : 'Líder'}
                     </div>
                 </div>
             </div>
@@ -311,39 +309,63 @@ export default function ProfilePage() {
                                 </form>
                             </>
                         ) : (
-                            <>
+                            <div className="space-y-6"> {/* Espaço adicionado para o título */}
                                 <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                                     <FaKey className="text-purple-500" /> Alterar Senha
                                 </h2>
 
                                 <form onSubmit={handleChangePassword} className="space-y-6">
+                                    {/* Nova Senha */}
                                     <div className="space-y-1">
-                                        <label htmlFor="newPassword" className="text-sm font-semibold text-gray-700">Nova Senha</label>
-                                        <input
-                                            type="password"
-                                            id="newPassword"
-                                            value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                                            required
-                                            disabled={submitting}
-                                            minLength={6}
-                                        />
-                                        <p className="text-xs text-gray-500">Mínimo de 6 caracteres</p>
+                                        <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-700">Nova Senha</label>
+                                        <div className="relative">
+                                            <input
+                                                type={showNewPassword ? 'text' : 'password'} // NOVO: Tipo dinâmico
+                                                id="newPassword"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200 pr-11" // NOVO: pr-11 para o ícone
+                                                required
+                                                disabled={submitting}
+                                                minLength={6}
+                                            />
+                                            {/* NOVO: Botão de toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(prev => !prev)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                aria-label={showNewPassword ? 'Esconder nova senha' : 'Mostrar nova senha'}
+                                            >
+                                                {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-2">Mínimo de 6 caracteres</p>
                                     </div>
 
+                                    {/* Confirmar Nova Senha */}
                                     <div className="space-y-1">
-                                        <label htmlFor="confirmPassword" className="text-sm font-semibold text-gray-700">Confirmar Senha</label>
-                                        <input
-                                            type="password"
-                                            id="confirmPassword"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                                            required
-                                            disabled={submitting}
-                                            minLength={6}
-                                        />
+                                        <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700">Confirmar Nova Senha</label>
+                                        <div className="relative">
+                                            <input
+                                                type={showConfirmPassword ? 'text' : 'password'} // NOVO: Tipo dinâmico
+                                                id="confirmPassword"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200 pr-11" // NOVO: pr-11 para o ícone
+                                                required
+                                                disabled={submitting}
+                                                minLength={6}
+                                            />
+                                            {/* NOVO: Botão de toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(prev => !prev)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                aria-label={showConfirmPassword ? 'Esconder confirmação de senha' : 'Mostrar confirmação de senha'}
+                                            >
+                                                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <button
@@ -355,7 +377,7 @@ export default function ProfilePage() {
                                         Atualizar Senha
                                     </button>
                                 </form>
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>

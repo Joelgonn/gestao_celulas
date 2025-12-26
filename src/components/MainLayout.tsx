@@ -1,12 +1,12 @@
 // src/components/MainLayout.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react'; // <--- ADICIONADO useCallback AQUI
 import Link from 'next/link';
 import Image from 'next/image'; 
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
-import LoadingSpinner from './LoadingSpinner';
+import LoadingSpinner from '@/components/LoadingSpinner'; 
 import {
   FaHome,
   FaUsers,
@@ -24,7 +24,7 @@ import {
 
 import useToast from '@/hooks/useToast'; 
 
-// --- Componente NavItem ---
+// --- Componente NavItem (Inalterado) ---
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
@@ -45,12 +45,12 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
     <Link 
       href={href} 
       onClick={onClick}
-      className={`flex items-center space-x-3 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 transform hover:translate-x-1 ${activeClass}`}
+      className={`flex items-center space-x-3 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 transform hover:translate-x-1 ${activeClass} cursor-pointer`}
     >
       <div className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-orange-200'}`}>
         {icon}
       </div>
-      <span className="flex-1">{children}</span>
+      <span className="flex-1 truncate">{children}</span>
       {isActive && (
         <div className="w-2 h-2 bg-white rounded-full"></div>
       )}
@@ -58,36 +58,54 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   );
 };
 
-// --- FUNÇÃO DE LOGOUT ROBUSTA (EXTRAÍDA PARA REUSO) ---
-const useLogout = () => {
+// --- FUNÇÃO DE LOGOUT BLINDADA (TIPAGEM E useCallback CORRIGIDOS) ---
+type AddToastFunction = (message: string, type?: 'success' | 'error' | 'warning' | 'info', duration?: number) => void;
+
+const useLogout = (addToast: AddToastFunction) => {
   const router = useRouter();
-  
-  const performLogout = async (callback?: () => void) => {
+
+  const performLogout = useCallback(async (callback?: () => void) => {
+    if (callback) callback();
+
     try {
-      // Tenta deslogar no servidor (pode falhar se o token já expirou)
       await supabase.auth.signOut();
+      addToast('Deslogado com sucesso!', 'success');
     } catch (error) {
-      console.warn('Erro ao notificar servidor do logout (ignorável):', error);
+      console.warn('Erro silencioso ao deslogar do Supabase (ignorando para forçar logout local):', error);
+      addToast('Falha ao deslogar do servidor, mas limpando sessão localmente.', 'warning');
     } finally {
-      // INDEPENDENTE do sucesso ou erro do servidor, forçamos a limpeza local
-      // Isso resolve o problema de ter que dar F5
-      if (callback) callback();
-      router.refresh(); // Limpa cache do cliente Next.js
-      router.replace('/login');
+      if (typeof window !== 'undefined') {
+        for (const key in localStorage) {
+          if (key.startsWith('sb:') || key.includes('supabase')) {
+            localStorage.removeItem(key);
+          }
+        }
+        for (const key in sessionStorage) {
+            if (key.startsWith('sb:') || key.includes('supabase')) {
+                sessionStorage.removeItem(key);
+            }
+        }
+        
+        router.refresh(); 
+        setTimeout(() => {
+          router.replace('/login');
+        }, 100);
+      }
     }
-  };
+  }, [router, addToast]); // addToast como dependência para o useCallback
 
   return performLogout;
 };
 
-// --- Componente LogoutButton (Atualizado) ---
+// --- Componente LogoutButton ---
 const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
-  const logout = useLogout();
+  const { addToast } = useToast();
+  const logout = useLogout(addToast);
   
   return (
     <button
       onClick={() => logout(onLogout)}
-      className="w-full text-left py-3 px-4 rounded-xl text-sm font-medium text-red-100 hover:bg-red-700 hover:text-white transition-all duration-200 flex items-center space-x-3 group"
+      className="w-full text-left py-3 px-4 rounded-xl text-sm font-medium text-red-100 hover:bg-red-700 hover:text-white transition-all duration-200 flex items-center space-x-3 group cursor-pointer"
     >
       <FaSignOutAlt className="text-lg group-hover:scale-110 transition-transform duration-200" />
       <span>Sair</span>
@@ -102,16 +120,19 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const pathname = usePathname();
-  const router = useRouter();
+  const router = useRouter(); 
   const { addToast, ToastContainer } = useToast(); 
-  const logout = useLogout(); // Hook de logout para usar no dropdown
+  const logout = useLogout(addToast); 
   
   const [userRole, setUserRole] = useState<'admin' | 'líder' | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loadingRole, setLoadingRole] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     async function fetchUserRole() {
@@ -125,13 +146,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             .eq('id', user.id)
             .single();
           
-          if (profileError || !profile) {
-            console.error("Erro ao buscar perfil:", profileError);
-            setUserRole(null);
-            // Evitar toast de erro aqui para não assustar no loading inicial, o AuthLayout já trata redirecionamento
-          } else {
+          if (!profileError && profile) {
             setUserRole(profile.role as 'admin' | 'líder');
             setUserProfile(profile);
+          } else {
+            setUserRole(null);
           }
         } else {
           setUserRole(null);
@@ -154,78 +173,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [sidebarOpen]);
 
   useEffect(() => {
     const handleClickOutsideDropdown = (event: MouseEvent) => {
-      if (userDropdownOpen) {
+      if (userDropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && userButtonRef.current && !userButtonRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false);
       }
     };
-
     if (userDropdownOpen) {
-      document.addEventListener('click', handleClickOutsideDropdown);
+      document.addEventListener('mousedown', handleClickOutsideDropdown); 
     }
-    return () => document.removeEventListener('click', handleClickOutsideDropdown);
+    return () => document.removeEventListener('mousedown', handleClickOutsideDropdown);
   }, [userDropdownOpen]);
 
   const navItems = [
-    {
-      href: '/dashboard',
-      icon: <FaHome className="text-lg" />,
-      label: 'Dashboard',
-      forAdmin: true,
-      forLider: true,
-    },
-    {
-      href: '/admin/users',
-      icon: <FaUserCog className="text-lg" />,
-      label: 'Gerenciar Usuários',
-      forAdmin: true,
-      forLider: false, 
-    },
-    {
-      href: '/admin/celulas', 
-      icon: <FaHome className="text-lg" />, 
-      label: 'Gerenciar Células',
-      forAdmin: true,
-      forLider: false,
-    },
-    {
-        href: '/admin/palavra-semana',
-        icon: <FaBookOpen className="text-lg" />,
-        label: 'Palavra da Semana',
-        forAdmin: true,
-        forLider: false,
-    },
-    {
-      href: '/membros',
-      icon: <FaUsers className="text-lg" />,
-      label: 'Membros',
-      forAdmin: true,
-      forLider: true,
-    },
-    {
-      href: '/visitantes',
-      icon: <FaUserFriends className="text-lg" />,
-      label: 'Visitantes',
-      forAdmin: true,
-      forLider: true,
-    },
-    {
-      href: '/reunioes',
-      icon: <FaCalendarAlt className="text-lg" />,
-      label: 'Reuniões',
-      forAdmin: true,
-      forLider: true,
-    },
-    { 
-      href: '/relatorios',
-      icon: <FaChartBar className="text-lg" />,
-      label: 'Relatórios',
-      forAdmin: true,
-      forLider: true,
-    },
+    { href: '/dashboard', icon: <FaHome className="text-lg" />, label: 'Dashboard', forAdmin: true, forLider: true },
+    { href: '/admin/users', icon: <FaUserCog className="text-lg" />, label: 'Gerenciar Usuários', forAdmin: true, forLider: false },
+    { href: '/admin/celulas', icon: <FaHome className="text-lg" />, label: 'Gerenciar Células', forAdmin: true, forLider: false },
+    { href: '/admin/palavra-semana', icon: <FaBookOpen className="text-lg" />, label: 'Palavra da Semana', forAdmin: true, forLider: false },
+    { href: '/membros', icon: <FaUsers className="text-lg" />, label: 'Membros', forAdmin: true, forLider: true },
+    { href: '/visitantes', icon: <FaUserFriends className="text-lg" />, label: 'Visitantes', forAdmin: true, forLider: true },
+    { href: '/reunioes', icon: <FaCalendarAlt className="text-lg" />, label: 'Reuniões', forAdmin: true, forLider: true },
+    { href: '/relatorios', icon: <FaChartBar className="text-lg" />, label: 'Relatórios', forAdmin: true, forLider: true },
   ];
 
   if (loadingRole) {
@@ -245,7 +215,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const currentPageTitle = filteredNavItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard';
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <ToastContainer />
       
       {/* Mobile Sidebar Overlay */}
@@ -253,7 +223,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
           <div 
             ref={sidebarRef}
-            className="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-orange-600 to-orange-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50"
+            className="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-orange-700 to-orange-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Sidebar Header Mobile */}
@@ -272,9 +242,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="text-orange-200 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-orange-800"
+                className="text-white/80 hover:text-white transition-colors duration-200 p-2 rounded-md cursor-pointer"
               >
-                <FaTimes className="text-lg" />
+                <FaTimes size={20} />
               </button>
             </div>
 
@@ -317,7 +287,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 })}
               </nav>
               
-              <div className="px-4 py-2">
+              {/* Opções de Perfil/Logout no Mobile Sidebar */}
+              <div className="px-4 py-2 mt-4 border-t border-orange-700">
                 <NavItem
                   href="/profile"
                   icon={<FaUser className="text-lg" />}
@@ -326,9 +297,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 >
                   Meu Perfil
                 </NavItem>
-              </div>
-
-              <div className="px-4 py-4 border-t border-orange-700 mt-auto">
                 <LogoutButton onLogout={() => setSidebarOpen(false)} />
               </div>
             </div>
@@ -372,25 +340,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
           <div className="flex-1 flex flex-col overflow-y-auto">
             <nav className="flex-1 px-4 py-4 space-y-2">
-              {filteredNavItems.map((item) => {
-                const label = userRole === 'admin' && ['/membros', '/visitantes', '/reunioes', '/relatorios'].includes(item.href)
-                  ? `${item.label} (Auditoria)`
-                    : item.label;
-
-                return (
-                  <NavItem
-                    key={item.href}
-                    href={item.href}
-                    icon={item.icon}
-                    isActive={pathname.startsWith(item.href)}
-                  >
-                    {label}
-                  </NavItem>
-                );
-              })}
+              {filteredNavItems.map((item) => (
+                <NavItem key={item.href} href={item.href} icon={item.icon} isActive={pathname.startsWith(item.href)}>
+                  {item.label}
+                </NavItem>
+              ))}
             </nav>
             
-            <div className="px-4 py-2">
+            <div className="px-4 py-2 mt-auto border-t border-orange-700">
               <NavItem
                 href="/profile"
                 icon={<FaUser className="text-lg" />}
@@ -398,9 +355,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               >
                 Meu Perfil
               </NavItem>
-            </div>
-
-            <div className="flex-shrink-0 px-4 py-4 border-t border-orange-700 mt-auto">
               <LogoutButton />
             </div>
           </div>
@@ -408,76 +362,60 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="bg-white shadow-sm border-b border-gray-200 z-30">
-          <div className="flex items-center justify-between h-16 px-4">
+      <div className="flex flex-col flex-1 min-w-0 bg-gray-50">
+        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm z-20 sticky top-0">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-200"
+              className="md:hidden p-2 -ml-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
               aria-label="Abrir menu"
             >
-              <FaBars className="text-lg" />
+              <FaBars size={20} />
+            </button>
+            <h1 className="text-xl font-bold text-gray-800 truncate">{currentPageTitle}</h1>
+          </div>
+
+          <div className="relative" ref={dropdownRef}>
+            <button
+              ref={userButtonRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setUserDropdownOpen(!userDropdownOpen);
+              }}
+              className="flex items-center space-x-3 p-1.5 rounded-full hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+              aria-haspopup="true"
+              aria-expanded={userDropdownOpen}
+            >
+              <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center border border-orange-200">
+                <FaUser size={14} />
+              </div>
+              <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${userDropdownOpen ? 'rotate-180' : ''} hidden sm:block`} />
             </button>
 
-            {!sidebarOpen && ( 
-                <div className="flex-1 text-center md:text-left md:flex-none">
-                <h1 className="text-xl font-semibold text-gray-800 truncate">
-                    {currentPageTitle}
-                </h1>
-                </div>
+            {userDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in zoom-in duration-200 origin-top-right">
+                <Link
+                  href="/profile"
+                  onClick={() => setUserDropdownOpen(false)}
+                  className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-colors cursor-pointer"
+                >
+                  <FaUser className="mr-3 text-gray-400" /> Meu Perfil
+                </Link>
+                <button
+                  onClick={() => logout(() => setUserDropdownOpen(false))}
+                  className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <FaSignOutAlt className="mr-3" /> Sair
+                </button>
+              </div>
             )}
-
-            <div className="relative ml-auto md:ml-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setUserDropdownOpen(!userDropdownOpen);
-                }}
-                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                aria-haspopup="true"
-                aria-expanded={userDropdownOpen}
-              >
-                <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
-                  <FaUser className="text-white text-xs" />
-                </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-700 truncate">
-                    {userProfile?.nome_completo || 'Usuário'}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {userRole === 'admin' ? 'Administrador' : 'Líder'}
-                  </p>
-                </div>
-                <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${userDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                  <Link
-                    href="/profile"
-                    onClick={() => setUserDropdownOpen(false)}
-                    className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    <FaUser className="text-gray-400" />
-                    <span>Meu Perfil</span>
-                  </Link>
-                  <div className="border-t border-gray-200 my-1"></div>
-                  {/* Botão de Sair do Dropdown atualizado para usar a lógica robusta */}
-                  <button
-                    onClick={() => logout(() => setUserDropdownOpen(false))}
-                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200"
-                  >
-                    <FaSignOutAlt className="text-red-400" />
-                    <span>Sair</span>
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100">
-          {children}
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
