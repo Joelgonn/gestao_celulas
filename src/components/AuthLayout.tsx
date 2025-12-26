@@ -18,7 +18,8 @@ const PROTECTED_ROUTES_FOR_APP_CONTENT = [
     '/admin/users',
     '/admin/palavra-semana'
 ];
-const AUTH_ROUTES = ['/login', '/'];
+// /logout NÃO DEVE ESTAR AQUI. Ele será ignorado antes da verificação de AUTH_ROUTES.
+const AUTH_ROUTES = ['/login', '/']; 
 const ACTIVATE_ACCOUNT_ROUTE = '/activate-account';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
 
-  // Função para criar ou buscar perfil
   const createOrFetchProfile = useCallback(async (userId: string, userEmail: string | undefined | null) => {
     const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
@@ -61,12 +61,17 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     return existingProfile;
   }, []);
 
-  // Lógica de redirecionamento
   const handleRedirectRef = useRef(async (
       currentSession: any, 
       currentPath: string, 
       profile: { celula_id: string | null; role: 'admin' | 'líder' | null } | null
   ): Promise<boolean> => {
+    // --- MUDANÇA PRINCIPAL AQUI: IGNORAR /logout COMPLETAMENTE ---
+    if (currentPath === '/logout') {
+      return false; // Deixa a página /logout fazer seu trabalho sem redirecionamento
+    }
+    // --- FIM MUDANÇA ---
+
     const isAuthRoute = AUTH_ROUTES.includes(currentPath);
     const isActivateRoute = currentPath === ACTIVATE_ACCOUNT_ROUTE;
     
@@ -118,22 +123,28 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   });
 
   useEffect(() => {
+    // --- MUDANÇA PRINCIPAL AQUI: IGNORAR /logout NO INÍCIO DO useEffect ---
+    // Isso garante que o AuthLayout não tenta processar a sessão se estamos em /logout.
+    if (pathname === '/logout') {
+      setLoading(false);
+      return; 
+    }
+    // --- FIM MUDANÇA ---
+
     let subscription: any;
     const currentHandleRedirect = handleRedirectRef.current;
 
     const setupAuthAndRedirect = async () => {
       setLoading(true);
 
-      // --- CORREÇÃO DO INVALID REFRESH TOKEN ---
-      // Tentamos pegar a sessão. Se der erro (token inválido), forçamos logout.
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         console.warn("AuthLayout: Sessão inválida detectada. Forçando limpeza.", sessionError.message);
-        await supabase.auth.signOut(); // Limpa os cookies corrompidos
+        await supabase.auth.signOut();
         setSession(null);
         setUserProfile(null);
-        router.replace('/login'); // Manda pro login limpo
+        router.replace('/login');
         setLoading(false);
         return;
       }
@@ -157,7 +168,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       const { data } = supabase.auth.onAuthStateChange(
         async (event, currentSession) => {
-          // Se o evento for TOKEN_REFRESHED com erro ou SIGNED_OUT, garantimos a limpeza
           if (event === 'SIGNED_OUT') {
              setSession(null);
              setUserProfile(null);
@@ -196,17 +206,24 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const hasCelulaId = userProfile?.celula_id !== null && userProfile?.celula_id !== undefined;
   const isAdmin = userProfile?.role === 'admin';
 
+  // Renderiza spinner de TELA CHEIA durante verificação inicial
+  // ou se estiver na rota de AuthRoutes (login, /)
   if (loading && !(isLoggedIn && isActivateRoute && !hasProfileData)) {
       return <LoadingSpinner fullScreen text="Verificando acesso..." />;
   }
 
+  // Se estiver logado, na rota de ativação, e o perfil ainda não foi carregado ou não tem celula_id
+  // (o que significa que o usuário está no fluxo de ativação), renderiza os filhos (ActivateAccountPage).
   if (isLoggedIn && isActivateRoute && (!hasProfileData || !hasCelulaId && !isAdmin)) {
       return <>{children}</>;
   }
 
+  // Se não está logado E está em uma rota de autenticação (login, /), renderiza os filhos.
   if (!isLoggedIn && AUTH_ROUTES.includes(pathname)) {
       return <>{children}</>;
   }
 
+  // Se todas as verificações de redirecionamento foram satisfeitas e loading é falso, renderiza os filhos.
+  // Isso ocorre quando o usuário está logado e tem o perfil completo, ou quando está em uma rota pública.
   return <>{children}</>;
 }

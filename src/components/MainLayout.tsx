@@ -1,7 +1,7 @@
 // src/components/MainLayout.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'; // <--- ADICIONADO useCallback AQUI
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
 import { usePathname, useRouter } from 'next/navigation';
@@ -58,22 +58,21 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   );
 };
 
-// --- FUNÇÃO DE LOGOUT BLINDADA (TIPAGEM E useCallback CORRIGIDOS) ---
+// --- FUNÇÃO DE LOGOUT BLINDADA (ESTRATÉGIA FINAL) ---
 type AddToastFunction = (message: string, type?: 'success' | 'error' | 'warning' | 'info', duration?: number) => void;
 
 const useLogout = (addToast: AddToastFunction) => {
-  const router = useRouter();
-
   const performLogout = useCallback(async (callback?: () => void) => {
-    if (callback) callback();
+    if (callback) callback(); // Executa qualquer callback de UI antes de sair
 
     try {
       await supabase.auth.signOut();
-      addToast('Deslogado com sucesso!', 'success');
+      // addToast('Deslogado do Supabase.', 'success'); // Removido para não atrasar o redirecionamento
     } catch (error) {
-      console.warn('Erro silencioso ao deslogar do Supabase (ignorando para forçar logout local):', error);
-      addToast('Falha ao deslogar do servidor, mas limpando sessão localmente.', 'warning');
+      console.warn('Erro silencioso ao deslogar do Supabase (ignorado):', error);
+      // addToast('Sessão expirada. Redirecionando...', 'warning'); // Removido para não atrasar
     } finally {
+      // Garante que todos os dados de sessão do navegador sejam LIMPOS
       if (typeof window !== 'undefined') {
         for (const key in localStorage) {
           if (key.startsWith('sb:') || key.includes('supabase')) {
@@ -85,22 +84,21 @@ const useLogout = (addToast: AddToastFunction) => {
                 sessionStorage.removeItem(key);
             }
         }
-        
-        router.refresh(); 
-        setTimeout(() => {
-          router.replace('/login');
-        }, 100);
+        // FORÇA O REFRESH COMPLETO para a página "purgador" de logout
+        // Essa página, por não ser coberta pelo AuthLayout, irá forçar a limpeza.
+        window.location.href = '/logout'; 
       }
     }
-  }, [router, addToast]); // addToast como dependência para o useCallback
+  }, [addToast]);
 
   return performLogout;
 };
 
-// --- Componente LogoutButton ---
-const LogoutButton: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
-  const { addToast } = useToast();
-  const logout = useLogout(addToast);
+// --- Componente LogoutButton (APENAS PARA A SIDEBAR) ---
+// O botão do dropdown superior será uma função separada.
+const LogoutButtonSidebar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
+  const { addToast } = useToast(); 
+  const logout = useLogout(addToast); 
   
   return (
     <button
@@ -164,17 +162,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     fetchUserRole();
   }, [addToast]); 
 
+  // Fechar sidebar ao clicar fora (mobile)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
         setSidebarOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [sidebarOpen]);
 
+  // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutsideDropdown = (event: MouseEvent) => {
       if (userDropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && userButtonRef.current && !userButtonRef.current.contains(event.target as Node)) {
@@ -297,7 +296,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 >
                   Meu Perfil
                 </NavItem>
-                <LogoutButton onLogout={() => setSidebarOpen(false)} />
+                <LogoutButtonSidebar onLogout={() => setSidebarOpen(false)} /> {/* Usar o novo componente de logout da sidebar */}
               </div>
             </div>
           </div>
@@ -355,7 +354,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               >
                 Meu Perfil
               </NavItem>
-              <LogoutButton />
+              <LogoutButtonSidebar /> {/* Usar o novo componente de logout da sidebar */}
             </div>
           </div>
         </div>
@@ -372,7 +371,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             >
               <FaBars size={20} />
             </button>
-            <h1 className="text-xl font-bold text-gray-800 truncate">{currentPageTitle}</h1>
+            {/* Título da página visível por padrão, oculto apenas quando sidebar mobile está aberta */}
+            {/* Oculte esta h1 quando a sidebar mobile estiver aberta para evitar sobreposição */}
+            {!sidebarOpen && ( 
+              <h1 className="text-xl font-bold text-gray-800 truncate">{currentPageTitle}</h1>
+            )}
           </div>
 
           <div className="relative" ref={dropdownRef}>
