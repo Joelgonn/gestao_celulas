@@ -1,10 +1,19 @@
-// src/app/page.tsx
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function RootPage() {
-    // Redireciona o usuário diretamente para o dashboard.
-    // A lógica de autenticação e redirecionamento será tratada pelo AuthLayout.
-    redirect('/dashboard');
-    // Este return null é apenas para satisfazer o React que espera algo ser retornado.
-    return null; 
+    const router = useRouter();
+
+    useEffect(() => {
+        // Redireciona para o dashboard via cliente.
+        // O AuthLayout lá no Dashboard vai verificar se o usuário
+        // está logado. Se não estiver, ele mandará para o Login.
+        router.replace('/dashboard');
+    }, [router]);
+
+    // Mostra um spinner enquanto redireciona para evitar tela branca ou piscada
+    return <LoadingSpinner fullScreen />;
 }
