@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // Importar Image para usar o logo
 import useToast from '@/hooks/useToast'; 
 import { 
   FaEnvelope, 
@@ -13,8 +14,8 @@ import {
   FaShieldAlt,
   FaKey,
   FaLock,
-  FaEye,      // NOVO: Ícone de olho
-  FaEyeSlash, // NOVO: Ícone de olho riscado
+  FaEye,      
+  FaEyeSlash, 
   FaSpinner,
   FaSignInAlt
 } from 'react-icons/fa';
@@ -25,7 +26,6 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [authMethod, setAuthMethod] = useState<'magic_link' | 'password'>('magic_link');
-  // NOVO ESTADO: Visibilidade da senha
   const [showPassword, setShowPassword] = useState(false); 
 
   const router = useRouter();
@@ -88,21 +88,21 @@ export default function AuthForm() {
     setPassword('');
     setStep('form');
     setLoading(false);
-    setShowPassword(false); // NOVO: Reseta a visibilidade também
+    setShowPassword(false);
   };
 
   if (step === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4"> {/* Cores Laranja */}
         <ToastContainer />
         <div className="w-full max-w-md animate-in zoom-in duration-300">
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center border border-indigo-50">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center border border-orange-50"> {/* Cores Laranja */}
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <FaCheckCircle className="text-green-600 text-4xl" />
             </div>
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Verifique seu Email</h2>
-            <p className="text-gray-600 mb-6">Enviamos um link de acesso para <br/><span className="font-semibold text-indigo-600">{email}</span></p>
+            <p className="text-gray-600 mb-6">Enviamos um link de acesso para <br/><span className="font-semibold text-orange-600">{email}</span></p> {/* Cores Laranja */}
             
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-left flex gap-3">
               <FaInfoCircle className="text-blue-500 text-xl flex-shrink-0 mt-0.5" />
@@ -113,7 +113,7 @@ export default function AuthForm() {
 
             <button
               onClick={handleResetForm}
-              className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white py-3 rounded-xl font-semibold hover:from-orange-700 hover:to-amber-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5" // Cores Laranja
             >
               Voltar / Tentar Novamente
             </button>
@@ -124,29 +124,36 @@ export default function AuthForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4"> {/* Cores Laranja */}
       <ToastContainer />
       
       <div className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-indigo-50">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-orange-50"> {/* Cores Laranja */}
           
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-              <FaShieldAlt className="text-3xl" />
+          {/* Header com Logo e Cores Laranja */}
+          <div className="bg-gradient-to-r from-orange-600 to-amber-600 p-8 text-white text-center"> {/* Cores Laranja */}
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner p-2"> {/* Fundo branco para o logo */}
+              <Image 
+                src="/logo.png" // Caminho para o seu arquivo de logo
+                alt="Logo Apascentar" 
+                width={64} 
+                height={64} 
+                className="object-contain" 
+                priority
+              />
             </div>
-            <h1 className="text-2xl font-bold">Apascentar</h1>
-            <p className="text-indigo-100 text-sm mt-1">Gestão de Células</p>
+            <h1 className="text-2xl font-bold mb-2">Apascentar</h1>
+            <p className="text-orange-100 text-sm mt-1">Gestão de Células</p> {/* Cores Laranja */}
           </div>
 
-          {/* Tabs */}
+          {/* Tabs com Cores Laranja */}
           <div className="flex border-b border-gray-100">
             <button
               type="button"
               onClick={() => setAuthMethod('magic_link')}
               className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
                 authMethod === 'magic_link'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
+                  ? 'text-orange-600 border-b-2 border-orange-600 bg-orange-50/50' // Cores Laranja
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -157,7 +164,7 @@ export default function AuthForm() {
               onClick={() => setAuthMethod('password')}
               className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
                 authMethod === 'password'
-                  ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50'
+                  ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50/50' // Cores Laranja
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -180,7 +187,7 @@ export default function AuthForm() {
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400"
+                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400" // Cores Laranja
                     required
                     disabled={loading}
                   />
@@ -197,16 +204,14 @@ export default function AuthForm() {
                     </div>
                     <input
                       id="password"
-                      // NOVO: Tipo de input dinâmico
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400"
+                      className="w-full pl-11 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400" // Cores Laranja
                       required
                       disabled={loading}
                     />
-                    {/* NOVO: Botão de toggle da senha */}
                     <button
                         type="button"
                         onClick={() => setShowPassword(prev => !prev)}
@@ -222,10 +227,10 @@ export default function AuthForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 ${
+                className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 bg-gradient-to-r ${
                     authMethod === 'magic_link' 
-                    ? 'bg-indigo-600 hover:bg-indigo-700' 
-                    : 'bg-purple-600 hover:bg-purple-700'
+                    ? 'from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700' // Cores Laranja
+                    : 'from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' // Cores Laranja (usei red como um contraste, mas pode ser outro tom de laranja/âmbar)
                 }`}
               >
                 {loading ? (
