@@ -1504,7 +1504,23 @@ export async function processarInscricaoPublica(token: string, formData: any): P
             return { success: false, message: "Erro ao salvar os dados. Verifique os campos e tente novamente." };
         }
 
-        await supabase.from('convites_inscricao').update({ usado: true, usado_por_inscricao_id: novaInscricao.id }).eq('id', convite_id);
+        // --- CORREÇÃO APLICADA AQUI ---
+        try {
+            const { error: updateConviteError } = await supabase
+                .from('convites_inscricao')
+                .update({ usado: true, usado_por_inscricao_id: novaInscricao.id })
+                .eq('id', convite_id);
+
+            if (updateConviteError) {
+                console.error("Erro ao queimar o convite:", updateConviteError);
+                // Mesmo se falhar ao queimar o convite, a inscrição foi criada com sucesso.
+                // Podemos logar, mas não precisamos falhar a inscrição inteira por isso.
+                // A mensagem ao usuário ainda será de sucesso da inscrição.
+            }
+        } catch (e: any) {
+            console.error("Erro inesperado ao tentar queimar o convite:", e);
+        }
+        // --- FIM DA CORREÇÃO ---
 
         return { success: true, message: "Inscrição realizada com sucesso!", inscricaoId: novaInscricao.id };
 
