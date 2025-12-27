@@ -1,4 +1,5 @@
-import { Metadata } from 'next';
+// src/app/convite/[token]/page.tsx (Sintaxe Corrigida)
+
 import { validarConvitePublico } from '@/lib/data';
 import PublicPageWrapper from '@/components/PublicPageWrapper';
 import { FaCalendarCheck, FaMapMarkerAlt, FaMoneyBillWave, FaExclamationTriangle } from 'react-icons/fa';
@@ -9,37 +10,7 @@ interface ConvitePageProps {
   };
 }
 
-// NOVO: Função para gerar metadados dinâmicos (para a pré-visualização do link)
-export async function generateMetadata({ params }: ConvitePageProps): Promise<Metadata> {
-  const { token } = params;
-  const validacao = await validarConvitePublico(token);
-
-  // Caso o link seja inválido, retorna metadados genéricos de erro
-  if (!validacao.valido || !validacao.dados) {
-    return {
-      title: 'Convite Inválido',
-      description: 'Este link de inscrição não é mais válido ou expirou.',
-    };
-  }
-
-  const { evento } = validacao.dados;
-
-  // Se o link for válido, retorna metadados personalizados com o nome do evento
-  return {
-    title: `Inscrição: ${evento.nome_evento}`,
-    description: `Você foi convidado(a) para se inscrever no ${evento.nome_evento}. Clique para preencher seus dados!`,
-    openGraph: {
-      title: `Inscrição: ${evento.nome_evento}`,
-      description: 'Inscrição rápida e simplificada via convite.',
-      // IMPORTANTE: Substitua pela URL de uma imagem padrão para seus eventos
-      // Ex: A logo da sua igreja ou uma arte do evento.
-      images: ['https://exemplo.com/imagem-padrao-evento.jpg'], 
-    },
-  };
-}
-
-
-// Componente para a tela de Erro/Inválido (sem alterações)
+// Componente para a tela de Erro/Inválido
 const InvalidScreen = ({ motivo }: { motivo: string }) => (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white max-w-md w-full p-8 rounded-3xl shadow-lg text-center space-y-4 border-t-4 border-red-500">
@@ -53,10 +24,9 @@ const InvalidScreen = ({ motivo }: { motivo: string }) => (
     </div>
 );
 
-
-// Componente da Página (com a tipagem dos params corrigida)
+// Componente da Página
 export default async function ConvitePage({ params }: ConvitePageProps) {
-    const { token } = params; // Correção: Acesso direto ao token
+    const { token } = params;
 
     const validacao = await validarConvitePublico(token);
 
@@ -70,7 +40,6 @@ export default async function ConvitePage({ params }: ConvitePageProps) {
         <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-3xl mx-auto space-y-8">
                 
-                {/* Cabeçalho do Evento (sem alterações) */}
                 <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
                     <div className="bg-gradient-to-r from-purple-700 to-indigo-800 p-8 text-white text-center">
                         <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">{evento.nome_evento}</h1>
@@ -100,7 +69,6 @@ export default async function ConvitePage({ params }: ConvitePageProps) {
                     </div>
                 </div>
 
-                {/* Wrapper do Cliente (Formulário + Sucesso) */}
                 <PublicPageWrapper 
                     token={token} 
                     eventoTipo={evento.tipo}
@@ -110,10 +78,10 @@ export default async function ConvitePage({ params }: ConvitePageProps) {
                 <div className="text-center text-gray-400 text-xs">
                     &copy; 2025 Apascentar Células. Todos os direitos reservados.
                 </div>
-            </div>
-        </div>
+
+            </div> {/* <<<< Fechamento da div max-w-3xl */}
+        </div> // <<<< Fechamento da div min-h-screen
     );
 }
 
-// Garante que a página sempre seja renderizada dinamicamente no servidor
 export const dynamic = 'force-dynamic';
