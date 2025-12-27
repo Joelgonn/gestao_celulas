@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { format, isSameMonth, parseISO, subDays, addHours, isAfter } from 'date-fns';
@@ -2450,13 +2451,13 @@ export async function gerarLinkConvite(eventoId: string, nomeCandidato?: string)
 
 /**
  * Valida o token ao abrir a página pública e retorna os dados do evento/célula.
- * Refatorado para separar as consultas e evitar problemas de RLS em joins.
- * Retorna null se inválido ou expirado.
+ * ENVOLVIDA COM React.cache PARA GARANTIR EXECUÇÃO ÚNICA POR REQUISIÇÃO.
  */
-export async function validarConvitePublico(token: string) {
-    const supabase = createAdminClient(); // Admin client para ler dados públicos sem logar
+export const validarConvitePublico = cache(async (token: string) => {
+    // A lógica interna da função permanece a mesma.
+    const supabase = createAdminClient(); 
 
-    // --- PASSO 1: Buscar APENAS o convite. Esta consulta é garantida. ---
+    // Passo 1: Buscar APENAS o convite.
     const { data: convite, error: conviteError } = await supabase
         .from('convites_inscricao')
         .select('*')
@@ -2468,7 +2469,7 @@ export async function validarConvitePublico(token: string) {
         return { valido: false, motivo: 'Convite não encontrado.' };
     }
 
-    // --- PASSO 2: Validar o status do convite. ---
+    // Passo 2: Validar o status do convite.
     if (convite.usado) {
         return { valido: false, motivo: 'Este link já foi utilizado.' };
     }
@@ -2477,7 +2478,7 @@ export async function validarConvitePublico(token: string) {
         return { valido: false, motivo: 'Este link expirou (validade de 24h).' };
     }
 
-    // --- PASSO 3: Buscar os detalhes das outras tabelas usando os IDs do convite. ---
+    // Passo 3: Buscar os detalhes das outras tabelas.
     const [eventoResult, liderResult, celulaResult] = await Promise.all([
         supabase.from('eventos_face_a_face').select('*').eq('id', convite.evento_id).single(),
         supabase.from('profiles').select('nome_completo, telefone').eq('id', convite.gerado_por_perfil_id).single(),
@@ -2488,34 +2489,32 @@ export async function validarConvitePublico(token: string) {
     const { data: lider_perfil, error: liderError } = liderResult;
     const { data: celula_detalhes, error: celulaError } = celulaResult;
 
-    // Se qualquer uma das buscas de detalhes falhar, o convite é inválido
     if (eventoError || !evento_detalhes) {
         console.error("Erro ao buscar detalhes do evento:", eventoError?.message);
         return { valido: false, motivo: 'O evento associado a este convite não foi encontrado.' };
     }
     if (liderError || celulaError) {
         console.warn("Aviso: Não foi possível buscar detalhes do líder ou da célula.");
-        // Você pode decidir se isso invalida o convite ou não. Vamos assumir que não por enquanto.
     }
 
-    // --- PASSO 4: Validar se o evento ainda está ativo. ---
+    // Passo 4: Validar se o evento ainda está ativo.
     if (!evento_detalhes.ativa_para_inscricao) {
         return { valido: false, motivo: 'As inscrições para este evento foram encerradas.' };
     }
     
-    // --- PASSO 5: Retornar sucesso com todos os dados coletados. ---
+    // Passo 5: Retornar sucesso.
     return { 
         valido: true, 
         dados: {
             evento: evento_detalhes,
-            celula: celula_detalhes, // Pode ser null se a busca falhar
-            lider: lider_perfil,       // Pode ser null se a busca falhar
+            celula: celula_detalhes,
+            lider: lider_perfil,
             convite_id: convite.id,
             token: convite.token,
             nome_candidato_sugerido: convite.nome_candidato_sugerido
         }
     };
-}
+}); // <<<<<<< FECHAMENTO DA FUNÇÃO cache()
 
 /**
  * Processa a inscrição vinda da página pública.
