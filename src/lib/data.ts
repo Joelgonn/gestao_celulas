@@ -1366,7 +1366,7 @@ export async function gerarLinkConvite(eventoId: string, nomeCandidato?: string)
              return { success: false, message: "Falha ao receber o token de volta do banco de dados." };
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://gestao-celulas.vercel.app';
         const fullUrl = `${baseUrl}/convite/${token}`;
 
         return { success: true, url: fullUrl };
