@@ -1,11 +1,11 @@
-'use client'; // Deve ser a primeira linha
+'use client'; 
 
 import { useState } from 'react';
 import Link from 'next/link';
 import { FaCheckCircle } from 'react-icons/fa';
-import PublicRegistrationForm from '@/components/PublicRegistrationForm';
+import PublicRegistrationForm from '@/components/PublicRegistrationForm'; // Verifique se o caminho está correto
 
-// Tela de Sucesso interna
+// Tela de Sucesso interna (sem alterações)
 const SuccessScreen = () => (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white max-w-md w-full p-8 rounded-3xl shadow-xl text-center space-y-6">
@@ -23,12 +23,28 @@ const SuccessScreen = () => (
     </div>
 );
 
-export default function PublicPageWrapper({ token, eventoTipo }: { token: string, eventoTipo: any }) {
+
+// NOVO: Tipagem das props atualizada para incluir initialName
+interface WrapperProps {
+    token: string;
+    eventoTipo: 'Mulheres' | 'Homens';
+    initialName?: string | null; // <-- ADICIONADO AQUI (opcional)
+}
+
+export default function PublicPageWrapper({ token, eventoTipo, initialName }: WrapperProps) {
     const [success, setSuccess] = useState(false);
 
     if (success) {
         return <SuccessScreen />;
     }
 
-    return <PublicRegistrationForm token={token} eventoTipo={eventoTipo} onSuccess={() => setSuccess(true)} />;
+    // Passando initialName para o formulário
+    return (
+        <PublicRegistrationForm 
+            token={token} 
+            eventoTipo={eventoTipo} 
+            onSuccess={() => setSuccess(true)} 
+            initialName={initialName} // <-- ADICIONADO AQUI
+        />
+    );
 }

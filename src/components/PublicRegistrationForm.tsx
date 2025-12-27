@@ -43,10 +43,6 @@ const SelectField = ({ label, name, value, onChange, options, icon: Icon, requir
 
 const RadioCard = ({ label, description, name, value, currentSelection, onChange, icon: Icon }: any) => {
     const isSelected = value === currentSelection;
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        onChange(e);
-    };
-
     return (
         <label 
             className={`cursor-pointer border-2 p-4 rounded-xl transition-all ${
@@ -60,8 +56,8 @@ const RadioCard = ({ label, description, name, value, currentSelection, onChange
                 name={name}
                 value={value}
                 checked={isSelected}
-                onChange={handleChange}
-                className="hidden" // Esconde o input de rádio nativo
+                onChange={onChange}
+                className="hidden"
             />
             <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-full ${isSelected ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
@@ -76,25 +72,23 @@ const RadioCard = ({ label, description, name, value, currentSelection, onChange
     );
 };
 
-
 interface Props {
     token: string;
     eventoTipo: 'Mulheres' | 'Homens';
     onSuccess: () => void;
-    // Adicione esta prop caso tenha implementado o nome inicial no page.tsx
-    initialName?: string | null; 
+    initialName?: string | null;
 }
 
 export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, initialName }: Props) {
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [showConfirmationModal, setShowConfirmationModal] = useState(false); // NOVO: Estado do Modal de Confirmação
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     
-    const defaultParticipation = eventoTipo === 'Mulheres' ? 'Encontrista' : 'Encontreiro'; 
-    const isEncontristaDefault = defaultParticipation === 'Encontrista';
+    const participantRole: InscricaoFaceAFaceTipoParticipacao = 'Encontrista';
+    const serviceRole: InscricaoFaceAFaceTipoParticipacao = 'Encontreiro';
 
     const [formData, setFormData] = useState<any>({
-        nome_completo_participante: initialName || '', // Usa nome inicial, se houver
+        nome_completo_participante: initialName || '',
         cpf: '',
         rg: '',
         data_nascimento: '',
@@ -107,7 +101,7 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         estado_civil: '',
         nome_esposo: '',
         tamanho_camiseta: '',
-        tipo_participacao: defaultParticipation, // Default inteligente (Participante ou Encontreiro, dependendo do evento)
+        tipo_participacao: participantRole, // Participante é sempre o padrão
         eh_membro_ib_apascentar: false,
         pertence_outra_igreja: false,
         nome_outra_igreja: '',
@@ -122,29 +116,25 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         const { name, value, type } = e.target;
         const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
         
-        let finalVal: string | boolean | number | null = val; // Definimos um tipo mais abrangente para a variável
+        let finalVal: string | boolean | number | null = val;
 
         if (name === 'contato_pessoal' || name === 'contato_emergencia') {
             finalVal = formatPhoneNumberDisplay(normalizePhoneNumber(val as string));
         }
 
         if (name === 'idade') {
-            // Se for 'idade', tratamos e atualizamos o estado imediatamente
-            const idadeValue = val ? parseInt(val as string) : null;
+            const idadeValue = val ? parseInt(val as string, 10) : null;
             setFormData((prev: any) => ({ ...prev, [name]: idadeValue }));
-            return; // Interrompe para evitar o set geral abaixo
+            return;
         }
         
-        // Se o nome do campo for qualquer outro, usa o finalVal tratado
         setFormData((prev: any) => ({ ...prev, [name]: finalVal }));
     };
 
-    // NOVO: Função para o processamento real da submissão
     const processSubmission = async () => {
         setLoading(true);
-        setShowConfirmationModal(false); // Fecha o modal se estiver aberto
+        setShowConfirmationModal(false);
 
-        // Prepara dados (remove formatação de telefone/cpf)
         const dataToSend = {
             ...formData,
             contato_pessoal: normalizePhoneNumber(formData.contato_pessoal),
@@ -167,31 +157,17 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         }
     };
 
-    // NOVO: Função para interceptar e validar a submissão
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMsg(null);
 
-        // O tipo_participacao 'Encontreiro' é sempre o papel de serviço,
-        // independentemente se o evento é de Homens ou Mulheres.
-
-        // Determina se o tipo de participação selecionado é o de serviço
-        const isServiceRoleSelected = (formData.tipo_participacao === 'Encontreiro');
-        
-        // Se for o papel de serviço, mostre o modal de confirmação
-        if (isServiceRoleSelected) {
+        if (formData.tipo_participacao === serviceRole) {
             setShowConfirmationModal(true);
             return;
         }
-
-        // Caso contrário (é o papel de participante), submeta diretamente
+        
         await processSubmission();
     };
-
-
-    // Determina qual é o papel de serviço e o papel de participante
-    const serviceRole = 'Encontreiro'; // Quem serve
-    const participantRole = 'Encontrista'; // Quem recebe
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -206,7 +182,7 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                 <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Seus Dados</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante} onChange={handleChange} required icon={FaUser} />
-                    <InputField label="Idade" name="idade" value={formData.idade} onChange={handleChange} type="number" required icon={FaBirthdayCake} />
+                    <InputField label="Idade" name="idade" value={formData.idade || ''} onChange={handleChange} type="number" required icon={FaBirthdayCake} />
                     <InputField label="Data de Nascimento" name="data_nascimento" value={formData.data_nascimento} onChange={handleChange} type="date" required icon={FaBirthdayCake} />
                     <InputField label="CPF" name="cpf" value={formData.cpf} onChange={handleChange} maxLength={14} icon={FaIdCard} />
                     <InputField label="RG" name="rg" value={formData.rg} onChange={handleChange} icon={FaIdCard} />
@@ -214,7 +190,7 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                     <InputField label="Contato de Emergência" name="contato_emergencia" value={formData.contato_emergencia} onChange={handleChange} required maxLength={15} icon={FaPhone} />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <InputField label="Endereço Completo" name="endereco_completo" value={formData.endereco_completo} onChange={handleChange} icon={FaMapMarkerAlt} />
                     <InputField label="Bairro" name="bairro" value={formData.bairro} onChange={handleChange} icon={FaMapMarkerAlt} />
                     <InputField label="Cidade" name="cidade" value={formData.cidade} onChange={handleChange} icon={FaMapMarkerAlt} />
@@ -244,33 +220,29 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                     />
                 </div>
                 
-                {/* NOVO: Seleção Visual de Papel */}
                 <h4 className="text-md font-bold text-gray-800 pt-4 flex items-center gap-2">
                     <FaTransgender className="text-purple-600" /> 
                     Qual será o seu Papel no Evento? <span className="text-red-500">*</span>
                 </h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Papel 1: PARTICIPANTE (Encontrista) */}
                     <RadioCard
                         label={participantRole}
-                        description="Eu estou me inscrevendo para participar do evento e receber o ensino."
+                        description="Vou participar do evento e receber o ensino."
                         name="tipo_participacao"
                         value={participantRole}
                         currentSelection={formData.tipo_participacao}
                         onChange={handleChange}
                         icon={FaUser}
                     />
-
-                    {/* Papel 2: SERVIÇO (Encontreiro) */}
                     <RadioCard
                         label={serviceRole}
-                        description="Eu faço parte da equipe de serviço e vou servir o evento."
+                        description="Sou da equipe de serviço e vou servir no evento."
                         name="tipo_participacao"
                         value={serviceRole}
                         currentSelection={formData.tipo_participacao}
                         onChange={handleChange}
-                        icon={FaHandsHelping} // Ícone atualizado para serviço
+                        icon={FaHandsHelping}
                     />
                 </div>
             </div>
@@ -280,7 +252,6 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                 
                 <div className="space-y-3">
                     <InputField type="checkbox" label="Sou membro da Igreja Batista Apascentar" name="eh_membro_ib_apascentar" value={formData.eh_membro_ib_apascentar} onChange={handleChange} placeholder="Sim, sou membro" icon={FaChurch} />
-                    
                     {!formData.eh_membro_ib_apascentar && (
                         <>
                             <InputField type="checkbox" label="Pertence a outra igreja?" name="pertence_outra_igreja" value={formData.pertence_outra_igreja} onChange={handleChange} placeholder="Sim, pertenço" icon={FaChurch} />
@@ -315,11 +286,9 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
             >
-                {loading ? 'Processando...' : <><FaCheckCircle /> Confirmar Inscrição</>}
+                {loading ? <><FaSpinner className="animate-spin" /> Processando...</> : <><FaCheckCircle /> Confirmar Inscrição</>}
             </button>
 
-
-            {/* NOVO: Modal de Confirmação para Encontreiro */}
             {showConfirmationModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
