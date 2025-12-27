@@ -19,10 +19,14 @@ import {
   FaTimes,
   FaChevronDown,
   FaBookOpen,
-  FaUserCog 
+  FaUserCog,
+  FaCalendarCheck // <-- Ícone para Eventos Face a Face
 } from 'react-icons/fa';
 
 import useToast from '@/hooks/useToast'; 
+
+// Importar a nova função de verificação de eventos ativos (ainda não implementada em data.ts, mas será)
+import { listarEventosFaceAFaceAtivos } from '@/lib/data'; // <-- NOVO IMPORT AQUI
 
 // --- Componente NavItem (Inalterado) ---
 interface NavItemProps {
@@ -58,21 +62,19 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, children, isActive, isHid
   );
 };
 
-// --- FUNÇÃO DE LOGOUT BLINDADA (ESTRATÉGIA FINAL) ---
+// --- FUNÇÃO DE LOGOUT BLINDADA ---
 type AddToastFunction = (message: string, type?: 'success' | 'error' | 'warning' | 'info', duration?: number) => void;
 
 const useLogout = (addToast: AddToastFunction) => {
   const performLogout = useCallback(async (callback?: () => void) => {
-    if (callback) callback(); // Executa qualquer callback de UI antes de sair
+    if (callback) callback();
 
     try {
       await supabase.auth.signOut();
-      // addToast('Deslogado do Supabase.', 'success'); // Removido para não atrasar o redirecionamento
     } catch (error) {
-      console.warn('Erro silencioso ao deslogar do Supabase (ignorado):', error);
-      // addToast('Sessão expirada. Redirecionando...', 'warning'); // Removido para não atrasar
+      console.warn('Erro silencioso ao deslogar do Supabase (ignorando):', error);
+      addToast('Sessão expirada. Redirecionando...', 'warning');
     } finally {
-      // Garante que todos os dados de sessão do navegador sejam LIMPOS
       if (typeof window !== 'undefined') {
         for (const key in localStorage) {
           if (key.startsWith('sb:') || key.includes('supabase')) {
@@ -84,8 +86,7 @@ const useLogout = (addToast: AddToastFunction) => {
                 sessionStorage.removeItem(key);
             }
         }
-        // FORÇA O REFRESH COMPLETO para a página "purgador" de logout
-        // Essa página, por não ser coberta pelo AuthLayout, irá forçar a limpeza.
+        
         window.location.href = '/logout'; 
       }
     }
@@ -95,7 +96,6 @@ const useLogout = (addToast: AddToastFunction) => {
 };
 
 // --- Componente LogoutButton (APENAS PARA A SIDEBAR) ---
-// O botão do dropdown superior será uma função separada.
 const LogoutButtonSidebar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const { addToast } = useToast(); 
   const logout = useLogout(addToast); 
@@ -127,13 +127,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [loadingRole, setLoadingRole] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  // NOVO ESTADO: Para controlar a visibilidade do item para líderes
+  const [hasActiveFaceAFaceEvents, setHasActiveFaceAFaceEvents] = useState(false); // <-- NOVO ESTADO AQUI
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const userButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    async function fetchUserRole() {
+    async function fetchUserAndEvents() { // Renomeado para englobar a nova lógica
       setLoadingRole(true);
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -145,24 +147,40 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             .single();
           
           if (!profileError && profile) {
-            setUserRole(profile.role as 'admin' | 'líder');
+            const role = profile.role as 'admin' | 'líder';
+            setUserRole(role);
             setUserProfile(profile);
+
+            // Se o usuário for um líder, verifica se há eventos Face a Face ativos
+            if (role === 'líder') {
+              try {
+                const activeEvents = await listarEventosFaceAFaceAtivos(); // <-- CHAMA A NOVA FUNÇÃO
+                setHasActiveFaceAFaceEvents(activeEvents && activeEvents.length > 0);
+              } catch (eventError) {
+                console.error("Erro ao verificar eventos Face a Face ativos para líder:", eventError);
+                setHasActiveFaceAFaceEvents(false);
+              }
+            } else {
+                setHasActiveFaceAFaceEvents(false); // Admin não usa essa flag, ou se for outro role
+            }
+
           } else {
             setUserRole(null);
+            setHasActiveFaceAFaceEvents(false);
           }
         } else {
           setUserRole(null);
+          setHasActiveFaceAFaceEvents(false);
         }
       } catch (error) {
-        console.error("Erro ao buscar role:", error);
+        console.error("Erro ao buscar role ou eventos:", error);
       } finally {
         setLoadingRole(false);
       }
     }
-    fetchUserRole();
+    fetchUserAndEvents();
   }, [addToast]); 
 
-  // Fechar sidebar ao clicar fora (mobile)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
@@ -173,7 +191,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [sidebarOpen]);
 
-  // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutsideDropdown = (event: MouseEvent) => {
       if (userDropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && userButtonRef.current && !userButtonRef.current.contains(event.target as Node)) {
@@ -191,6 +208,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { href: '/admin/users', icon: <FaUserCog className="text-lg" />, label: 'Gerenciar Usuários', forAdmin: true, forLider: false },
     { href: '/admin/celulas', icon: <FaHome className="text-lg" />, label: 'Gerenciar Células', forAdmin: true, forLider: false },
     { href: '/admin/palavra-semana', icon: <FaBookOpen className="text-lg" />, label: 'Palavra da Semana', forAdmin: true, forLider: false },
+    // Item de Eventos Face a Face: Visível para Admin OU para Líderes SE houver eventos ativos
+    { 
+        href: '/admin/eventos-face-a-face', // Rota para o Admin gerenciar
+        icon: <FaCalendarCheck className="text-lg" />, 
+        label: 'Eventos Face a Face (Admin)', // Texto para o Admin
+        forAdmin: true, 
+        forLider: false,
+        // Opcional: Se quiser que o líder tenha uma rota separada para INSCRIÇÕES, adicione aqui:
+        // { href: '/eventos-face-a-face', icon: <FaCalendarCheck className="text-lg" />, label: 'Inscrições Face a Face', forAdmin: false, forLider: true, conditional: hasActiveFaceAFaceEvents },
+    }, 
+    // NOVO ITEM: Rota para LÍDERES, visível apenas se houver eventos ativos E for líder
+    {
+        href: '/eventos-face-a-face', // Rota para o líder fazer inscrições
+        icon: <FaCalendarCheck className="text-lg" />,
+        label: 'Inscrições Face a Face',
+        forAdmin: false, // Admin usa a rota de admin
+        forLider: true,
+        conditional: hasActiveFaceAFaceEvents // <-- Condição principal aqui
+    },
     { href: '/membros', icon: <FaUsers className="text-lg" />, label: 'Membros', forAdmin: true, forLider: true },
     { href: '/visitantes', icon: <FaUserFriends className="text-lg" />, label: 'Visitantes', forAdmin: true, forLider: true },
     { href: '/reunioes', icon: <FaCalendarAlt className="text-lg" />, label: 'Reuniões', forAdmin: true, forLider: true },
@@ -206,8 +242,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }
 
   const filteredNavItems = navItems.filter(item => {
-    if (userRole === 'admin') return item.forAdmin;
-    if (userRole === 'líder') return item.forLider;
+    if (userRole === 'admin') {
+      return item.forAdmin;
+    }
+    if (userRole === 'líder') {
+      // Se for um item para líder com condição, verifica a condição
+      if (item.forLider && item.hasOwnProperty('conditional')) {
+        return item.conditional;
+      }
+      return item.forLider;
+    }
     return false;
   });
 
@@ -296,7 +340,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 >
                   Meu Perfil
                 </NavItem>
-                <LogoutButtonSidebar onLogout={() => setSidebarOpen(false)} /> {/* Usar o novo componente de logout da sidebar */}
+                <LogoutButtonSidebar onLogout={() => setSidebarOpen(false)} />
               </div>
             </div>
           </div>
@@ -339,11 +383,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
           <div className="flex-1 flex flex-col overflow-y-auto">
             <nav className="flex-1 px-4 py-4 space-y-2">
-              {filteredNavItems.map((item) => (
-                <NavItem key={item.href} href={item.href} icon={item.icon} isActive={pathname.startsWith(item.href)}>
-                  {item.label}
-                </NavItem>
-              ))}
+              {filteredNavItems.map((item) => {
+                // Adicionalmente, ajusta o label para admins em rotas de líder (se desejar)
+                const label = (userRole === 'admin' && item.href === '/eventos-face-a-face')
+                    ? 'Eventos Face a Face (Admin)'
+                    : item.label;
+
+                return (
+                  <NavItem key={item.href} href={item.href} icon={item.icon} isActive={pathname.startsWith(item.href)}>
+                    {label}
+                  </NavItem>
+                );
+              })}
             </nav>
             
             <div className="px-4 py-2 mt-auto border-t border-orange-700">
@@ -354,7 +405,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               >
                 Meu Perfil
               </NavItem>
-              <LogoutButtonSidebar /> {/* Usar o novo componente de logout da sidebar */}
+              <LogoutButtonSidebar />
             </div>
           </div>
         </div>
@@ -371,11 +422,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             >
               <FaBars size={20} />
             </button>
-            {/* Título da página visível por padrão, oculto apenas quando sidebar mobile está aberta */}
-            {/* Oculte esta h1 quando a sidebar mobile estiver aberta para evitar sobreposição */}
-            {!sidebarOpen && ( 
-              <h1 className="text-xl font-bold text-gray-800 truncate">{currentPageTitle}</h1>
-            )}
+            <h1 className="text-xl font-bold text-gray-800 truncate">{currentPageTitle}</h1>
           </div>
 
           <div className="relative" ref={dropdownRef}>

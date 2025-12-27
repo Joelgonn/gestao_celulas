@@ -38,9 +38,9 @@ export interface VisitanteDashboard {
 export interface FaltososAlert {
     count: number;
     members: { id: string; nome: string; telefone: string | null }[];
-    startDate: string;
-    endDate: string;
     totalMeetingsPeriod: number;
+    startDate?: string; // Adicione como opcional (?)
+    endDate?: string;   // Adicione como opcional (?)
 }
 
 // Interface para alertas de visitantes não convertidos
@@ -201,6 +201,9 @@ export interface MembroNomeTelefoneId {
     id: string;
     nome: string;
     telefone: string | null;
+    data_nascimento?: string | null; // Adicionado para pré-preenchimento
+    endereco?: string | null;       // Adicionado para pré-preenchimento
+    celula_id?: string | null;      // Adicionado para pré-preenchimento
 }
 
 // Para uso interno em funções de dados onde apenas ID, nome e telefone de visitante são necessários
@@ -246,7 +249,7 @@ export interface Visitante {
     observacoes: string | null;
     created_at: string;
     celula_nome?: string | null; // Adicionado para facilitar a exibição
-    status_conversao?: string | null; // <-- ADICIONADO AQUI! (ou string | 'Em Contato' | 'Convertido' etc. se tiver tipos literais)
+    status_conversao?: string | null; // Tipo string | null (ou literal se tiver valores fixos)
 }
 
 // Interface para Membros com status de presença
@@ -305,7 +308,7 @@ export interface ReuniaoParaEdicao {
     ministrador_principal_nome: string | null;
     ministrador_secundario_nome: string | null;
     responsavel_kids_nome: string | null;
-    celula_nome: string | null; // <-- DEFINITIVO: string | null (assumindo que a função já converte undefined para null)
+    celula_nome: string | null;
 }
 
 // Interface para resumo de reunião para exibição
@@ -318,7 +321,7 @@ export interface ReuniaoDetalhesParaResumo {
     ministrador_secundario_nome: string | null;
     responsavel_kids_nome: string | null;
     num_criancas: number;
-    celula_nome: string | null; // <-- DEFINITIVO: string | null
+    celula_nome: string | null;
     membros_presentes: { id: string; nome: string; telefone: string | null }[];
     membros_ausentes: { id: string; nome: string; telefone: string | null }[];
     visitantes_presentes: { id: string; nome: string; telefone: string | null }[];
@@ -371,7 +374,7 @@ export interface ReportDataPresencaReuniao {
         responsavel_kids_nome: string | null;
         responsavel_kids_telefone: string | null;
         num_criancas: number;
-        celula_nome: string | null; // <-- DEFINITIVO: string | null
+        celula_nome: string | null;
     };
     membros_presentes: { id: string; nome: string; telefone: string | null }[];
     membros_ausentes: { id: string; nome: string; telefone: string | null }[];
@@ -385,7 +388,7 @@ export interface RelatorioPresencaMembroItem {
 }
 
 export interface ReportDataPresencaMembro {
-    membro_data: Membro & { celula_nome: string | null }; // <-- DEFINITIVO: string | null
+    membro_data: Membro & { celula_nome: string | null };
     historico_presenca: RelatorioPresencaMembroItem[];
 }
 
@@ -534,7 +537,7 @@ export interface MemberData {
 }
 
 // Interface para reuniões com nomes associados (usada em várias listagens)
-export interface ReuniaoComNomes { // <-- GARANTA QUE ESTE 'export' ESTÁ PRESENTE!
+export interface ReuniaoComNomes {
     id: string;
     data_reuniao: string;
     tema: string;
@@ -543,9 +546,144 @@ export interface ReuniaoComNomes { // <-- GARANTA QUE ESTE 'export' ESTÁ PRESEN
     responsavel_kids_nome: string | null;
     num_criancas: number;
     celula_id: string;
-    celula_nome: string | null; // <-- DEFINITIVO: string | null
+    celula_nome: string | null;
     caminho_pdf: string | null;
     num_presentes_membros?: number;
     num_presentes_visitantes?: number;
     created_at: string;
 }
+
+// ============================================================================
+//                       NOVAS INTERFACES PARA EVENTOS FACE A FACE (MÓDULO 0)
+// ============================================================================
+
+// --- Eventos Face a Face ---
+export type EventoFaceAFaceTipo = 'Mulheres' | 'Homens';
+export type EventoFaceAFaceTamanhoCamiseta = 'PP' | 'P' | 'M' | 'G' | 'GG' | 'G1' | 'G2' | 'G3' | 'G4' | 'G5'; // <-- NOVO: Tamanho camiseta no EVENTO? Ou na INSCRICAO? Assumindo INSCRICAO
+
+export type EventoFaceAFace = {
+    id: string;
+    nome_evento: string;
+    tipo: EventoFaceAFaceTipo;
+    data_inicio: string; // Formato ISO date string (YYYY-MM-DD)
+    data_fim: string;    // Formato ISO date string (YYYY-MM-DD)
+    data_pre_encontro: string | null;
+    local_evento: string;
+    valor_total: number; // Decimal (ex: 350.00)
+    valor_entrada: number; // Decimal (ex: 150.00)
+    data_limite_entrada: string; // Formato ISO date string (YYYY-MM-DD)
+    informacoes_adicionais: string | null;
+    chave_pix_admin: string | null;
+    ativa_para_inscricao: boolean;
+    created_at: string;
+    updated_at: string;
+    criado_por_perfil_id: string | null;
+};
+
+// Dados para criação/edição de EventoFaceAFace (sem campos auto-gerados)
+export type EventoFaceAFaceFormData = Omit<EventoFaceAFace, 'id' | 'created_at' | 'updated_at' | 'criado_por_perfil_id'>;
+
+// Tipo para opções de select (admin) - **AJUSTADO AQUI** para incluir datas e valor
+export type EventoFaceAFaceOption = {
+    id: string;
+    nome: string; // nome_evento
+    tipo: EventoFaceAFaceTipo;
+    data_inicio: string; // Adicionado para exibição na listagem
+    data_fim: string;     // Adicionado para exibição na listagem
+    valor_total: number;  // Adicionado para exibição na listagem
+    ativa_para_inscricao: boolean;
+};
+
+
+// --- Inscrições Face a Face ---
+export type InscricaoFaceAFaceStatus = 
+    'PENDENTE' | 
+    'AGUARDANDO_CONFIRMACAO_ENTRADA' | 
+    'ENTRADA_CONFIRMADA' | 
+    'AGUARDANDO_CONFIRMACAO_RESTANTE' | 
+    'PAGO_TOTAL' | 
+    'CANCELADO';
+
+export type InscricaoFaceAFaceEstadoCivil = 'SOLTEIRA' | 'CASADA' | 'DIVORCIADA' | 'VIÚVA' | 'UNIÃO ESTÁVEL';
+
+export type InscricaoFaceAFaceTamanhoCamiseta = 'PP' | 'P' | 'M' | 'G' | 'GG' | 'G1' | 'G2' | 'G3' | 'G4' | 'G5';
+
+// NOVO: Tipo de Participação (Encontrista/Encontreiro)
+export type InscricaoFaceAFaceTipoParticipacao = 'Encontrista' | 'Encontreiro';
+
+export type InscricaoFaceAFace = {
+    id: string;
+    evento_id: string;
+    membro_id: string | null;
+    nome_completo_participante: string;
+    cpf: string | null;
+    idade: number | null;
+    rg: string | null;
+    contato_pessoal: string;
+    contato_emergencia: string;
+    endereco_completo: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    estado_civil: InscricaoFaceAFaceEstadoCivil | null;
+    nome_esposo: string | null;
+    tamanho_camiseta: InscricaoFaceAFaceTamanhoCamiseta | null;
+    eh_membro_ib_apascentar: boolean;
+    celula_id: string | null; // Célula do participante
+    lider_celula_nome: string | null; // Nome do líder da célula do participante
+    pertence_outra_igreja: boolean;
+    nome_outra_igreja: string | null;
+    dificuldade_dormir_beliche: boolean | null;
+    restricao_alimentar: boolean | null;
+    deficiencia_fisica_mental: boolean | null;
+    toma_medicamento_controlado: boolean | null;
+    descricao_sonhos: string;
+    tipo_participacao: InscricaoFaceAFaceTipoParticipacao; 
+    
+    data_nascimento: string | null; // <-- Manter no tipo principal (DB)
+
+    // Campos de pagamento e status
+    caminho_comprovante_entrada: string | null;
+    data_upload_entrada: string | null;
+    admin_confirmou_entrada: boolean;
+    caminho_comprovante_restante: string | null;
+    data_upload_restante: string | null;
+    admin_confirmou_restante: boolean;
+    status_pagamento: InscricaoFaceAFaceStatus;
+    admin_observacao_pagamento: string | null;
+
+    inscrito_por_perfil_id: string | null; // Quem fez a inscrição (o líder)
+    celula_inscricao_id: string | null;   // Célula do líder que fez a inscrição
+    created_at: string;
+    updated_at: string;
+
+    // Campos adicionais para exibição (joins)
+    celula_participante_nome?: string; // Nome da célula do participante, se houver
+    celula_inscricao_nome?: string;    // Nome da célula do líder que inscreveu
+    evento_nome?: string; // Nome do evento, caso seja necessário em lista de inscrições
+    valor_total_evento?: number; // Valor total do evento (para exibir na inscrição)
+    valor_entrada_evento?: number; // Valor da entrada do evento (para exibir na inscrição)
+};
+
+// Dados para formulário de inscrição (sem campos auto-gerados ou de status de pagamento/comprovante inicial)
+// <-- REMOVIDO data_nascimento AQUI!
+export type InscricaoFaceAFaceFormData = Omit<
+    InscricaoFaceAFace, 
+    'id' | 
+    'created_at' | 
+    'updated_at' | 
+    'inscrito_por_perfil_id' | 
+    'celula_inscricao_id' | 
+    // 'data_nascimento' | // <-- data_nascimento NÃO ESTÁ MAIS NO OMIT. AGORA SERÁ INCLUÍDO NO FORM.
+    'caminho_comprovante_entrada' | 
+    'data_upload_entrada' | 
+    'admin_confirmou_entrada' | 
+    'caminho_comprovante_restante' | 
+    'data_upload_restante' | 
+    'admin_confirmou_restante' | 
+    'status_pagamento' |
+    'celula_participante_nome' | // Estes são campos de join, não de input
+    'celula_inscricao_nome' |
+    'evento_nome' |
+    'valor_total_evento' |
+    'valor_entrada_evento'
+>;

@@ -22,8 +22,18 @@ import {
     CelulaNomeId,
     ImportMembroResult,
     CriancasReuniaoData,
-    // Adicione aqui qualquer outro tipo que suas funções Server Action retornam ou aceitam,
-    // que antes estava definido localmente em data.ts
+    MembroNomeTelefoneId, 
+    // TIPOS PARA EVENTOS FACE A FACE
+    EventoFaceAFace,
+    EventoFaceAFaceFormData,
+    EventoFaceAFaceTipo,
+    EventoFaceAFaceOption,
+    InscricaoFaceAFaceStatus,
+    InscricaoFaceAFaceEstadoCivil,
+    InscricaoFaceAFaceTamanhoCamiseta,
+    InscricaoFaceAFaceTipoParticipacao, 
+    InscricaoFaceAFace,
+    InscricaoFaceAFaceFormData,
 } from './types';
 
 
@@ -35,6 +45,7 @@ async function checkUserAuthorization(): Promise<{
     supabase: ReturnType<typeof createServerClient>;
     role: 'admin' | 'líder' | null;
     celulaId: string | null;
+    profileId: string | null; // Adicionado para quem fez a ação
     adminSupabase: ReturnType<typeof createAdminClient> | null; 
 }> {
     const supabaseUser = createServerClient();
@@ -43,8 +54,7 @@ async function checkUserAuthorization(): Promise<{
 
     if (userError || !user) {
         console.warn('checkUserAuthorization: Usuário não autenticado.');
-        console.log('checkUserAuthorization: userError:', userError); 
-        return { supabase: supabaseUser, role: null, celulaId: null, adminSupabase: adminSupabase }; 
+        return { supabase: supabaseUser, role: null, celulaId: null, profileId: null, adminSupabase: adminSupabase }; 
     }
 
     const { data: profileData, error: profileError } = await supabaseUser
@@ -55,19 +65,18 @@ async function checkUserAuthorization(): Promise<{
 
     if (profileError || !profileData) {
         console.error('checkUserAuthorization: Erro ao buscar perfil:', profileError?.message || 'Perfil não encontrado.');
-        console.log('checkUserAuthorization: profileError:', profileError); 
-        console.log('checkUserAuthorization: profileData:', profileData); 
-        return { supabase: supabaseUser, role: null, celulaId: null, adminSupabase: adminSupabase };
+        return { supabase: supabaseUser, role: null, celulaId: null, profileId: user.id, adminSupabase: adminSupabase };
     }
     
     const role = profileData.role as 'admin' | 'líder';
     const celulaId = profileData.celula_id;
-    console.log(`checkUserAuthorization: Usuário ${user.email} autenticado. Role: ${role}, Celula ID: ${celulaId}`);
+    // console.log(`checkUserAuthorization: Usuário ${user.email} autenticado. Role: ${role}, Celula ID: ${celulaId}`); // Log detalhado, pode ser comentado em produção
 
     return {
         supabase: supabaseUser,
         role: role,
         celulaId: celulaId,
+        profileId: user.id, // Retorna o ID do perfil também
         adminSupabase: role === 'admin' ? adminSupabase : null 
     };
 }
@@ -76,7 +85,7 @@ async function getCelulasNamesMap(supabaseInstance: ReturnType<typeof createServ
     const namesMap = new Map<string, string>();
     if (!supabaseInstance || celulaIds.size === 0) return namesMap;
 
-    console.log(`getCelulasNamesMap: Buscando nomes para ${celulaIds.size} IDs de célula.`);
+    // console.log(`getCelulasNamesMap: Buscando nomes para ${celulaIds.size} IDs de célula.`); // Log detalhado
     const { data, error } = await supabaseInstance
         .from('celulas')
         .select('id, nome')
@@ -85,7 +94,7 @@ async function getCelulasNamesMap(supabaseInstance: ReturnType<typeof createServ
     if (error) {
         console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error);
     } else {
-        console.log(`getCelulasNamesMap: Encontrados ${data?.length} nomes de células.`);
+        // console.log(`getCelulasNamesMap: Encontrados ${data?.length} nomes de células.`); // Log detalhado
         data?.forEach((c: CelulaNomeId) => namesMap.set(c.id, c.nome));
     }
     return namesMap;
@@ -105,7 +114,7 @@ function sanitizeFileName(fileName: string): string {
 export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
     const { supabase, role, adminSupabase } = await checkUserAuthorization();
 
-    console.log(`listarCelulasParaAdmin: Chamada. Role detectado: ${role}`);
+    // console.log(`listarCelulasParaAdmin: Chamada. Role detectado: ${role}`); // Log detalhado
     if (role !== 'admin') {
         console.warn("listarCelulasParaAdmin: Acesso negado. Apenas administradores podem listar todas as células.");
         return [];
@@ -114,7 +123,7 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
     try {
         const clientToUse = adminSupabase || supabase; 
 
-        console.log(`listarCelulasParaAdmin: Buscando todas as células como admin. Usando client: ${adminSupabase ? 'admin' : 'RLS'}`);
+        // console.log(`listarCelulasParaAdmin: Buscando todas as células como admin. Usando client: ${adminSupabase ? 'admin' : 'RLS'}`); // Log detalhado
         const { data, error } = await clientToUse
             .from('celulas')
             .select('id, nome')
@@ -124,7 +133,7 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
             console.error("listarCelulasParaAdmin: Erro ao listar células:", error);
             throw new Error("Falha ao carregar células: " + error.message);
         }
-        console.log(`listarCelulasParaAdmin: Retornando ${data?.length} células.`);
+        // console.log(`listarCelulasParaAdmin: Retornando ${data?.length} células.`); // Log detalhado
         return data || [];
     } catch (e: any) {
         console.error("Erro na Server Action listarCelulasParaAdmin:", e.message, e);
@@ -138,10 +147,10 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
 export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
 
-    console.log(`listarCelulasParaLider: Chamada. Role detectado: ${role}, Celula ID: ${celulaId}`);
+    // console.log(`listarCelulasParaLider: Chamada. Role detectado: ${role}, Celula ID: ${celulaId}`); // Log detalhado
     if (role === 'líder' && celulaId) {
         try {
-            console.log(`listarCelulasParaLider: Buscando célula para líder com ID ${celulaId}.`);
+            // console.log(`listarCelulasParaLider: Buscando célula para líder com ID ${celulaId}.`); // Log detalhado
             const { data, error } = await supabase
                 .from('celulas')
                 .select('id, nome')
@@ -152,12 +161,12 @@ export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
                 console.error("listarCelulasParaLider: Erro ao listar célula para líder:", error);
                 throw new Error("Falha ao carregar sua célula: " + error.message);
             }
-            console.log(`listarCelulasParaLider: Retornando ${data ? 1 : 0} célula(s).`);
+            // console.log(`listarCelulasParaLider: Retornando ${data ? 1 : 0} célula(s).`); // Log detalhado
             return data ? [{ id: data.id, nome: data.nome }] : [];
         } catch (e: any) {
-            console.error("Erro na Server Action listarCelulasParaLider:", e.message, e);
-            throw e;
-        }
+        console.error("Erro na Server Action listarCelulasParaLider:", e.message, e);
+        throw e;
+    }
     }
     console.warn("listarCelulasParaLider: Retornando lista vazia (Não é líder ou não tem celulaId).");
     return [];
@@ -227,7 +236,7 @@ export async function listarMembros(
     
     // Aplicar filtro de Aniversário via RPC se birthdayMonth for fornecido
     if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) {
-        console.log(`listarMembros: Aplicando filtro de aniversário para o mês ${birthdayMonth}`);
+        // console.log(`listarMembros: Aplicando filtro de aniversário para o mês ${birthdayMonth}`); // Log detalhado
         let rpcCelulaIdParam: string | null | undefined = undefined; // Undefined para global
         if (role === 'líder' && celulaId) {
             rpcCelulaIdParam = celulaId;
@@ -250,7 +259,7 @@ export async function listarMembros(
         const memberIdsToFilter: string[] = rpcMemberIds || []; 
 
         if (memberIdsToFilter.length === 0) { 
-            console.log("listarMembros: Nenhuns membros encontrados para o mês de aniversário filtrado.");
+            // console.log("listarMembros: Nenhuns membros encontrados para o mês de aniversário filtrado."); // Log detalhado
             return []; // Nenhuns membros encontrados para o mês, retorna cedo
         }
         // Adiciona um filtro WHERE IN (memberIdsToFilter)
@@ -297,6 +306,50 @@ export async function listarMembros(
     return membros.map((m: Membro) => ({ ...m, celula_nome: celulasNamesMap.get(m.celula_id) || null }));
 }
 
+/**
+ * Lista membros de uma célula específica para um líder.
+ * Retorna apenas o ID, nome e telefone, útil para dropdowns de seleção.
+ *
+ * @returns Uma lista de membros da célula do líder.
+ * @throws Erro se não autorizado ou se a busca falhar.
+ */
+export async function listarMembrosDaCelulaDoLider(): Promise<MembroNomeTelefoneId[]> {
+    const { supabase, role, celulaId } = await checkUserAuthorization();
+
+    if (role !== 'líder' || !celulaId) {
+        console.warn("listarMembrosDaCelulaDoLider: Acesso negado. Apenas líderes com ID de célula podem listar membros.");
+        return [];
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('membros')
+            .select('id, nome, telefone, data_nascimento, endereco, celula_id') // Incluí mais campos para pré-preenchimento
+            .eq('celula_id', celulaId)
+            .order('nome', { ascending: true });
+
+        if (error) {
+            console.error("Erro ao listar membros da célula do líder:", error);
+            throw new Error(`Falha ao carregar membros da sua célula: ${error.message}`);
+        }
+
+        // Mapeia para incluir campos adicionais necessários no formulário de inscrição
+        return data.map(membro => ({
+            id: membro.id,
+            nome: membro.nome,
+            telefone: membro.telefone,
+            // Adicione outros campos que você pode precisar pré-preencher
+            data_nascimento: membro.data_nascimento,
+            endereco: membro.endereco,
+            celula_id: membro.celula_id,
+            // celula_nome: (membro as any).celula_nome, // Assumindo que o select já faz o join ou que getMembro fará
+        })) as MembroNomeTelefoneId[]; // Cast para o tipo correto
+    } catch (e: any) {
+        console.error("Falha na Server Action listarMembrosDaCelulaDoLider:", e);
+        throw e;
+    }
+}
+
 
 export async function adicionarMembro(newMembroData: Omit<Membro, 'id' | 'created_at' | 'celula_nome'>): Promise<string> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
@@ -327,11 +380,19 @@ export async function adicionarMembro(newMembroData: Omit<Membro, 'id' | 'create
 export async function getMembro(membroId: string): Promise<Membro | null> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) return null;
-    let query = supabase.from('membros').select('*').eq('id', membroId);
+    let query = supabase.from('membros').select('*, celulas(nome)').eq('id', membroId); // Adicionado join para celula_nome
     if (role === 'líder') { if (!celulaId) return null; query = query.eq('celula_id', celulaId); }
     const { data, error } = await query.single();
     if (error) { console.error("Erro ao buscar membro:", error); if (error.code === 'PGRST116') return null; throw error; }
-    return data;
+    
+    // Mapeia o resultado para a interface Membro, incluindo celula_nome
+    if (data) {
+        return {
+            ...data,
+            celula_nome: (data as any).celulas?.nome || null // Acessa o nome da célula através do join
+        } as Membro;
+    }
+    return null;
 }
 
 export async function atualizarMembro(membroId: string, updatedMembroData: Omit<Membro, 'id' | 'celula_id' | 'created_at' | 'celula_nome'>): Promise<void> {
@@ -426,7 +487,7 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTe
     if (statusFilter !== 'all') { query = query.eq('status', statusFilter); }
     
     // SE O FILTRO DE ANIVERSÁRIO FOR USADO, DEVE SER VIA RPC AQUI
-    if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) {
+    if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth >= 1 && birthdayMonth <= 12) {
         let rpcCelulaIdParam: string | null | undefined = undefined; 
         if (role === 'líder' && celulaId) {
             rpcCelulaIdParam = celulaId;
@@ -874,7 +935,6 @@ export async function listarTodosMembrosComPresenca(reuniaoId: string): Promise<
         return (members || []).map(membro => ({ 
             ...membro, 
             presente: presenceMap.get(membro.id) || false,
-            // AQUI: presenca_registrada é TRUE se o ID existe no mapa de presenças
             presenca_registrada: presenceMap.has(membro.id) 
         }));
         
@@ -1033,7 +1093,9 @@ export async function duplicarReuniao(reuniaoId: string): Promise<string> {
         const newReuniaoId = newReuniao.id;
         const { data: originalCriancas, error: criancasError } = await clientToUse.from('criancas_reuniao').select('numero_criancas').eq('reuniao_id', reuniaoId).maybeSingle();
         if (!criancasError && originalCriancas?.numero_criancas) { await clientToUse.from('criancas_reuniao').insert({ reuniao_id: newReuniaoId, numero_criancas: originalCriancas.numero_criancas }); }
-        revalidatePath('/reunioes'); revalidatePath('/dashboard'); return newReuniaoId;
+        revalidatePath('/reunioes');
+        revalidatePath('/dashboard');
+        return newReuniaoId;
     } catch (e: any) { console.error("Falha ao duplicar reunião:", e); throw e; }
 }
 
@@ -1079,7 +1141,6 @@ export async function getUserProfile(): Promise<Profile | null> {
         const { data: profileData, error: profileError } = await clientToUse.from('profiles').select('id, email, nome_completo, telefone, role, celula_id, created_at').eq('id', user.id).single(); // Removido last_sign_in_at da query
         if (profileError || !profileData) {
             if (profileError?.code === 'PGRST116') {
-                 // CORRIGIDO: Pega last_sign_in_at do 'user' aqui também
                  return { id: user.id, email: user.email || 'email@example.com', nome_completo: null, telefone: null, role: null, celula_id: null, celula_nome: null, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at || null }; 
             }
             console.error("Erro ao carregar perfil:", profileError);
@@ -1090,7 +1151,6 @@ export async function getUserProfile(): Promise<Profile | null> {
             const celulasNamesMap = await getCelulasNamesMap(clientToUse, new Set([profileData.celula_id])); 
             celulaName = celulasNamesMap.get(profileData.celula_id) || null;
         }
-        // CORRIGIDO: Pega last_sign_in_at do objeto 'user' de auth
         return { 
             id: profileData.id, 
             email: profileData.email || 'N/A', 
@@ -1272,17 +1332,16 @@ export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana
 
         let createdByEmail: string | null = null;
         if (palavraData.created_by) {
-            // CORREÇÃO: Usar maybeSingle() para lidar com a ausência de email ou perfil
             const { data: profileEmailData, error: profileEmailError } = await createServerClient()
                 .from('profiles')
                 .select('email')
                 .eq('id', palavraData.created_by)
-                .maybeSingle(); // Usar maybeSingle()
+                .maybeSingle();
 
             if (profileEmailError) {
                 console.warn(`Aviso: Não foi possível buscar o email para created_by ${palavraData.created_by}:`, profileEmailError.message);
             } else {
-                createdByEmail = profileEmailData?.email || null; // Garante que é null se não encontrado
+                createdByEmail = profileEmailData?.email || null;
             }
         }
 
@@ -1292,7 +1351,7 @@ export async function getPalavraDaSemana(data?: string): Promise<PalavraDaSemana
         };
 
     } catch (e: any) {
-        console.error("Erro na Server Action getPalavraDaSemana:", e);
+        console.error("Falha na Server Action getPalavraDaSemana:", e);
         if (e && typeof e === 'object' && 'message' in e) {
             throw new Error("Erro: " + e.message);
         }
@@ -1335,19 +1394,17 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
         const bucketName = publicIndex > 0 ? urlSegments[publicIndex - 1] : null;
 
         let filePath = '';
-        if (publicIndex > -1) { // Se 'public' está na URL
-            const bucketSegmentIndex = urlSegments.indexOf('palavra_semana_files'); // Nome do seu bucket
+        if (publicIndex > -1) { 
+            const bucketSegmentIndex = urlSegments.indexOf('palavra_semana_files'); 
             if (bucketSegmentIndex > -1) {
-                filePath = urlSegments.slice(bucketSegmentIndex + 1).join('/'); // Pega o caminho após o nome do bucket
+                filePath = urlSegments.slice(bucketSegmentIndex + 1).join('/'); 
             } else {
-                // Fallback mais genérico se a estrutura da URL for diferente
-                // Tenta pegar o caminho após '/storage/v1/object/public/{bucket_name}/'
                 const objectPublicIndex = urlSegments.indexOf('object');
                 if (objectPublicIndex > -1 && objectPublicIndex + 2 < urlSegments.length) {
                     filePath = urlSegments.slice(objectPublicIndex + 3).join('/'); 
                 }
             }
-        } else { // Se 'public' não está na URL (ex: URL interna ou estrutura diferente)
+        } else { 
              const bucketSegmentIndex = urlSegments.indexOf('palavra_semana_files');
              if (bucketSegmentIndex > -1) {
                  filePath = urlSegments.slice(bucketSegmentIndex + 1).join('/');
@@ -1370,7 +1427,1030 @@ export async function deletePalavraDaSemana(id: string): Promise<{ success: bool
 
         return { success: true, message: "Palavra da Semana excluída com sucesso!" };
     } catch (e: any) {
-        console.error("Erro na Server Action deletePalavraDaSemana:", e);
+        console.error("Falha na Server Action deletePalavraDaSemana:", e);
         return { success: false, message: "Erro: " + e.message };
     }
+}
+
+// ============================================================================
+//                       NOVAS FUNÇÕES PARA EVENTOS FACE A FACE (MÓDULO 1)
+// ============================================================================
+
+/**
+ * Cria um novo evento Face a Face.
+ * Apenas administradores podem criar eventos.
+ * O 'ativa_para_inscricao' é definido como false por padrão na criação.
+ *
+ * @param newEventoData Os dados do novo evento.
+ * @returns O ID do evento criado.
+ * @throws Erro se não autorizado ou se a criação falhar.
+ */
+export async function criarEventoFaceAFace(newEventoData: EventoFaceAFaceFormData): Promise<string> {
+    const { supabase, role, profileId, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem criar eventos Face a Face.");
+    }
+
+    if (!profileId) {
+        throw new Error("ID do perfil do criador não disponível.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+        const { data, error } = await clientToUse
+            .from('eventos_face_a_face') // Corrigido o nome da tabela
+            .insert({
+                ...newEventoData,
+                criado_por_perfil_id: profileId,
+                ativa_para_inscricao: false, // Força desativação na criação, Admin ativa depois
+            })
+            .select('id')
+            .single();
+
+        if (error) {
+            console.error("Erro ao criar evento Face a Face:", error);
+            throw new Error(`Falha ao criar evento: ${error.message}`);
+        }
+
+        revalidatePath('/admin/eventos-face-a-face');
+        return data.id;
+    } catch (e: any) {
+        console.error("Falha na Server Action criarEventoFaceAFace:", e);
+        throw e;
+    }
+}
+
+/**
+ * Lista eventos Face a Face para administradores, com filtros opcionais.
+ *
+ * @param searchTerm Termo de busca para nome do evento.
+ * @param tipoFilter Filtro por tipo ('Mulheres', 'Homens', ou 'all').
+ * @param statusFilter Filtro por status de ativação ('ativo', 'inativo', ou 'all').
+ * @returns Uma lista de eventos Face a Face (resumido para exibição).
+ * @throws Erro se não autorizado ou se a busca falhar.
+ */
+export async function listarEventosFaceAFaceAdmin(
+    searchTerm: string | null = null,
+    tipoFilter: EventoFaceAFaceTipo | 'all' = 'all',
+    statusFilter: 'all' | 'ativo' | 'inativo' = 'all'
+): Promise<EventoFaceAFaceOption[]> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        console.warn("listarEventosFaceAFaceAdmin: Acesso negado. Apenas administradores podem listar eventos Face a Face.");
+        return [];
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+
+        let query = clientToUse
+            .from('eventos_face_a_face') // Corrigido o nome da tabela
+            .select('id, nome_evento, tipo, data_inicio, data_fim, valor_total, ativa_para_inscricao')
+            .order('data_inicio', { ascending: false });
+
+        if (searchTerm) {
+            query = query.ilike('nome_evento', `%${searchTerm}%`);
+        }
+
+        if (tipoFilter !== 'all') {
+            query = query.eq('tipo', tipoFilter);
+        }
+
+        if (statusFilter !== 'all') {
+            query = query.eq('ativa_para_inscricao', statusFilter === 'ativo');
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error("Erro ao listar eventos Face a Face para admin:", error);
+            throw new Error(`Falha ao carregar eventos: ${error.message}`);
+        }
+
+        // Mapeia para o tipo EventoFaceAFaceOption, que agora inclui data_inicio, data_fim e valor_total
+        return data.map(evento => ({
+            id: evento.id,
+            nome: evento.nome_evento,
+            tipo: evento.tipo,
+            data_inicio: evento.data_inicio,
+            data_fim: evento.data_fim,
+            valor_total: evento.valor_total,
+            ativa_para_inscricao: evento.ativa_para_inscricao,
+        }));
+    } catch (e: any) {
+        console.error("Falha na Server Action listarEventosFaceAFaceAdmin:", e);
+        throw e;
+    }
+}
+
+/**
+ * Obtém detalhes de um evento Face a Face específico.
+ * Esta função agora permite que LÍDERES busquem eventos, desde que estejam ativos e com data de inscrição válida.
+ *
+ * @param eventoId O ID do evento.
+ * @returns Os detalhes completos do evento ou null se não encontrado/não autorizado.
+ * @throws Erro se a busca falhar.
+ */
+export async function getEventoFaceAFace(eventoId: string): Promise<EventoFaceAFace | null> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (!role) { // Se não está autenticado, não deve ver nenhum evento
+        console.warn("getEventoFaceAFace: Usuário não autenticado. Retornando null.");
+        return null;
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; 
+        let query = clientToUse
+            .from('eventos_face_a_face') // Corrigido o nome da tabela
+            .select('*') // Seleciona todos os campos
+            .eq('id', eventoId);
+
+        // Se o usuário é um LÍDER, aplica filtros adicionais para garantir que o evento esteja apto para inscrição
+        if (role === 'líder') {
+            query = query
+                .eq('ativa_para_inscricao', true) // Deve estar ativo para inscrição
+                .gte('data_limite_entrada', format(new Date(), 'yyyy-MM-dd')); // Data limite de inscrição ainda não pode ter passado
+        }
+        // Se for ADMIN, a query original (select * .eq('id', eventoId)) combinada com adminSupabase
+        // já garante acesso a eventos mesmo que não estejam ativos.
+
+        const { data, error } = await query.single();
+
+        if (error) {
+            if (error.code === 'PGRST116') { // Não encontrado
+                console.warn(`Evento Face a Face com ID ${eventoId} não encontrado ou não está ativo/disponível para este usuário.`);
+                return null;
+            }
+            console.error("Erro ao buscar evento Face a Face:", error);
+            throw new Error(`Falha ao carregar evento: ${error.message}`);
+        }
+
+        return data as EventoFaceAFace; // Retorna o objeto completo
+    } catch (e: any) {
+        console.error("Falha na Server Action getEventoFaceAFace:", e);
+        throw e;
+    }
+}
+
+/**
+ * Atualiza os detalhes de um evento Face a Face.
+ * Apenas administradores podem atualizar eventos.
+ *
+ * @param eventoId O ID do evento a ser atualizado.
+ * @param updatedData Os dados atualizados do evento.
+ * @throws Erro se não autorizado ou se a atualização falhar.
+ */
+export async function atualizarEventoFaceAFace(eventoId: string, updatedData: EventoFaceAFaceFormData): Promise<void> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem atualizar eventos Face a Face.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+        const { error } = await clientToUse
+            .from('eventos_face_a_face') // Corrigido o nome da tabela
+            .update(updatedData)
+            .eq('id', eventoId);
+
+        if (error) {
+            console.error("Erro ao atualizar evento Face a Face:", error);
+            throw new Error(`Falha ao atualizar evento: ${error.message}`);
+        }
+
+        revalidatePath('/admin/eventos-face-a-face');
+        revalidatePath(`/admin/eventos-face-a-face/editar/${eventoId}`);
+        revalidatePath('/eventos-face-a-face'); // Revalida a lista de eventos para líderes
+    } catch (e: any) {
+        console.error("Falha na Server Action atualizarEventoFaceAFace:", e);
+        throw e;
+    }
+}
+
+/**
+ * Exclui um evento Face a Face e todas as suas inscrições associadas.
+ * Apenas administradores podem excluir eventos.
+ *
+ * @param eventoId O ID do evento a ser excluído.
+ * @throws Erro se não autorizado ou se a exclusão falhar.
+ */
+export async function excluirEventoFaceAFace(eventoId: string): Promise<void> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem excluir eventos Face a Face.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+
+        // ATENÇÃO: Se suas tabelas não tiverem CASCADE DELETE configurado,
+        // você precisaria excluir as inscrições primeiro manualmente.
+        // Por exemplo:
+        // await clientToUse.from('inscricoes_face_a_face').delete().eq('evento_id', eventoId); // Corrigido o nome da tabela
+
+        const { error } = await clientToUse
+            .from('eventos_face_a_face') // Corrigido o nome da tabela
+            .delete()
+            .eq('id', eventoId);
+
+        if (error) {
+            console.error("Erro ao excluir evento Face a Face:", error);
+            throw new Error(`Falha ao excluir evento: ${error.message}`);
+        }
+
+        revalidatePath('/admin/eventos-face-a-face');
+        revalidatePath('/eventos-face-a-face'); // Revalida a lista de eventos para líderes
+    } catch (e: any) {
+        console.error("Falha na Server Action excluirEventoFaceAFace:", e);
+        throw e;
+    }
+}
+
+/**
+ * Alterna o status de ativação (ativa_para_inscricao) de um evento Face a Face.
+ * Apenas administradores podem fazer isso.
+ *
+ * @param eventoId O ID do evento.
+ * @param currentStatus O status de ativação atual do evento.
+ * @throws Erro se não autorizado ou se a atualização falhar.
+ */
+export async function toggleAtivacaoEventoFaceAFace(eventoId: string, currentStatus: boolean): Promise<void> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem alterar o status de ativação de eventos.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+        const { error } = await clientToUse
+            .from('eventos_face_a_face') // Corrigido o nome da tabela
+            .update({ ativa_para_inscricao: !currentStatus }) // Inverte o status
+            .eq('id', eventoId);
+
+        if (error) {
+            console.error("Erro ao alternar ativação do evento Face a Face:", error);
+            throw new Error(`Falha ao alternar ativação: ${error.message}`);
+        }
+
+        revalidatePath('/admin/eventos-face-a-face');
+        revalidatePath(`/admin/eventos-face-a-face/editar/${eventoId}`); // Também revalida a página de edição se estiver aberta
+        revalidatePath('/eventos-face-a-face'); // Revalida a rota de listagem de eventos para líderes
+    } catch (e: any) {
+        console.error("Falha na Server Action toggleAtivacaoEventoFaceAFace:", e);
+        throw e;
+    }
+}
+
+// ============================================================================
+//               NOVAS FUNÇÕES PARA INSCRIÇÕES FACE A FACE (MÓDULO 2, 3, 4 e 5)
+// ============================================================================
+
+/**
+ * Lista eventos Face a Face ATIVOS para líderes.
+ * Eventos são considerados ativos se `ativa_para_inscricao` for `true` e a `data_limite_entrada` ainda não passou.
+ *
+ * @returns Uma lista de eventos Face a Face ativos.
+ * @throws Erro se a busca falhar.
+ */
+export async function listarEventosFaceAFaceAtivos(): Promise<EventoFaceAFace[]> {
+    const { supabase, role } = await checkUserAuthorization();
+
+    // Líder ou Admin pode ver eventos ativos (embora o Admin tenha sua própria listagem completa)
+    // Se for admin, pode estar navegando como "líder" para testar
+    if (!role) {
+        console.warn("listarEventosFaceAFaceAtivos: Usuário não autenticado. Retornando lista vazia.");
+        return [];
+    }
+
+    try {
+        const today = format(new Date(), 'yyyy-MM-dd'); // Obtém a data de hoje no formato YYYY-MM-DD
+
+        // A RLS da tabela 'eventos_face_a_face' deve garantir que apenas eventos ativos sejam retornados
+        // para usuários autenticados que não são admin (ou seja, líderes).
+        // Se a RLS não cobrir isso, seria necessário adicionar .eq('ativa_para_inscricao', true) aqui.
+        // Também filtramos pela data limite de entrada para que não apareçam eventos com inscrições vencidas.
+        const { data, error } = await supabase
+            .from('eventos_face_a_face')
+            .select('*')
+            .eq('ativa_para_inscricao', true) // Filtra explicitamente por eventos ativos
+            .gte('data_limite_entrada', today) // A data limite de entrada deve ser hoje ou no futuro
+            .order('data_inicio', { ascending: true });
+
+        if (error) {
+            console.error("Erro ao listar eventos Face a Face ativos:", error);
+            throw new Error(`Falha ao carregar eventos ativos: ${error.message}`);
+        }
+
+        revalidatePath('/eventos-face-a-face'); // Revalida a página de listagem de eventos para líderes
+        return data as EventoFaceAFace[];
+    } catch (e: any) {
+        console.error("Falha na Server Action listarEventosFaceAFaceAtivos:", e);
+        throw e;
+    }
+}
+
+/**
+ * Cria uma nova inscrição para um evento Face a Face.
+ * Apenas líderes podem criar inscrições para os membros da sua célula.
+ *
+ * @param inscricaoData Os dados da inscrição a serem criados.
+ * @returns O ID da inscrição criada.
+ * @throws Erro se não autorizado, se a inscrição falhar, ou se o evento não estiver ativo.
+ */
+export async function criarInscricaoFaceAFace(inscricaoData: InscricaoFaceAFaceFormData): Promise<string> {
+    const { supabase, role, profileId, celulaId } = await checkUserAuthorization();
+
+    if (role !== 'líder' || !profileId || !celulaId) {
+        throw new Error("Não autorizado: Apenas líderes com célula atribuída podem criar inscrições.");
+    }
+
+    // 1. Verificar se o evento está ativo e as inscrições estão abertas
+    const { data: evento, error: eventoError } = await supabase
+        .from('eventos_face_a_face')
+        .select('id, nome_evento, ativa_para_inscricao, data_limite_entrada')
+        .eq('id', inscricaoData.evento_id)
+        .eq('ativa_para_inscricao', true)
+        .gte('data_limite_entrada', format(new Date(), 'yyyy-MM-dd')) // Garante que a data limite não passou
+        .single();
+
+    if (eventoError || !evento) {
+        console.error("Evento não encontrado, inativo ou data limite de inscrição expirada:", eventoError);
+        throw new Error("Não foi possível realizar a inscrição. O evento pode não estar ativo ou as inscrições foram encerradas.");
+    }
+
+    // 2. Preencher campos automáticos da inscrição
+    const dataToInsert = {
+        ...inscricaoData,
+        inscrito_por_perfil_id: profileId,
+        celula_inscricao_id: celulaId,
+        status_pagamento: 'PENDENTE' as InscricaoFaceAFaceStatus, // Status inicial padrão
+        admin_confirmou_entrada: false,
+        admin_confirmou_restante: false,
+        caminho_comprovante_entrada: null,
+        data_upload_entrada: null,
+        caminho_comprovante_restante: null,
+        data_upload_restante: null,
+        // data_nascimento agora virá do inscricaoData se o formulário o incluiu.
+        // Se a interface InscricaoFaceAFaceFormData não tem data_nascimento, então ele não será enviado.
+        // Se ela tem e o formulário preencheu, será enviado.
+    };
+
+    // 3. Inserir a inscrição
+    const { data, error: insertError } = await supabase
+        .from('inscricoes_face_a_face') // Nome da tabela no Supabase
+        .insert(dataToInsert)
+        .select('id')
+        .single();
+
+    if (insertError) {
+        console.error("Erro ao criar inscrição Face a Face:", insertError);
+        throw new Error(`Falha ao criar inscrição: ${insertError.message}`);
+    }
+
+    revalidatePath(`/eventos-face-a-face/${inscricaoData.evento_id}/novo`); // Revalida a página de formulário
+    revalidatePath(`/eventos-face-a-face/${inscricaoData.evento_id}/minhas-inscricoes`); // Futuro: para o líder ver suas inscrições
+    revalidatePath(`/admin/eventos-face-a-face/${inscricaoData.evento_id}/inscricoes`); // Futuro: para o admin ver todas as inscrições
+    
+    return data.id;
+}
+
+
+/**
+ * Lista todas as inscrições para um evento específico (apenas para Admin).
+ * Inclui nomes das células e do evento para facilitar a exibição.
+ *
+ * @param eventoId O ID do evento.
+ * @param filters Filtros opcionais por status de pagamento, célula, nome do participante, tipo de participação.
+ * @returns Uma lista de inscrições detalhadas.
+ * @throws Erro se não autorizado ou se a busca falhar.
+ */
+export async function listarInscricoesFaceAFacePorEvento(
+    eventoId: string,
+    filters?: {
+        statusPagamento?: InscricaoFaceAFaceStatus | 'all';
+        celulaId?: string | 'all';
+        searchTerm?: string; // Busca por nome ou contato do participante
+        tipoParticipacao?: InscricaoFaceAFaceTipoParticipacao; // <-- NOVO: Filtro por tipo de participação
+    }
+): Promise<InscricaoFaceAFace[]> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem listar inscrições.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+
+        let query = clientToUse
+            .from('inscricoes_face_a_face')
+            .select(`
+                *,
+                celula_participante_nome:celulas!celula_id(nome),
+                celula_inscricao_nome:celulas!celula_inscricao_id(nome),
+                evento_nome:eventos_face_a_face(nome_evento)
+            `)
+            .eq('evento_id', eventoId);
+
+        if (filters?.statusPagamento && filters.statusPagamento !== 'all') {
+            query = query.eq('status_pagamento', filters.statusPagamento);
+        }
+        if (filters?.celulaId && filters.celulaId !== 'all') {
+            // CORREÇÃO: Filtra se a célula é do participante OU se foi a célula que fez a inscrição
+            query = query.or(`celula_id.eq.${filters.celulaId},celula_inscricao_id.eq.${filters.celulaId}`);
+        }
+        if (filters?.searchTerm) {
+            query = query.or(
+                `nome_completo_participante.ilike.%${filters.searchTerm}%,contato_pessoal.ilike.%${filters.searchTerm}%`
+            );
+        }
+        if (filters?.tipoParticipacao) { // <-- NOVO: Aplica o filtro de tipo de participação
+            query = query.eq('tipo_participacao', filters.tipoParticipacao);
+        }
+
+        const { data, error } = await query.order('nome_completo_participante', { ascending: true });
+
+        if (error) {
+            console.error("Erro ao listar inscrições para o evento:", error);
+            throw new Error(`Falha ao carregar inscrições: ${error.message}`);
+        }
+
+        // Mapeia os dados para a interface InscricaoFaceAFace
+        return data.map(inscricao => ({
+            ...inscricao,
+            celula_participante_nome: (inscricao as any).celula_participante_nome?.nome || null,
+            celula_inscricao_nome: (inscricao as any).celula_inscricao_nome?.nome || null,
+            evento_nome: (inscricao as any).evento_nome?.nome_evento || null,
+        })) as InscricaoFaceAFace[];
+
+    } catch (e: any) {
+        console.error("Falha na Server Action listarInscricoesFaceAFacePorEvento:", e);
+        throw e;
+    }
+}
+
+/**
+ * Obtém os detalhes de uma inscrição específica (apenas para Admin).
+ *
+ * @param inscricaoId O ID da inscrição.
+ * @returns Os detalhes completos da inscrição ou null se não encontrado/não autorizado.
+ * @throws Erro se a busca falhar.
+ */
+export async function getInscricaoFaceAFace(inscricaoId: string): Promise<InscricaoFaceAFace | null> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem ver detalhes de inscrições.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+        const { data, error } = await clientToUse
+            .from('inscricoes_face_a_face')
+            .select(`
+                *,
+                celula_participante_nome:celulas!celula_id(nome),
+                celula_inscricao_nome:celulas!celula_inscricao_id(nome),
+                evento_nome:eventos_face_a_face(nome_evento, valor_total, valor_entrada)
+            `)
+            .eq('id', inscricaoId)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                console.warn(`Inscrição com ID ${inscricaoId} não encontrada.`);
+                return null;
+            }
+            console.error("Erro ao buscar inscrição Face a Face:", error);
+            throw new Error(`Falha ao carregar inscrição: ${error.message}`);
+        }
+
+        // Mapeia os dados para a interface InscricaoFaceAFace
+        return {
+            ...data,
+            celula_participante_nome: (data as any).celula_participante_nome?.nome || null,
+            celula_inscricao_nome: (data as any).celula_inscricao_nome?.nome || null,
+            evento_nome: (data as any).evento_nome?.nome_evento || null,
+            // Adicione os valores do evento se for útil na visualização da inscrição
+            valor_total_evento: (data as any).evento_nome?.valor_total || 0,
+            valor_entrada_evento: (data as any).evento_nome?.valor_entrada || 0,
+        } as InscricaoFaceAFace;
+
+    } catch (e: any) {
+        console.error("Falha na Server Action getInscricaoFaceAFace:", e);
+        throw e;
+    }
+}
+
+/**
+ * Atualiza o status de pagamento e informações de comprovante de uma inscrição (apenas para Admin).
+ * Permite ao admin confirmar pagamentos e adicionar observações.
+ *
+ * @param inscricaoId O ID da inscrição a ser atualizada.
+ * @param updatedFields Os campos a serem atualizados (status_pagamento, admin_confirmou_entrada, etc.).
+ * @throws Erro se não autorizado ou se a atualização falhar.
+ */
+export async function atualizarInscricaoFaceAFaceAdmin(
+    inscricaoId: string,
+    updatedFields: Partial<Omit<InscricaoFaceAFace, 'id' | 'created_at' | 'updated_at' | 'evento_id' | 'inscrito_por_perfil_id' | 'celula_inscricao_id' | 'membro_id'>>
+): Promise<void> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem atualizar inscrições.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+        const { error } = await clientToUse
+            .from('inscricoes_face_a_face')
+            .update(updatedFields)
+            .eq('id', inscricaoId);
+
+        if (error) {
+            console.error("Erro ao atualizar inscrição Face a Face (Admin):", error);
+            throw new Error(`Falha ao atualizar inscrição: ${error.message}`);
+        }
+
+        revalidatePath(`/admin/eventos-face-a-face/*/inscricoes`); // Revalida listagens de inscrições
+        revalidatePath(`/admin/eventos-face-a-face/*/inscricoes/editar/${inscricaoId}`); // Revalida a página de edição
+        revalidatePath(`/eventos-face-a-face/*/minhas-inscricoes`); // Revalida para o líder também, se houver
+    } catch (e: any) {
+        console.error("Falha na Server Action atualizarInscricaoFaceAFaceAdmin:", e);
+        throw e;
+    }
+}
+
+
+/**
+ * Exclui uma inscrição Face a Face (apenas para Admin).
+ *
+ * @param inscricaoId O ID da inscrição a ser excluída.
+ * @throws Erro se não autorizado ou se a exclusão falhar.
+ */
+export async function excluirInscricaoFaceAFace(inscricaoId: string): Promise<void> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem excluir inscrições.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase; // Admin client para garantir permissão
+        const { error } = await clientToUse
+            .from('inscricoes_face_a_face')
+            .delete()
+            .eq('id', inscricaoId);
+
+        if (error) {
+            console.error("Erro ao excluir inscrição Face a Face:", error);
+            throw new Error(`Falha ao excluir inscrição: ${error.message}`);
+        }
+
+        revalidatePath(`/admin/eventos-face-a-face/*/inscricoes`); // Revalida listagens de inscrições
+        revalidatePath(`/eventos-face-a-face/*/minhas-inscricoes`); // Revalida para o líder também
+    } catch (e: any) {
+        console.error("Falha na Server Action excluirInscricaoFaceAFace:", e);
+        throw e;
+    }
+}
+
+/**
+ * Gera um arquivo CSV com todas as inscrições para um evento, aplicando os mesmos filtros da listagem.
+ * Esta função é para ser chamada apenas por administradores.
+ *
+ * @param eventoId O ID do evento.
+ * @param filters Filtros opcionais por status de pagamento, célula, termo de busca, tipo de participação.
+ * @returns Uma string formatada como CSV.
+ * @throws Erro se não autorizado ou se a geração falhar.
+ */
+export async function exportarInscricoesCSV(
+    eventoId: string,
+    filters?: {
+        statusPagamento?: InscricaoFaceAFaceStatus | 'all';
+        celulaId?: string | 'all';
+        searchTerm?: string;
+        tipoParticipacao?: InscricaoFaceAFaceTipoParticipacao;
+    }
+): Promise<string> {
+    const { supabase, role, adminSupabase } = await checkUserAuthorization();
+
+    if (role !== 'admin') {
+        throw new Error("Não autorizado: Apenas administradores podem exportar inscrições para CSV.");
+    }
+
+    try {
+        const clientToUse = adminSupabase || supabase;
+
+        // REMOVIDOS OS COMENTÁRIOS DA STRING DO SELECT PARA EVITAR ERRO DE PARSE
+        let query = clientToUse
+            .from('inscricoes_face_a_face')
+            .select(`
+                id,
+                nome_completo_participante,
+                cpf,
+                idade,
+                rg,
+                contato_pessoal,
+                contato_emergencia,
+                endereco_completo,
+                bairro,
+                cidade,
+                data_nascimento,
+                estado_civil,
+                nome_esposo,
+                tamanho_camiseta,
+                eh_membro_ib_apascentar,
+                celula_id,
+                lider_celula_nome,
+                pertence_outra_igreja,
+                nome_outra_igreja,
+                dificuldade_dormir_beliche,
+                restricao_alimentar,
+                deficiencia_fisica_mental,
+                toma_medicamento_controlado,
+                descricao_sonhos,
+                tipo_participacao,
+                status_pagamento,
+                admin_confirmou_entrada,
+                data_upload_entrada,
+                caminho_comprovante_entrada,
+                admin_confirmou_restante,
+                data_upload_restante,
+                caminho_comprovante_restante,
+                admin_observacao_pagamento,
+                inscrito_por_perfil_id,
+                celula_inscricao_id,
+                created_at,
+                updated_at,
+                celula_participante_nome:celulas!celula_id(nome),
+                celula_inscricao_nome:celulas!celula_inscricao_id(nome),
+                evento_detalhes:eventos_face_a_face(nome_evento,tipo,data_inicio,data_fim,valor_total,valor_entrada,data_limite_entrada,chave_pix_admin)
+            `)
+            .eq('evento_id', eventoId);
+
+        if (filters?.statusPagamento && filters.statusPagamento !== 'all') {
+            query = query.eq('status_pagamento', filters.statusPagamento);
+        }
+        
+        // CORREÇÃO APLICADA AQUI TAMBÉM: Filtro OR para pegar Célula do Participante OU Célula da Inscrição
+        if (filters?.celulaId && filters.celulaId !== 'all') {
+            query = query.or(`celula_id.eq.${filters.celulaId},celula_inscricao_id.eq.${filters.celulaId}`);
+        }
+
+        if (filters?.searchTerm) {
+            query = query.or(
+                `nome_completo_participante.ilike.%${filters.searchTerm}%,contato_pessoal.ilike.%${filters.searchTerm}%`
+            );
+        }
+        if (filters?.tipoParticipacao) {
+            query = query.eq('tipo_participacao', filters.tipoParticipacao);
+        }
+
+        const { data, error } = await query.order('nome_completo_participante', { ascending: true });
+
+        if (error) {
+            console.error("Erro ao buscar inscrições para exportação CSV:", error);
+            throw new Error(`Falha ao carregar inscrições para CSV: ${error.message}`);
+        }
+
+        if (!data || data.length === 0) {
+            return "Nenhuma inscrição encontrada para os filtros selecionados.\n";
+        }
+
+        // --- Geração do CSV ---
+        const escapeCsvValue = (value: any): string => {
+            if (value === null || value === undefined) return '';
+            let stringValue = String(value);
+            if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
+                stringValue = `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+        };
+
+        const getStatusTextExport = (status: InscricaoFaceAFaceStatus): string => {
+            const options = [
+                { id: 'PENDENTE', nome: 'Pendente' },
+                { id: 'AGUARDANDO_CONFIRMACAO_ENTRADA', nome: 'Aguardando Conf. Entrada' },
+                { id: 'ENTRADA_CONFIRMADA', nome: 'Entrada Confirmada' },
+                { id: 'AGUARDANDO_CONFIRMACAO_RESTANTE', nome: 'Aguardando Conf. Restante' },
+                { id: 'PAGO_TOTAL', nome: 'Pago Total' },
+                { id: 'CANCELADO', nome: 'Cancelado' },
+            ];
+            const option = options.find(o => o.id === status);
+            return option ? option.nome : status;
+        };
+
+        const headers = [
+            "ID Inscrição",
+            "Nome do Participante",
+            "Idade",
+            "Data de Nascimento",
+            "CPF",
+            "RG",
+            "Contato Pessoal",
+            "Contato Emergência",
+            "Endereço Completo",
+            "Bairro",
+            "Cidade",
+            "Estado Civil",
+            "Nome do Esposo",
+            "Tamanho Camiseta",
+            "Tipo Participação",
+            "Membro IBA?",
+            "Célula do Participante", // Nome da célula
+            "Pertence Outra Igreja?",
+            "Nome Outra Igreja",
+            "Dificuldade Beliche?",
+            "Restrição Alimentar?",
+            "Deficiência Física/Mental?",
+            "Usa Medicamento Controlado?",
+            "Descrição Sonhos",
+            "Status Pagamento",
+            "Admin Confirmou Entrada?",
+            "Data Upload Entrada",
+            "URL Comprovante Entrada",
+            "Admin Confirmou Restante?",
+            "Data Upload Restante",
+            "URL Comprovante Restante",
+            "Obs. Pagamento Admin",
+            "ID Líder Inscrição",
+            "Célula Líder (Nome)",
+            "Data Inscrição",
+            "Última Atualização",
+            "Nome Evento",
+            "Tipo Evento",
+            "Data Início Evento",
+            "Data Fim Evento",
+            "Valor Total Evento",
+            "Valor Entrada Evento",
+            "Data Limite Entrada Evento",
+            "Chave PIX Admin Evento"
+        ];
+
+        let csv = headers.map(escapeCsvValue).join(',') + '\n';
+
+        data.forEach((inscricao: any) => {
+            const row = [
+                escapeCsvValue(inscricao.id),
+                escapeCsvValue(inscricao.nome_completo_participante),
+                escapeCsvValue(inscricao.idade),
+                inscricao.data_nascimento ? escapeCsvValue(format(parseISO(inscricao.data_nascimento), 'dd/MM/yyyy')) : '',
+                escapeCsvValue(inscricao.cpf),
+                escapeCsvValue(inscricao.rg),
+                escapeCsvValue(inscricao.contato_pessoal),
+                escapeCsvValue(inscricao.contato_emergencia),
+                escapeCsvValue(inscricao.endereco_completo),
+                escapeCsvValue(inscricao.bairro),
+                escapeCsvValue(inscricao.cidade),
+                escapeCsvValue(inscricao.estado_civil),
+                escapeCsvValue(inscricao.nome_esposo),
+                escapeCsvValue(inscricao.tamanho_camiseta),
+                escapeCsvValue(inscricao.tipo_participacao),
+                escapeCsvValue(inscricao.eh_membro_ib_apascentar ? 'Sim' : 'Não'),
+                escapeCsvValue(inscricao.celula_participante_nome?.nome || 'N/A'),
+                escapeCsvValue(inscricao.pertence_outra_igreja ? 'Sim' : 'Não'),
+                escapeCsvValue(inscricao.nome_outra_igreja),
+                escapeCsvValue(inscricao.dificuldade_dormir_beliche ? 'Sim' : 'Não'),
+                escapeCsvValue(inscricao.restricao_alimentar ? 'Sim' : 'Não'),
+                escapeCsvValue(inscricao.deficiencia_fisica_mental ? 'Sim' : 'Não'),
+                escapeCsvValue(inscricao.toma_medicamento_controlado ? 'Sim' : 'Não'),
+                escapeCsvValue(inscricao.descricao_sonhos),
+                escapeCsvValue(getStatusTextExport(inscricao.status_pagamento)),
+                escapeCsvValue(inscricao.admin_confirmou_entrada ? 'Sim' : 'Não'),
+                inscricao.data_upload_entrada ? escapeCsvValue(format(parseISO(inscricao.data_upload_entrada), 'dd/MM/yyyy HH:mm')) : '',
+                escapeCsvValue(inscricao.caminho_comprovante_entrada),
+                escapeCsvValue(inscricao.admin_confirmou_restante ? 'Sim' : 'Não'),
+                inscricao.data_upload_restante ? escapeCsvValue(format(parseISO(inscricao.data_upload_restante), 'dd/MM/yyyy HH:mm')) : '',
+                escapeCsvValue(inscricao.caminho_comprovante_restante),
+                escapeCsvValue(inscricao.admin_observacao_pagamento),
+                escapeCsvValue(inscricao.inscrito_por_perfil_id),
+                escapeCsvValue(inscricao.celula_inscricao_nome?.nome || 'N/A'),
+                escapeCsvValue(format(parseISO(inscricao.created_at), 'dd/MM/yyyy HH:mm')),
+                escapeCsvValue(format(parseISO(inscricao.updated_at), 'dd/MM/yyyy HH:mm')),
+                escapeCsvValue(inscricao.evento_detalhes?.nome_evento || 'N/A'),
+                escapeCsvValue(inscricao.evento_detalhes?.tipo || 'N/A'),
+                inscricao.evento_detalhes?.data_inicio ? escapeCsvValue(format(parseISO(inscricao.evento_detalhes.data_inicio), 'dd/MM/yyyy')) : '',
+                inscricao.evento_detalhes?.data_fim ? escapeCsvValue(format(parseISO(inscricao.evento_detalhes.data_fim), 'dd/MM/yyyy')) : '',
+                inscricao.evento_detalhes?.valor_total !== null ? escapeCsvValue(inscricao.evento_detalhes?.valor_total.toFixed(2).replace('.', ',')) : '',
+                inscricao.evento_detalhes?.valor_entrada !== null ? escapeCsvValue(inscricao.evento_detalhes?.valor_entrada.toFixed(2).replace('.', ',')) : '',
+                inscricao.evento_detalhes?.data_limite_entrada ? escapeCsvValue(format(parseISO(inscricao.evento_detalhes.data_limite_entrada), 'dd/MM/yyyy')) : '',
+                escapeCsvValue(inscricao.evento_detalhes?.chave_pix_admin)
+            ];
+            csv += row.join(',') + '\n';
+        });
+
+        return csv;
+
+    } catch (e: any) {
+        console.error("Falha na Server Action exportarInscricoesCSV:", e);
+        throw e;
+    }
+}
+
+// ============================================================================
+//           FUNÇÕES DE INSCRIÇÃO PARA O LÍDER (Adicione ao final de data.ts)
+// ============================================================================
+
+/**
+ * Lista as inscrições feitas pelo perfil logado (Líder) para um evento específico.
+ */
+export async function listarMinhasInscricoesFaceAFacePorEvento(eventoId: string): Promise<InscricaoFaceAFace[]> {
+    const { supabase, profileId } = await checkUserAuthorization();
+
+    if (!profileId) {
+        return [];
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('inscricoes_face_a_face')
+            .select(`
+                *,
+                celula_participante_nome:celulas!celula_id(nome),
+                celula_inscricao_nome:celulas!celula_inscricao_id(nome),
+                evento_nome:eventos_face_a_face(nome_evento, valor_total, valor_entrada)
+            `)
+            .eq('evento_id', eventoId)
+            .eq('inscrito_por_perfil_id', profileId) // Filtra apenas as feitas pelo usuário atual
+            .order('nome_completo_participante', { ascending: true });
+
+        if (error) {
+            console.error("Erro ao listar minhas inscrições:", error);
+            throw new Error(`Falha ao carregar suas inscrições: ${error.message}`);
+        }
+
+        return data.map(inscricao => ({
+            ...inscricao,
+            celula_participante_nome: (inscricao as any).celula_participante_nome?.nome || null,
+            celula_inscricao_nome: (inscricao as any).celula_inscricao_nome?.nome || null,
+            evento_nome: (inscricao as any).evento_nome?.nome_evento || null,
+            valor_total_evento: (inscricao as any).evento_nome?.valor_total || 0,
+            valor_entrada_evento: (inscricao as any).evento_nome?.valor_entrada || 0,
+        })) as InscricaoFaceAFace[];
+
+    } catch (e: any) {
+        console.error("Falha na Server Action listarMinhasInscricoesFaceAFacePorEvento:", e);
+        throw e;
+    }
+}
+
+/**
+ * Obtém uma inscrição específica para edição pelo Líder.
+ * Garante que a inscrição pertence ao líder logado antes de retornar.
+ */
+export async function getInscricaoFaceAFaceParaLider(inscricaoId: string): Promise<InscricaoFaceAFace | null> {
+    const { supabase, profileId } = await checkUserAuthorization();
+
+    if (!profileId) {
+        return null;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('inscricoes_face_a_face')
+            .select(`
+                *,
+                celula_participante_nome:celulas!celula_id(nome),
+                celula_inscricao_nome:celulas!celula_inscricao_id(nome),
+                evento_detalhes:eventos_face_a_face(nome_evento, valor_total, valor_entrada, chave_pix_admin, data_limite_entrada)
+            `)
+            .eq('id', inscricaoId)
+            .eq('inscrito_por_perfil_id', profileId) // Segurança: garante que é dono da inscrição
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') return null;
+            console.error("Erro ao buscar inscrição para líder:", error);
+            throw new Error(`Falha ao carregar inscrição: ${error.message}`);
+        }
+
+        return {
+            ...data,
+            celula_participante_nome: (data as any).celula_participante_nome?.nome || null,
+            celula_inscricao_nome: (data as any).celula_inscricao_nome?.nome || null,
+            evento_nome: (data as any).evento_detalhes?.nome_evento || null,
+            valor_total_evento: (data as any).evento_detalhes?.valor_total || 0,
+            valor_entrada_evento: (data as any).evento_detalhes?.valor_entrada || 0,
+            chave_pix_admin_evento: (data as any).evento_detalhes?.chave_pix_admin || null,
+            data_limite_entrada_evento: (data as any).evento_detalhes?.data_limite_entrada || null,
+        } as InscricaoFaceAFace;
+
+    } catch (e: any) {
+        console.error("Falha na Server Action getInscricaoFaceAFaceParaLider:", e);
+        throw e;
+    }
+}
+
+/**
+ * Atualiza dados da inscrição (Líder).
+ * O líder só pode alterar dados pessoais. Status de pagamento é controlado pelo Admin/Uploads.
+ */
+export async function atualizarInscricaoFaceAFaceLider(
+    inscricaoId: string, 
+    updatedData: Partial<InscricaoFaceAFace>
+): Promise<void> {
+    const { supabase, profileId } = await checkUserAuthorization();
+
+    if (!profileId) throw new Error("Não autorizado.");
+
+    try {
+        // Remover campos que o líder NÃO pode alterar diretamente via update manual
+        const { 
+            status_pagamento, 
+            admin_confirmou_entrada, 
+            admin_confirmou_restante,
+            inscrito_por_perfil_id,
+            // outros campos sensíveis...
+            ...safeData 
+        } = updatedData;
+
+        const { error } = await supabase
+            .from('inscricoes_face_a_face')
+            .update(safeData)
+            .eq('id', inscricaoId)
+            .eq('inscrito_por_perfil_id', profileId); // Segurança extra
+
+        if (error) throw error;
+
+        revalidatePath(`/eventos-face-a-face/*/minhas-inscricoes`);
+        revalidatePath(`/eventos-face-a-face/*/minhas-inscricoes/editar/${inscricaoId}`);
+    } catch (e: any) {
+        console.error("Erro ao atualizar inscrição (Líder):", e);
+        throw e;
+    }
+}
+
+/**
+ * Realiza o upload de comprovante (Entrada ou Restante) e atualiza o status.
+ */
+export async function uploadComprovanteFaceAFace(
+    inscricaoId: string, 
+    tipo: 'entrada' | 'restante', 
+    file: File
+): Promise<string> {
+    const { supabase, profileId } = await checkUserAuthorization();
+    if (!profileId) throw new Error("Não autorizado.");
+
+    // Verifica propriedade da inscrição
+    const { data: inscricao, error: checkError } = await supabase
+        .from('inscricoes_face_a_face')
+        .select('id, evento_id, status_pagamento')
+        .eq('id', inscricaoId)
+        .eq('inscrito_por_perfil_id', profileId)
+        .single();
+
+    if (checkError || !inscricao) throw new Error("Inscrição não encontrada ou não autorizada.");
+
+    const fileName = `${tipo}_${Date.now()}_${sanitizeFileName(file.name)}`;
+    const filePath = `comprovantes/${inscricao.evento_id}/${inscricao.id}/${fileName}`;
+
+    // Upload Storage
+    const { error: uploadError } = await createServerClient().storage
+        .from('comprovantes_face_a_face') // Certifique-se de criar este bucket no Supabase e deixá-lo público ou com policies corretas
+        .upload(filePath, file);
+
+    if (uploadError) throw new Error("Erro no upload: " + uploadError.message);
+
+    const { data: publicUrlData } = createServerClient().storage
+        .from('comprovantes_face_a_face')
+        .getPublicUrl(filePath);
+
+    const fileUrl = publicUrlData.publicUrl;
+
+    // Atualiza tabela com URL e muda Status
+    const updateData: any = {};
+    const now = new Date().toISOString();
+
+    if (tipo === 'entrada') {
+        updateData.caminho_comprovante_entrada = fileUrl;
+        updateData.data_upload_entrada = now;
+        // Se estava pendente, muda para aguardando
+        if (inscricao.status_pagamento === 'PENDENTE') {
+            updateData.status_pagamento = 'AGUARDANDO_CONFIRMACAO_ENTRADA';
+        }
+    } else {
+        updateData.caminho_comprovante_restante = fileUrl;
+        updateData.data_upload_restante = now;
+        // Se já pagou entrada, muda para aguardando restante
+        if (inscricao.status_pagamento === 'ENTRADA_CONFIRMADA') {
+            updateData.status_pagamento = 'AGUARDANDO_CONFIRMACAO_RESTANTE';
+        }
+    }
+
+    const { error: dbError } = await supabase
+        .from('inscricoes_face_a_face')
+        .update(updateData)
+        .eq('id', inscricaoId);
+
+    if (dbError) throw new Error("Erro ao atualizar registro: " + dbError.message);
+
+    revalidatePath(`/eventos-face-a-face/*/minhas-inscricoes`);
+    return fileUrl;
 }
