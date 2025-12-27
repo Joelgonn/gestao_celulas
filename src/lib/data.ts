@@ -1,9 +1,11 @@
+// src/lib/data.ts
+
 'use server';
 
 // ============================================================================
 //                                   IMPORTS
 // ============================================================================
-// REMOVIDO: import { noStore } from 'next/cache'; // Removido para compatibilidade com Next.js 16/Turbopack
+// A função noStore não é mais necessária com 'force-dynamic' na página e pode causar erros em Next.js 16/Turbopack.
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { format, isAfter, isSameMonth, parseISO, subDays } from 'date-fns';
