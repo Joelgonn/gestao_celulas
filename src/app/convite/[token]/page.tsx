@@ -4,6 +4,8 @@ import { validarConvitePublico } from '@/lib/data';
 import PublicPageWrapper from '@/components/PublicPageWrapper';
 import { FaCalendarCheck, FaMapMarkerAlt, FaMoneyBillWave, FaExclamationTriangle } from 'react-icons/fa';
 
+// Forçando um novo deploy para limpar o cache - 27/12
+
 interface ConvitePageProps {
   params: {
     token: string;
