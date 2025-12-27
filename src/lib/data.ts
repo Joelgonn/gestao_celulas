@@ -2450,41 +2450,66 @@ export async function gerarLinkConvite(eventoId: string, nomeCandidato?: string)
 
 /**
  * Valida o token ao abrir a página pública e retorna os dados do evento/célula.
+ * Refatorado para separar as consultas e evitar problemas de RLS em joins.
  * Retorna null se inválido ou expirado.
  */
 export async function validarConvitePublico(token: string) {
     const supabase = createAdminClient(); // Admin client para ler dados públicos sem logar
 
-    const { data: convite, error } = await supabase
+    // --- PASSO 1: Buscar APENAS o convite. Esta consulta é garantida. ---
+    const { data: convite, error: conviteError } = await supabase
         .from('convites_inscricao')
-        .select(`
-            *,
-            evento_detalhes:eventos_face_a_face(*),
-            lider_perfil:profiles!gerado_por_perfil_id(nome_completo, telefone),
-            celula_detalhes:celulas(nome)
-        `)
+        .select('*')
         .eq('token', token)
         .single();
 
-    if (error || !convite) return { valido: false, motivo: 'Convite não encontrado.' };
+    if (conviteError || !convite) {
+        console.error("Erro ao buscar convite ou não encontrado:", conviteError?.message);
+        return { valido: false, motivo: 'Convite não encontrado.' };
+    }
 
-    if (convite.usado) return { valido: false, motivo: 'Este link já foi utilizado.' };
+    // --- PASSO 2: Validar o status do convite. ---
+    if (convite.usado) {
+        return { valido: false, motivo: 'Este link já foi utilizado.' };
+    }
 
     if (isAfter(new Date(), new Date(convite.expira_em))) {
         return { valido: false, motivo: 'Este link expirou (validade de 24h).' };
     }
 
-    // Verifica se o evento ainda está aceitando inscrições
-    if (!convite.evento_detalhes.ativa_para_inscricao) {
-        return { valido: false, motivo: 'As inscrições para este evento foram encerradas.' };
+    // --- PASSO 3: Buscar os detalhes das outras tabelas usando os IDs do convite. ---
+    const [eventoResult, liderResult, celulaResult] = await Promise.all([
+        supabase.from('eventos_face_a_face').select('*').eq('id', convite.evento_id).single(),
+        supabase.from('profiles').select('nome_completo, telefone').eq('id', convite.gerado_por_perfil_id).single(),
+        supabase.from('celulas').select('nome').eq('id', convite.celula_id).single()
+    ]);
+
+    const { data: evento_detalhes, error: eventoError } = eventoResult;
+    const { data: lider_perfil, error: liderError } = liderResult;
+    const { data: celula_detalhes, error: celulaError } = celulaResult;
+
+    // Se qualquer uma das buscas de detalhes falhar, o convite é inválido
+    if (eventoError || !evento_detalhes) {
+        console.error("Erro ao buscar detalhes do evento:", eventoError?.message);
+        return { valido: false, motivo: 'O evento associado a este convite não foi encontrado.' };
+    }
+    if (liderError || celulaError) {
+        console.warn("Aviso: Não foi possível buscar detalhes do líder ou da célula.");
+        // Você pode decidir se isso invalida o convite ou não. Vamos assumir que não por enquanto.
     }
 
+    // --- PASSO 4: Validar se o evento ainda está ativo. ---
+    if (!evento_detalhes.ativa_para_inscricao) {
+        return { valido: false, motivo: 'As inscrições para este evento foram encerradas.' };
+    }
+    
+    // --- PASSO 5: Retornar sucesso com todos os dados coletados. ---
     return { 
         valido: true, 
         dados: {
-            evento: convite.evento_detalhes,
-            celula: convite.celula_detalhes,
-            lider: convite.lider_perfil,
+            evento: evento_detalhes,
+            celula: celula_detalhes, // Pode ser null se a busca falhar
+            lider: lider_perfil,       // Pode ser null se a busca falhar
             convite_id: convite.id,
             token: convite.token,
             nome_candidato_sugerido: convite.nome_candidato_sugerido
