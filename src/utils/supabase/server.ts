@@ -15,30 +15,30 @@ export const createServerClient = () => {
       cookies: {
         async get(name: string) {
           try {
-            const cookieStore = cookies();
+            // CORREÇÃO: Usar await para resolver a Promise retornada por cookies()
+            const cookieStore = await cookies();
             return cookieStore.get(name)?.value;
           } catch (error) {
-            // Este erro é esperado em contextos como Fast Refresh em dev,
-            // onde cookies() pode não estar disponível em todos os Server Components/Actions
-            // Se o erro for persistente em produção, pode indicar um problema de ambiente.
-            console.warn('createServerClient: Could not get cookie in Server Action/Component context (expected in some dev scenarios):', error);
-            return undefined; // Retorna undefined para indicar que o cookie não foi obtido
+            console.warn('createServerClient: Could not get cookie (expected in some dev scenarios or if headers are unavailable):', error);
+            return undefined;
           }
         },
         async set(name: string, value: string, options: CookieOptions) {
           try {
-            const cookieStore = cookies();
+            // CORREÇÃO: Usar await para resolver a Promise retornada por cookies()
+            const cookieStore = await cookies();
             cookieStore.set({ name, value, ...options });
           } catch (error) {
-            console.warn('createServerClient: Could not set cookie in Server Action/Component context (expected in some dev scenarios):', error);
+            console.warn('createServerClient: Could not set cookie (expected in some dev scenarios or if headers are unavailable):', error);
           }
         },
         async remove(name: string, options: CookieOptions) {
           try {
-            const cookieStore = cookies();
+            // CORREÇÃO: Usar await para resolver a Promise retornada por cookies()
+            const cookieStore = await cookies();
             cookieStore.set({ name, value: '', ...options }); // Definir para vazio ou expirar para remover
           } catch (error) {
-            console.warn('createServerClient: Could not remove cookie in Server Action/Component context (expected in some dev scenarios):', error);
+            console.warn('createServerClient: Could not remove cookie (expected in some dev scenarios or if headers are unavailable):', error);
           }
         },
       },
@@ -62,7 +62,7 @@ export const createAdminClient = (): SupabaseClient => {
 
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
-      persistSession: false, // Não persiste sessão, pois usa service_role_key
+      persistSession: false,
     },
   });
 };
