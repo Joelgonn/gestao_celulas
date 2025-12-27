@@ -2392,7 +2392,8 @@ export async function uploadComprovanteFaceAFace(
 // ============================================================================
 
 /**
- * Gera um link único válido por 24h vinculado à célula do líder.
+ * Gera um link único válido por 24h vinculado à célula do líder,
+ * chamando uma função RPC no Supabase para garantir a precisão da data.
  */
 export async function gerarLinkConvite(eventoId: string, nomeCandidato?: string): Promise<{ success: boolean; url?: string; message?: string }> {
     const { supabase, role, celulaId, profileId } = await checkUserAuthorization();
@@ -2402,34 +2403,49 @@ export async function gerarLinkConvite(eventoId: string, nomeCandidato?: string)
     }
 
     // Verificar se o evento está ativo
-    const { data: evento } = await supabase.from('eventos_face_a_face').select('ativa_para_inscricao').eq('id', eventoId).single();
-    if (!evento?.ativa_para_inscricao) {
+    const { data: evento, error: eventoError } = await supabase
+        .from('eventos_face_a_face')
+        .select('ativa_para_inscricao')
+        .eq('id', eventoId)
+        .single();
+        
+    if (eventoError || !evento?.ativa_para_inscricao) {
         return { success: false, message: "Este evento não está aceitando inscrições no momento." };
     }
 
-    const token = uuidv4();
-    const expiraEm = addHours(new Date(), 24); // Validade de 24 horas
+    try {
+        // ANTES (com o bug):
+        // const token = uuidv4();
+        // const expiraEm = addHours(new Date(), 24);
+        // await supabase.from('convites_inscricao').insert({ ... });
 
-    const { error } = await supabase.from('convites_inscricao').insert({
-        evento_id: eventoId,
-        celula_id: celulaId,
-        gerado_por_perfil_id: profileId,
-        token: token,
-        expira_em: expiraEm.toISOString(),
-        nome_candidato_sugerido: nomeCandidato || null,
-        usado: false
-    });
+        // AGORA (solução robusta com RPC):
+        const { data: token, error } = await supabase
+            .rpc('gerar_convite_24h', {
+                p_evento_id: eventoId,
+                p_celula_id: celulaId,
+                p_gerado_por_perfil_id: profileId,
+                p_nome_candidato_sugerido: nomeCandidato || null
+            });
 
-    if (error) {
-        console.error("Erro ao gerar convite:", error);
-        return { success: false, message: "Erro ao gerar link no banco de dados." };
+        if (error) {
+            console.error("Erro ao chamar RPC 'gerar_convite_24h':", error);
+            return { success: false, message: "Erro ao gerar link no banco de dados." };
+        }
+        
+        if (!token) {
+             return { success: false, message: "Falha ao receber o token de volta do banco de dados." };
+        }
+
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const fullUrl = `${baseUrl}/convite/${token}`;
+
+        return { success: true, url: fullUrl };
+
+    } catch (e: any) {
+        console.error("Erro inesperado em gerarLinkConvite:", e);
+        return { success: false, message: "Ocorreu um erro inesperado." };
     }
-
-    // Define a URL base (Localhost ou Produção)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const fullUrl = `${baseUrl}/convite/${token}`;
-
-    return { success: true, url: fullUrl };
 }
 
 /**
