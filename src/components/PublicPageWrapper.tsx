@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { FaCheckCircle } from 'react-icons/fa';
 import PublicRegistrationForm from '@/components/PublicRegistrationForm'; // Verifique se o caminho está correto
 
+// teste de deploy
+
 // Tela de Sucesso interna (sem alterações)
 const SuccessScreen = () => (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
