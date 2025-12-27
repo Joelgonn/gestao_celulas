@@ -2,8 +2,9 @@
 
 import { createServerClient, createAdminClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { format, isSameMonth, parseISO, subDays } from 'date-fns';
+import { format, isSameMonth, parseISO, subDays, addHours, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { v4 as uuidv4 } from 'uuid'; // Instalar: npm install uuid && npm install -D @types/uuid
 
 // IMPORTAR TODOS OS TIPOS NECESSÁRIOS DE types.ts
 import {
@@ -34,6 +35,7 @@ import {
     InscricaoFaceAFaceTipoParticipacao, 
     InscricaoFaceAFace,
     InscricaoFaceAFaceFormData,
+    ConviteInscricao // Novo tipo para convites
 } from './types';
 
 
@@ -70,7 +72,6 @@ async function checkUserAuthorization(): Promise<{
     
     const role = profileData.role as 'admin' | 'líder';
     const celulaId = profileData.celula_id;
-    // console.log(`checkUserAuthorization: Usuário ${user.email} autenticado. Role: ${role}, Celula ID: ${celulaId}`); // Log detalhado, pode ser comentado em produção
 
     return {
         supabase: supabaseUser,
@@ -85,7 +86,6 @@ async function getCelulasNamesMap(supabaseInstance: ReturnType<typeof createServ
     const namesMap = new Map<string, string>();
     if (!supabaseInstance || celulaIds.size === 0) return namesMap;
 
-    // console.log(`getCelulasNamesMap: Buscando nomes para ${celulaIds.size} IDs de célula.`); // Log detalhado
     const { data, error } = await supabaseInstance
         .from('celulas')
         .select('id, nome')
@@ -94,7 +94,6 @@ async function getCelulasNamesMap(supabaseInstance: ReturnType<typeof createServ
     if (error) {
         console.error("Erro ao buscar nomes de células (getCelulasNamesMap):", error);
     } else {
-        // console.log(`getCelulasNamesMap: Encontrados ${data?.length} nomes de células.`); // Log detalhado
         data?.forEach((c: CelulaNomeId) => namesMap.set(c.id, c.nome));
     }
     return namesMap;
@@ -114,7 +113,6 @@ function sanitizeFileName(fileName: string): string {
 export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
     const { supabase, role, adminSupabase } = await checkUserAuthorization();
 
-    // console.log(`listarCelulasParaAdmin: Chamada. Role detectado: ${role}`); // Log detalhado
     if (role !== 'admin') {
         console.warn("listarCelulasParaAdmin: Acesso negado. Apenas administradores podem listar todas as células.");
         return [];
@@ -123,7 +121,6 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
     try {
         const clientToUse = adminSupabase || supabase; 
 
-        // console.log(`listarCelulasParaAdmin: Buscando todas as células como admin. Usando client: ${adminSupabase ? 'admin' : 'RLS'}`); // Log detalhado
         const { data, error } = await clientToUse
             .from('celulas')
             .select('id, nome')
@@ -133,7 +130,6 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
             console.error("listarCelulasParaAdmin: Erro ao listar células:", error);
             throw new Error("Falha ao carregar células: " + error.message);
         }
-        // console.log(`listarCelulasParaAdmin: Retornando ${data?.length} células.`); // Log detalhado
         return data || [];
     } catch (e: any) {
         console.error("Erro na Server Action listarCelulasParaAdmin:", e.message, e);
@@ -147,10 +143,8 @@ export async function listarCelulasParaAdmin(): Promise<CelulaOption[]> {
 export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
 
-    // console.log(`listarCelulasParaLider: Chamada. Role detectado: ${role}, Celula ID: ${celulaId}`); // Log detalhado
     if (role === 'líder' && celulaId) {
         try {
-            // console.log(`listarCelulasParaLider: Buscando célula para líder com ID ${celulaId}.`); // Log detalhado
             const { data, error } = await supabase
                 .from('celulas')
                 .select('id, nome')
@@ -161,7 +155,6 @@ export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
                 console.error("listarCelulasParaLider: Erro ao listar célula para líder:", error);
                 throw new Error("Falha ao carregar sua célula: " + error.message);
             }
-            // console.log(`listarCelulasParaLider: Retornando ${data ? 1 : 0} célula(s).`); // Log detalhado
             return data ? [{ id: data.id, nome: data.nome }] : [];
         } catch (e: any) {
         console.error("Erro na Server Action listarCelulasParaLider:", e.message, e);
@@ -171,53 +164,6 @@ export async function listarCelulasParaLider(): Promise<CelulaOption[]> {
     console.warn("listarCelulasParaLider: Retornando lista vazia (Não é líder ou não tem celulaId).");
     return [];
 }
-
-// ============================================================================
-//                          RPC para Filtro de Aniversário (Adicionado aqui para reutilização)
-// ============================================================================
-/*
-// CRIE ESTAS FUNÇÕES NO SEU BANCO DE DADOS SUPABASE (SQL Editor) SE AINDA NÃO EXISTIREM:
-
--- Função para membros
-CREATE OR REPLACE FUNCTION public.get_members_birthday_ids_in_month(p_month INT, p_celula_id UUID DEFAULT NULL)
-RETURNS SETOF uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT id
-  FROM public.membros
-  WHERE
-    EXTRACT(MONTH FROM data_nascimento) = p_month
-    AND (p_celula_id IS NULL OR celula_id = p_celula_id);
-END;
-$$;
-
--- Grant EXECUTE permission to authenticated role
-GRANT EXECUTE ON FUNCTION public.get_members_birthday_ids_in_month(p_month INT, p_celula_id UUID) TO authenticated;
-
-
--- Função para visitantes (se você tiver dados de nascimento para visitantes e quiser filtrá-los)
-CREATE OR REPLACE FUNCTION public.get_visitors_birthday_ids_in_month(p_month INT, p_celula_id UUID DEFAULT NULL)
-RETURNS SETOF uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT id
-  FROM public.visitantes
-  WHERE
-    EXTRACT(MONTH FROM data_nascimento) = p_month
-    AND (p_celula_id IS NULL OR celula_id = p_celula_id);
-END;
-$$;
-
--- Grant EXECUTE permission to authenticated role
-GRANT EXECUTE ON FUNCTION public.get_visitors_birthday_ids_in_month(p_month INT, p_celula_id UUID) TO authenticated;
-*/
-
 
 // ============================================================================
 //                               FUNÇÕES DE MEMBROS
@@ -236,7 +182,6 @@ export async function listarMembros(
     
     // Aplicar filtro de Aniversário via RPC se birthdayMonth for fornecido
     if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth <= 12) {
-        // console.log(`listarMembros: Aplicando filtro de aniversário para o mês ${birthdayMonth}`); // Log detalhado
         let rpcCelulaIdParam: string | null | undefined = undefined; // Undefined para global
         if (role === 'líder' && celulaId) {
             rpcCelulaIdParam = celulaId;
@@ -259,7 +204,6 @@ export async function listarMembros(
         const memberIdsToFilter: string[] = rpcMemberIds || []; 
 
         if (memberIdsToFilter.length === 0) { 
-            // console.log("listarMembros: Nenhuns membros encontrados para o mês de aniversário filtrado."); // Log detalhado
             return []; // Nenhuns membros encontrados para o mês, retorna cedo
         }
         // Adiciona um filtro WHERE IN (memberIdsToFilter)
@@ -306,13 +250,6 @@ export async function listarMembros(
     return membros.map((m: Membro) => ({ ...m, celula_nome: celulasNamesMap.get(m.celula_id) || null }));
 }
 
-/**
- * Lista membros de uma célula específica para um líder.
- * Retorna apenas o ID, nome e telefone, útil para dropdowns de seleção.
- *
- * @returns Uma lista de membros da célula do líder.
- * @throws Erro se não autorizado ou se a busca falhar.
- */
 export async function listarMembrosDaCelulaDoLider(): Promise<MembroNomeTelefoneId[]> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
 
@@ -333,17 +270,14 @@ export async function listarMembrosDaCelulaDoLider(): Promise<MembroNomeTelefone
             throw new Error(`Falha ao carregar membros da sua célula: ${error.message}`);
         }
 
-        // Mapeia para incluir campos adicionais necessários no formulário de inscrição
         return data.map(membro => ({
             id: membro.id,
             nome: membro.nome,
             telefone: membro.telefone,
-            // Adicione outros campos que você pode precisar pré-preencher
             data_nascimento: membro.data_nascimento,
             endereco: membro.endereco,
             celula_id: membro.celula_id,
-            // celula_nome: (membro as any).celula_nome, // Assumindo que o select já faz o join ou que getMembro fará
-        })) as MembroNomeTelefoneId[]; // Cast para o tipo correto
+        })) as MembroNomeTelefoneId[]; 
     } catch (e: any) {
         console.error("Falha na Server Action listarMembrosDaCelulaDoLider:", e);
         throw e;
@@ -357,7 +291,7 @@ export async function adicionarMembro(newMembroData: Omit<Membro, 'id' | 'create
 
     let targetCelulaIdForInsert: string | null = (role === 'líder') 
         ? celulaId 
-        : (newMembroData.celula_id ?? null); // Converte undefined para null
+        : (newMembroData.celula_id ?? null); 
 
     if (!targetCelulaIdForInsert) {
         throw new Error("ID da célula é necessário para adicionar um membro.");
@@ -380,16 +314,15 @@ export async function adicionarMembro(newMembroData: Omit<Membro, 'id' | 'create
 export async function getMembro(membroId: string): Promise<Membro | null> {
     const { supabase, role, celulaId } = await checkUserAuthorization();
     if (!role) return null;
-    let query = supabase.from('membros').select('*, celulas(nome)').eq('id', membroId); // Adicionado join para celula_nome
+    let query = supabase.from('membros').select('*, celulas(nome)').eq('id', membroId); 
     if (role === 'líder') { if (!celulaId) return null; query = query.eq('celula_id', celulaId); }
     const { data, error } = await query.single();
     if (error) { console.error("Erro ao buscar membro:", error); if (error.code === 'PGRST116') return null; throw error; }
     
-    // Mapeia o resultado para a interface Membro, incluindo celula_nome
     if (data) {
         return {
             ...data,
-            celula_nome: (data as any).celulas?.nome || null // Acessa o nome da célula através do join
+            celula_nome: (data as any).celulas?.nome || null 
         } as Membro;
     }
     return null;
@@ -486,7 +419,6 @@ export async function exportarMembrosCSV(celulaIdFilter: string | null, searchTe
     
     if (statusFilter !== 'all') { query = query.eq('status', statusFilter); }
     
-    // SE O FILTRO DE ANIVERSÁRIO FOR USADO, DEVE SER VIA RPC AQUI
     if (birthdayMonth !== null && birthdayMonth >= 1 && birthdayMonth >= 1 && birthdayMonth <= 12) {
         let rpcCelulaIdParam: string | null | undefined = undefined; 
         if (role === 'líder' && celulaId) {
@@ -2453,4 +2385,179 @@ export async function uploadComprovanteFaceAFace(
 
     revalidatePath(`/eventos-face-a-face/*/minhas-inscricoes`);
     return fileUrl;
+}
+
+// ============================================================================
+//           FUNÇÕES DE CONVITE (LINK DE 24H) - MÓDULO 4
+// ============================================================================
+
+/**
+ * Gera um link único válido por 24h vinculado à célula do líder.
+ */
+export async function gerarLinkConvite(eventoId: string, nomeCandidato?: string): Promise<{ success: boolean; url?: string; message?: string }> {
+    const { supabase, role, celulaId, profileId } = await checkUserAuthorization();
+    
+    if (role !== 'líder' || !celulaId || !profileId) {
+        return { success: false, message: "Apenas líderes com célula podem gerar links." };
+    }
+
+    // Verificar se o evento está ativo
+    const { data: evento } = await supabase.from('eventos_face_a_face').select('ativa_para_inscricao').eq('id', eventoId).single();
+    if (!evento?.ativa_para_inscricao) {
+        return { success: false, message: "Este evento não está aceitando inscrições no momento." };
+    }
+
+    const token = uuidv4();
+    const expiraEm = addHours(new Date(), 24); // Validade de 24 horas
+
+    const { error } = await supabase.from('convites_inscricao').insert({
+        evento_id: eventoId,
+        celula_id: celulaId,
+        gerado_por_perfil_id: profileId,
+        token: token,
+        expira_em: expiraEm.toISOString(),
+        nome_candidato_sugerido: nomeCandidato || null,
+        usado: false
+    });
+
+    if (error) {
+        console.error("Erro ao gerar convite:", error);
+        return { success: false, message: "Erro ao gerar link no banco de dados." };
+    }
+
+    // Define a URL base (Localhost ou Produção)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const fullUrl = `${baseUrl}/convite/${token}`;
+
+    return { success: true, url: fullUrl };
+}
+
+/**
+ * Valida o token ao abrir a página pública e retorna os dados do evento/célula.
+ * Retorna null se inválido ou expirado.
+ */
+export async function validarConvitePublico(token: string) {
+    const supabase = createAdminClient(); // Admin client para ler dados públicos sem logar
+
+    const { data: convite, error } = await supabase
+        .from('convites_inscricao')
+        .select(`
+            *,
+            evento_detalhes:eventos_face_a_face(*),
+            lider_perfil:profiles!gerado_por_perfil_id(nome_completo, telefone),
+            celula_detalhes:celulas(nome)
+        `)
+        .eq('token', token)
+        .single();
+
+    if (error || !convite) return { valido: false, motivo: 'Convite não encontrado.' };
+
+    if (convite.usado) return { valido: false, motivo: 'Este link já foi utilizado.' };
+
+    if (isAfter(new Date(), new Date(convite.expira_em))) {
+        return { valido: false, motivo: 'Este link expirou (validade de 24h).' };
+    }
+
+    // Verifica se o evento ainda está aceitando inscrições
+    if (!convite.evento_detalhes.ativa_para_inscricao) {
+        return { valido: false, motivo: 'As inscrições para este evento foram encerradas.' };
+    }
+
+    return { 
+        valido: true, 
+        dados: {
+            evento: convite.evento_detalhes,
+            celula: convite.celula_detalhes,
+            lider: convite.lider_perfil,
+            convite_id: convite.id,
+            token: convite.token,
+            nome_candidato_sugerido: convite.nome_candidato_sugerido
+        }
+    };
+}
+
+/**
+ * Processa a inscrição vinda da página pública.
+ */
+export async function processarInscricaoPublica(token: string, formData: any): Promise<{ success: boolean; message: string; inscricaoId?: string }> {
+    const supabase = createAdminClient(); // Admin client para bypass RLS
+
+    // 1. Re-validar Token (Segurança dupla)
+    const validacao = await validarConvitePublico(token);
+    if (!validacao.valido || !validacao.dados) {
+        return { success: false, message: validacao.motivo || 'Erro de validação.' };
+    }
+
+    const { evento, convite_id } = validacao.dados;
+
+    // Buscar o ID do convite original para pegar os IDs de relacionamento corretos
+    const { data: conviteOriginal } = await supabase
+        .from('convites_inscricao')
+        .select('celula_id, gerado_por_perfil_id')
+        .eq('id', convite_id)
+        .single();
+
+    if (!conviteOriginal) return { success: false, message: "Erro interno no convite." };
+
+    try {
+        // Preparar dados da inscrição
+        // Removemos campos que não devem ser inseridos diretamente ou que são nulos
+        const dadosInscricao = {
+            evento_id: evento.id,
+            // Dados do form
+            nome_completo_participante: formData.nome_completo_participante,
+            cpf: formData.cpf,
+            rg: formData.rg,
+            data_nascimento: formData.data_nascimento,
+            idade: formData.idade,
+            contato_pessoal: formData.contato_pessoal,
+            contato_emergencia: formData.contato_emergencia,
+            endereco_completo: formData.endereco_completo,
+            bairro: formData.bairro,
+            cidade: formData.cidade,
+            estado_civil: formData.estado_civil,
+            nome_esposo: formData.nome_esposo,
+            tamanho_camiseta: formData.tamanho_camiseta,
+            tipo_participacao: formData.tipo_participacao,
+            eh_membro_ib_apascentar: formData.eh_membro_ib_apascentar,
+            pertence_outra_igreja: formData.pertence_outra_igreja,
+            nome_outra_igreja: formData.nome_outra_igreja,
+            dificuldade_dormir_beliche: formData.dificuldade_dormir_beliche,
+            restricao_alimentar: formData.restricao_alimentar,
+            deficiencia_fisica_mental: formData.deficiencia_fisica_mental,
+            toma_medicamento_controlado: formData.toma_medicamento_controlado,
+            descricao_sonhos: formData.descricao_sonhos,
+
+            // Vínculos automáticos pelo convite
+            celula_id: null, // Participante externo não tem vínculo direto de membro ainda
+            celula_inscricao_id: conviteOriginal.celula_id, // Vínculo financeiro/liderança
+            inscrito_por_perfil_id: conviteOriginal.gerado_por_perfil_id, // Líder que gerou o link
+            
+            // Status padrão
+            status_pagamento: 'PENDENTE',
+            admin_confirmou_entrada: false,
+            admin_confirmou_restante: false
+        };
+
+        // 3. Inserir Inscrição
+        const { data: novaInscricao, error: insertError } = await supabase
+            .from('inscricoes_face_a_face')
+            .insert(dadosInscricao)
+            .select('id')
+            .single();
+
+        if (insertError) {
+            console.error("Erro ao salvar inscrição pública:", insertError);
+            return { success: false, message: "Erro ao salvar os dados. Verifique os campos e tente novamente." };
+        }
+
+        // 4. Queimar o convite (marcar como usado)
+        await supabase.from('convites_inscricao').update({ usado: true }).eq('id', convite_id);
+
+        return { success: true, message: "Inscrição realizada com sucesso!", inscricaoId: novaInscricao.id };
+
+    } catch (e: any) {
+        console.error("Falha na server action realizarInscricaoPublica:", e);
+        return { success: false, message: "Erro ao salvar: " + e.message };
+    }
 }

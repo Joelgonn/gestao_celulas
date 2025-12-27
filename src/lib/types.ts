@@ -687,3 +687,17 @@ export type InscricaoFaceAFaceFormData = Omit<
     'valor_total_evento' |
     'valor_entrada_evento'
 >;
+
+// Interface para a tabela de Convites (Módulo 4)
+export interface ConviteInscricao {
+    id: string; // UUID interno do DB
+    evento_id: string;
+    celula_id: string;
+    gerado_por_perfil_id: string;
+    token: string; // O token público (UUID)
+    expira_em: string; // Data/hora ISO de expiração
+    usado: boolean;
+    nome_candidato_sugerido: string | null;
+    usado_por_inscricao_id: string | null; // Opcional: ID da inscrição que usou
+    created_at: string;
+}
