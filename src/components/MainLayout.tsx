@@ -1,4 +1,3 @@
-// src/components/MainLayout.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -7,6 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import LoadingSpinner from '@/components/LoadingSpinner'; 
+import NotificationBell from '@/components/NotificationBell'; // <--- 1. IMPORT NOVO
 import {
   FaHome,
   FaUsers,
@@ -20,13 +20,12 @@ import {
   FaChevronDown,
   FaBookOpen,
   FaUserCog,
-  FaCalendarCheck // <-- Ícone para Eventos Face a Face
+  FaCalendarCheck 
 } from 'react-icons/fa';
 
 import useToast from '@/hooks/useToast'; 
 
-// Importar a nova função de verificação de eventos ativos (ainda não implementada em data.ts, mas será)
-import { listarEventosFaceAFaceAtivos } from '@/lib/data'; // <-- NOVO IMPORT AQUI
+import { listarEventosFaceAFaceAtivos } from '@/lib/data';
 
 // --- Componente NavItem (Inalterado) ---
 interface NavItemProps {
@@ -127,15 +126,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [loadingRole, setLoadingRole] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  // NOVO ESTADO: Para controlar a visibilidade do item para líderes
-  const [hasActiveFaceAFaceEvents, setHasActiveFaceAFaceEvents] = useState(false); // <-- NOVO ESTADO AQUI
+  const [hasActiveFaceAFaceEvents, setHasActiveFaceAFaceEvents] = useState(false); 
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const userButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    async function fetchUserAndEvents() { // Renomeado para englobar a nova lógica
+    async function fetchUserAndEvents() { 
       setLoadingRole(true);
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -151,17 +149,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             setUserRole(role);
             setUserProfile(profile);
 
-            // Se o usuário for um líder, verifica se há eventos Face a Face ativos
             if (role === 'líder') {
               try {
-                const activeEvents = await listarEventosFaceAFaceAtivos(); // <-- CHAMA A NOVA FUNÇÃO
+                const activeEvents = await listarEventosFaceAFaceAtivos(); 
                 setHasActiveFaceAFaceEvents(activeEvents && activeEvents.length > 0);
               } catch (eventError) {
                 console.error("Erro ao verificar eventos Face a Face ativos para líder:", eventError);
                 setHasActiveFaceAFaceEvents(false);
               }
             } else {
-                setHasActiveFaceAFaceEvents(false); // Admin não usa essa flag, ou se for outro role
+                setHasActiveFaceAFaceEvents(false); 
             }
 
           } else {
@@ -208,24 +205,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { href: '/admin/users', icon: <FaUserCog className="text-lg" />, label: 'Gerenciar Usuários', forAdmin: true, forLider: false },
     { href: '/admin/celulas', icon: <FaHome className="text-lg" />, label: 'Gerenciar Células', forAdmin: true, forLider: false },
     { href: '/admin/palavra-semana', icon: <FaBookOpen className="text-lg" />, label: 'Palavra da Semana', forAdmin: true, forLider: false },
-    // Item de Eventos Face a Face: Visível para Admin OU para Líderes SE houver eventos ativos
     { 
-        href: '/admin/eventos-face-a-face', // Rota para o Admin gerenciar
+        href: '/admin/eventos-face-a-face', 
         icon: <FaCalendarCheck className="text-lg" />, 
-        label: 'Eventos Face a Face (Admin)', // Texto para o Admin
+        label: 'Eventos Face a Face (Admin)', 
         forAdmin: true, 
         forLider: false,
-        // Opcional: Se quiser que o líder tenha uma rota separada para INSCRIÇÕES, adicione aqui:
-        // { href: '/eventos-face-a-face', icon: <FaCalendarCheck className="text-lg" />, label: 'Inscrições Face a Face', forAdmin: false, forLider: true, conditional: hasActiveFaceAFaceEvents },
     }, 
-    // NOVO ITEM: Rota para LÍDERES, visível apenas se houver eventos ativos E for líder
     {
-        href: '/eventos-face-a-face', // Rota para o líder fazer inscrições
+        href: '/eventos-face-a-face', 
         icon: <FaCalendarCheck className="text-lg" />,
         label: 'Inscrições Face a Face',
-        forAdmin: false, // Admin usa a rota de admin
+        forAdmin: false, 
         forLider: true,
-        conditional: hasActiveFaceAFaceEvents // <-- Condição principal aqui
+        conditional: hasActiveFaceAFaceEvents 
     },
     { href: '/membros', icon: <FaUsers className="text-lg" />, label: 'Membros', forAdmin: true, forLider: true },
     { href: '/visitantes', icon: <FaUserFriends className="text-lg" />, label: 'Visitantes', forAdmin: true, forLider: true },
@@ -246,7 +239,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       return item.forAdmin;
     }
     if (userRole === 'líder') {
-      // Se for um item para líder com condição, verifica a condição
       if (item.forLider && item.hasOwnProperty('conditional')) {
         return item.conditional;
       }
@@ -384,7 +376,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <div className="flex-1 flex flex-col overflow-y-auto">
             <nav className="flex-1 px-4 py-4 space-y-2">
               {filteredNavItems.map((item) => {
-                // Adicionalmente, ajusta o label para admins em rotas de líder (se desejar)
                 const label = (userRole === 'admin' && item.href === '/eventos-face-a-face')
                     ? 'Eventos Face a Face (Admin)'
                     : item.label;
@@ -413,6 +404,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 min-w-0 bg-gray-50">
+        
+        {/* --- HEADER --- */}
         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm z-20 sticky top-0">
           <div className="flex items-center gap-4">
             <button
@@ -425,40 +418,51 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <h1 className="text-xl font-bold text-gray-800 truncate">{currentPageTitle}</h1>
           </div>
 
-          <div className="relative" ref={dropdownRef}>
-            <button
-              ref={userButtonRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setUserDropdownOpen(!userDropdownOpen);
-              }}
-              className="flex items-center space-x-3 p-1.5 rounded-full hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
-              aria-haspopup="true"
-              aria-expanded={userDropdownOpen}
-            >
-              <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center border border-orange-200">
-                <FaUser size={14} />
-              </div>
-              <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${userDropdownOpen ? 'rotate-180' : ''} hidden sm:block`} />
-            </button>
-
-            {userDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in zoom-in duration-200 origin-top-right">
-                <Link
-                  href="/profile"
-                  onClick={() => setUserDropdownOpen(false)}
-                  className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-colors cursor-pointer"
-                >
-                  <FaUser className="mr-3 text-gray-400" /> Meu Perfil
-                </Link>
-                <button
-                  onClick={() => logout(() => setUserDropdownOpen(false))}
-                  className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                >
-                  <FaSignOutAlt className="mr-3" /> Sair
-                </button>
-              </div>
+          <div className="flex items-center gap-4"> 
+            
+            {/* 2. INSERIDO AQUI O SINO DO ADMIN */}
+            {userRole === 'admin' && (
+                <div className="mr-1">
+                    <NotificationBell />
+                </div>
             )}
+            {/* -------------------------------- */}
+
+            <div className="relative" ref={dropdownRef}>
+                <button
+                ref={userButtonRef}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setUserDropdownOpen(!userDropdownOpen);
+                }}
+                className="flex items-center space-x-3 p-1.5 rounded-full hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+                aria-haspopup="true"
+                aria-expanded={userDropdownOpen}
+                >
+                <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center border border-orange-200">
+                    <FaUser size={14} />
+                </div>
+                <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${userDropdownOpen ? 'rotate-180' : ''} hidden sm:block`} />
+                </button>
+
+                {userDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in zoom-in duration-200 origin-top-right">
+                    <Link
+                    href="/profile"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-colors cursor-pointer"
+                    >
+                    <FaUser className="mr-3 text-gray-400" /> Meu Perfil
+                    </Link>
+                    <button
+                    onClick={() => logout(() => setUserDropdownOpen(false))}
+                    className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                    <FaSignOutAlt className="mr-3" /> Sair
+                    </button>
+                </div>
+                )}
+            </div>
           </div>
         </header>
 
