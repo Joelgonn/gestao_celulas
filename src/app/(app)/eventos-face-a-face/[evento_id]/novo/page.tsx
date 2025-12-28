@@ -238,7 +238,7 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
                             type={type} id={name} name={name} 
                             value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} 
                             checked={isCheckbox ? (value as boolean) : undefined}
-                            onChange={onChange} // CORRIGIDO AQUI
+                            onChange={onChange}
                             onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
                             className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
                         />
@@ -619,7 +619,17 @@ export default function LiderNovaInscricaoPage() {
                                 <InputField label="Restrição Alimentar?" name="restricao_alimentar" value={formData.restricao_alimentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaUtensils} />
                                 <InputField label="Deficiência?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental ?? false} onChange={handleChange} type="checkbox" toggle icon={FaWheelchair} />
                                 <InputField label="Remédio Controlado?" name="toma_medicamento_controlado" value={formData.toma_medicamento_controlado ?? false} onChange={handleChange} type="checkbox" toggle icon={FaPills} />
-                                <InputField label="Sonhos com Deus" name="descricao_sonhos" value={formData.descricao_sonhos ?? ''} onChange={handleChange} type="textarea" required icon={FaHeart} />
+                                
+                                {/* CAMPO DE SONHOS (OPCIONAL AQUI) */}
+                                <InputField 
+                                    label="Sonhos com Deus (Opcional)" 
+                                    name="descricao_sonhos" 
+                                    value={formData.descricao_sonhos ?? ''} 
+                                    onChange={handleChange} 
+                                    type="textarea" 
+                                    icon={FaHeart} 
+                                    placeholder="Se souber, descreva aqui."
+                                />
                             </div>
 
                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
