@@ -8,161 +8,15 @@ import {
     FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, FaRing, FaTshirt, 
     FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, FaHeart, 
     FaCheckCircle, FaExclamationTriangle, FaSpinner, FaHandsHelping, FaCalendarAlt,
-    FaChevronDown, FaTimes, FaSearch, FaInfoCircle
+    FaChevronDown, FaTimes, FaSearch
 } from 'react-icons/fa';
 
 // ============================================================================
-//                       COMPONENTES VISUAIS (ESTILO APP)
+//                       COMPONENTES VISUAIS (PADRONIZADOS)
 // ============================================================================
 
-// --- 1. CustomSelectSheet (Menu estilo Mobile) ---
-interface CustomSelectSheetProps {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    options: { id: string; nome: string }[];
-    icon: React.ReactNode;
-    placeholder?: string;
-    searchable?: boolean;
-    required?: boolean;
-}
-
-const CustomSelectSheet = ({ 
-    label, value, onChange, options, icon, placeholder = "Selecione...", searchable = false, required = false
-}: CustomSelectSheetProps) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const modalRef = useRef<HTMLDivElement>(null);
-
-    const selectedName = options.find(o => o.id === value)?.nome || null;
-    const filteredOptions = options.filter(option => 
-        option.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    useEffect(() => {
-        if (isOpen) document.body.style.overflow = 'hidden';
-        else document.body.style.overflow = 'unset';
-        return () => { document.body.style.overflow = 'unset'; };
-    }, [isOpen]);
-
-    return (
-        <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                {icon} {label} {required && <span className="text-red-500">*</span>}
-            </label>
-            <button
-                type="button"
-                onClick={() => setIsOpen(true)}
-                className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white transition-all duration-200"
-            >
-                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>
-                    {selectedName || placeholder}
-                </span>
-                <FaChevronDown className="text-gray-400 text-xs ml-2" />
-            </button>
-
-            {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
-                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
-                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
-                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors">
-                                <FaTimes />
-                            </button>
-                        </div>
-                        {searchable && (
-                            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
-                                <div className="relative">
-                                    <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
-                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-10 pr-4 py-3 bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 transition-all text-base" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                </div>
-                            </div>
-                        )}
-                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
-                            {filteredOptions.length > 0 ? (
-                                filteredOptions.map((option) => {
-                                    const isSelected = value === option.id;
-                                    return (
-                                        <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-purple-50 text-purple-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}>
-                                            <span className="text-base">{option.nome}</span>
-                                            {isSelected && <FaCheckCircle className="text-purple-500 text-lg" />}
-                                        </button>
-                                    );
-                                })
-                            ) : (
-                                <div className="text-center py-8 text-gray-500">Nenhum item encontrado.</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// --- 2. InputField com Toggle (Estilo iOS) ---
-const InputField = ({ label, name, value, onChange, type = 'text', required = false, icon: Icon, placeholder, maxLength, toggle }: any) => {
-    // Modo Toggle (Switch)
-    if (toggle) {
-        const booleanValue = !!value;
-        return (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-center justify-between transition-all hover:border-purple-200">
-                <div className="flex items-center gap-3 pr-4">
-                    {Icon && <div className={`p-2 rounded-full ${booleanValue ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-500'}`}><Icon /></div>}
-                    <label htmlFor={name} className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
-                        {label} {required && <span className="text-red-500">*</span>}
-                    </label>
-                </div>
-                <label htmlFor={name} className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id={name} name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                </label>
-            </div>
-        );
-    }
-
-    // Modo Textarea
-    if (type === 'textarea') {
-        return (
-            <div className="space-y-1">
-                <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    {Icon && <Icon className="text-purple-600" />} {label} {required && <span className="text-red-500">*</span>}
-                </label>
-                <textarea name={name} value={value || ''} onChange={onChange} required={required} placeholder={placeholder} maxLength={maxLength} rows={4} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all" />
-            </div>
-        );
-    }
-
-    // Modo Input Padrão
-    return (
-        <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                {Icon && <Icon className="text-purple-600" />} {label} {required && <span className="text-red-500">*</span>}
-            </label>
-            <input type={type} name={name} value={value || ''} onChange={onChange} required={required} placeholder={placeholder} maxLength={maxLength} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all" />
-        </div>
-    );
-};
-
-// --- 3. RadioCard (Seleção de Papel) ---
-const RadioCard = ({ label, description, name, value, currentSelection, onChange, icon: Icon }: any) => {
-    const isSelected = value === currentSelection;
-    return (
-        <label className={`cursor-pointer border-2 p-4 rounded-xl transition-all ${isSelected ? 'border-purple-600 bg-purple-50 shadow-md' : 'border-gray-200 hover:border-purple-300 bg-white'}`}>
-            <input type="radio" name={name} value={value} checked={isSelected} onChange={onChange} className="hidden" />
-            <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-full ${isSelected ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}><Icon size={20} /></div>
-                <div>
-                    <p className="font-bold text-gray-800">{label}</p>
-                    <p className="text-sm text-gray-600">{description}</p>
-                </div>
-            </div>
-        </label>
-    );
-};
-
-// --- 4. BirthDateSelect (Seletor Inteligente de Data) ---
-const BirthDateSelect = ({ value, onChange, required }: any) => {
+// 1. BirthDateSelect
+const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) => {
     const [day, setDay] = useState('');
     const [month, setMonth] = useState('');
     const [year, setYear] = useState('');
@@ -194,41 +48,179 @@ const BirthDateSelect = ({ value, onChange, required }: any) => {
     const years = Array.from({ length: 90 }, (_, i) => currentYear - i);
     const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
     const months = [
-        { val: '01', label: 'Janeiro' }, { val: '02', label: 'Fevereiro' }, { val: '03', label: 'Março' },
-        { val: '04', label: 'Abril' }, { val: '05', label: 'Maio' }, { val: '06', label: 'Junho' },
-        { val: '07', label: 'Julho' }, { val: '08', label: 'Agosto' }, { val: '09', label: 'Setembro' },
-        { val: '10', label: 'Outubro' }, { val: '11', label: 'Novembro' }, { val: '12', label: 'Dezembro' }
+        { val: '01', label: 'Jan' }, { val: '02', label: 'Fev' }, { val: '03', label: 'Mar' },
+        { val: '04', label: 'Abr' }, { val: '05', label: 'Mai' }, { val: '06', label: 'Jun' },
+        { val: '07', label: 'Jul' }, { val: '08', label: 'Ago' }, { val: '09', label: 'Set' },
+        { val: '10', label: 'Out' }, { val: '11', label: 'Nov' }, { val: '12', label: 'Dez' }
     ];
+
+    const baseSelectClass = `w-full px-2 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 appearance-none bg-white text-gray-900 ${
+        error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
+    } ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`;
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <FaBirthdayCake className="text-purple-600" /> Data de Nascimento {required && <span className="text-red-500">*</span>}
+            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
+                <FaBirthdayCake className="text-purple-600" /> 
+                Data de Nascimento {required && <span className="text-red-600">*</span>}
             </label>
             <div className="grid grid-cols-3 gap-2">
                 <div className="relative">
-                    <select value={day} onChange={(e) => handlePartChange('day', e.target.value)} className="w-full px-2 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white appearance-none" required={required} >
+                    <select value={day} onChange={(e) => handlePartChange('day', e.target.value)} disabled={disabled} className={baseSelectClass} required={required}>
                         <option value="">Dia</option>
                         {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
-                    <FaChevronDown className="absolute right-3 top-4 text-gray-400 text-xs pointer-events-none" />
+                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
                 <div className="relative">
-                    <select value={month} onChange={(e) => handlePartChange('month', e.target.value)} className="w-full px-2 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white appearance-none" required={required} >
+                    <select value={month} onChange={(e) => handlePartChange('month', e.target.value)} disabled={disabled} className={baseSelectClass} required={required}>
                         <option value="">Mês</option>
                         {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
                     </select>
-                    <FaChevronDown className="absolute right-3 top-4 text-gray-400 text-xs pointer-events-none" />
+                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
                 <div className="relative">
-                    <select value={year} onChange={(e) => handlePartChange('year', e.target.value)} className="w-full px-2 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white appearance-none" required={required} >
+                    <select value={year} onChange={(e) => handlePartChange('year', e.target.value)} disabled={disabled} className={baseSelectClass} required={required}>
                         <option value="">Ano</option>
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
-                    <FaChevronDown className="absolute right-3 top-4 text-gray-400 text-xs pointer-events-none" />
+                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
             </div>
         </div>
+    );
+};
+
+// 2. CustomSelectSheet
+interface CustomSelectSheetProps {
+    label: string; value: string; onChange: (value: string) => void; options: { id: string; nome: string }[];
+    icon: React.ReactNode; placeholder?: string; searchable?: boolean; required?: boolean; error?: string | null; disabled?: boolean;
+}
+const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione...", searchable = false, required = false, error, disabled = false }: CustomSelectSheetProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const modalRef = useRef<HTMLDivElement>(null);
+    const selectedName = options.find(o => o.id === value)?.nome || null;
+    const filteredOptions = options.filter(option => option.nome.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(event.target as Node)) setIsOpen(false); };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    return (
+        <div className="space-y-1">
+            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
+                {icon} {label} {required && <span className="text-red-600">*</span>}
+            </label>
+            <button type="button" onClick={() => !disabled && setIsOpen(true)} disabled={disabled}
+                className={`w-full pl-3 pr-3 py-3 border rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 transition-all duration-200 bg-white text-gray-900 ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''} ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'}`}>
+                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
+                {!disabled && <FaChevronDown className="text-gray-500 text-xs ml-2" />}
+            </button>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+                            <h3 className="font-bold text-gray-900 text-lg">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors"><FaTimes /></button>
+                        </div>
+                        {searchable && (
+                            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+                                <div className="relative">
+                                    <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-10 pr-4 py-3 bg-gray-100 text-gray-900 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 transition-all text-base" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                </div>
+                            </div>
+                        )}
+                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
+                            {filteredOptions.length > 0 ? (filteredOptions.map((option) => {
+                                const isSelected = value === option.id;
+                                return (
+                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-purple-50 text-purple-800 font-bold' : 'text-gray-900 hover:bg-gray-100'}`}>
+                                        <span className="text-base">{option.nome}</span>
+                                        {isSelected && <FaCheckCircle className="text-purple-600 text-lg" />}
+                                    </button>
+                                );
+                            })) : (<div className="text-center py-8 text-gray-500">Nenhum item encontrado.</div>)}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 3. InputField (COM TOGGLE E ALTO CONTRASTE)
+interface InputFieldProps {
+    label: string; name: string; value: string | number | null | boolean;
+    onChange: (e: any) => void;
+    error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string;
+    maxLength?: number; rows?: number; disabled?: boolean; readOnly?: boolean; toggle?: boolean;
+}
+const InputField = ({ label, name, value, onChange, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle }: InputFieldProps) => {
+    const isTextarea = type === 'textarea';
+    const isCheckbox = type === 'checkbox';
+    
+    // MODO TOGGLE
+    if (toggle) {
+        const booleanValue = !!value;
+        return (
+            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between transition-all hover:border-purple-300 shadow-sm">
+                <div className="flex items-center gap-3 pr-2">
+                    {Icon && <Icon className={booleanValue ? "w-5 h-5 text-purple-700" : "w-5 h-5 text-gray-500"} />}
+                    <label htmlFor={name} className="text-sm font-bold text-gray-900 cursor-pointer select-none">
+                        {label} {required && <span className="text-red-600">*</span>}
+                    </label>
+                </div>
+                <label htmlFor={name} className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id={name} name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" disabled={disabled} />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+            </div>
+        );
+    }
+
+    // MODO INPUT / TEXTAREA
+    return (
+        <div className="space-y-1">
+            <label htmlFor={name} className="block text-sm font-bold text-gray-800 flex items-center gap-2">
+                {Icon && <Icon className={error ? "text-red-600" : "text-purple-600"} />} 
+                {label} {required && <span className="text-red-600">*</span>}
+            </label>
+            <div className="relative">
+                {isTextarea ? (
+                    <textarea 
+                        id={name} name={name} value={(value as string) || ''} onChange={onChange} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''}`} 
+                    />
+                ) : (
+                    <input 
+                        type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
+                        onChange={onChange} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
+                    />
+                )}
+            </div>
+        </div>
+    );
+};
+
+// 4. RadioCard (Melhorado o contraste)
+const RadioCard = ({ label, description, name, value, currentSelection, onChange, icon: Icon }: any) => {
+    const isSelected = value === currentSelection;
+    return (
+        <label className={`cursor-pointer border-2 p-4 rounded-xl transition-all ${isSelected ? 'border-purple-600 bg-purple-50 shadow-md' : 'border-gray-200 hover:border-purple-300 bg-white'}`}>
+            <input type="radio" name={name} value={value} checked={isSelected} onChange={onChange} className="hidden" />
+            <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-full ${isSelected ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}><Icon size={20} /></div>
+                <div>
+                    <p className={`font-bold ${isSelected ? 'text-purple-900' : 'text-gray-900'}`}>{label}</p>
+                    <p className="text-sm text-gray-600">{description}</p>
+                </div>
+            </div>
+        </label>
     );
 };
 
@@ -289,7 +281,6 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
 
     const handleChange = (e: any) => {
         const { name, value, type, checked } = e.target;
-        // Lógica para Toggle e Checkbox padrão
         const val = type === 'checkbox' ? checked : value;
         
         let finalVal = val;
