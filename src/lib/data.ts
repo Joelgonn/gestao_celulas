@@ -2549,3 +2549,41 @@ export async function uploadComprovanteFaceAFace(
         throw e;
     }
 }
+
+// ============================================================================
+//               FUNÇÕES FINANCEIRAS / NOTIFICAÇÕES (MÓDULO EXTRA)
+// ============================================================================
+
+/**
+ * Step 1: Conta inscrições com pendências financeiras (para o Sininho do Admin).
+ * Retorna o número total de inscrições aguardando confirmação (Entrada ou Restante) de TODOS os eventos.
+ */
+export async function contarInscricoesPendentesGlobais(): Promise<number> {
+    const { role, adminSupabase } = await checkUserAuthorization();
+
+    // Segurança: Apenas Admin vê esse contador global
+    if (role !== 'admin') {
+        return 0;
+    }
+
+    try {
+        // Busca count onde status é um dos dois tipos de "Aguardando"
+        const { count, error } = await adminSupabase
+            .from('inscricoes_face_a_face')
+            .select('*', { count: 'exact', head: true }) // head: true significa "só conta, não traz os dados", muito mais leve
+            .in('status_pagamento', [
+                'AGUARDANDO_CONFIRMACAO_ENTRADA',
+                'AGUARDANDO_CONFIRMACAO_RESTANTE'
+            ]);
+
+        if (error) {
+            console.error("contarInscricoesPendentesGlobais: Erro ao contar pendências:", error);
+            return 0;
+        }
+
+        return count || 0;
+    } catch (e: any) {
+        console.error("contarInscricoesPendentesGlobais: Falha inesperada:", e);
+        return 0;
+    }
+}
