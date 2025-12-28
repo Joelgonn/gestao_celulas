@@ -23,11 +23,25 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import {
     FaArrowLeft, FaSave, FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, 
     FaRing, FaTshirt, FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, 
-    FaHeart, FaCheckCircle, FaTimes, FaChevronDown, FaSearch, FaUserPlus
+    FaHeart, FaCheckCircle, FaTimes, FaChevronDown, FaSearch, FaUserPlus, FaSearchLocation,
+    FaSpinner
 } from 'react-icons/fa';
 
 // ============================================================================
-//                       COMPONENTES VISUAIS (COM CORREÇÃO DE CONTRASTE)
+//                       FUNÇÕES AUXILIARES
+// ============================================================================
+
+const formatNameTitleCase = (name: string) => {
+    if (!name) return '';
+    const exceptions = ['da', 'de', 'do', 'das', 'dos', 'e'];
+    return name.toLowerCase().split(' ').map((word, index) => {
+        if (index > 0 && exceptions.includes(word)) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+};
+
+// ============================================================================
+//                       COMPONENTES VISUAIS (PADRONIZADOS)
 // ============================================================================
 
 // 1. BirthDateSelect
@@ -71,7 +85,6 @@ const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) =>
         { val: '10', label: 'Out' }, { val: '11', label: 'Nov' }, { val: '12', label: 'Dez' }
     ];
 
-    // CSS Reforçado para contraste
     const baseSelectClass = `w-full px-2 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 appearance-none bg-white text-gray-900 ${
         error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'
     } ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`;
@@ -158,9 +171,9 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
                             {filteredOptions.length > 0 ? (filteredOptions.map((option) => {
                                 const isSelected = value === option.id;
                                 return (
-                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-green-50 text-green-800 font-bold' : 'text-gray-900 hover:bg-gray-100'}`}>
+                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-green-50 text-green-700 font-bold' : 'text-gray-900 hover:bg-gray-100'}`}>
                                         <span className="text-base">{option.nome}</span>
-                                        {isSelected && <FaCheckCircle className="text-green-600 text-lg" />}
+                                        {isSelected && <FaCheckCircle className="text-green-500 text-lg" />}
                                     </button>
                                 );
                             })) : (<div className="text-center py-8 text-gray-500">Nenhum item encontrado.</div>)}
@@ -172,23 +185,25 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
-// 3. InputField (COM CORES REFORÇADAS)
+// 3. InputField (COM TOGGLE, CONTRASTE E LOADING)
 interface InputFieldProps {
-    label: string; name: keyof InscricaoFaceAFaceFormData; value: string | number | null | boolean;
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-    onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    label: string; name: keyof InscricaoFaceAFaceFormData | 'cep'; 
+    value: string | number | null | boolean;
+    onChange: (e: any) => void;
+    onBlur?: (e: any) => void;
     error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string;
     maxLength?: number; rows?: number; disabled?: boolean; readOnly?: boolean; toggle?: boolean;
+    isLoading?: boolean;
 }
-const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle }: InputFieldProps) => {
+const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle, isLoading }: InputFieldProps) => {
     const isTextarea = type === 'textarea';
     const isCheckbox = type === 'checkbox';
     
-    // MODO TOGGLE (SWITCH)
+    // MODO TOGGLE
     if (toggle) {
         const booleanValue = !!value;
         return (
-            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between transition-all hover:border-gray-400 shadow-sm">
+            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between transition-all hover:border-green-300 shadow-sm">
                 <div className="flex items-center gap-3 pr-2">
                     {Icon && <Icon className={booleanValue ? "w-5 h-5 text-green-700" : "w-5 h-5 text-gray-500"} />}
                     <label htmlFor={name} className="text-sm font-bold text-gray-900 cursor-pointer select-none">
@@ -218,11 +233,21 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
                         className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''}`} 
                     />
                 ) : (
-                    <input 
-                        type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
-                        onChange={isCheckbox ? (e) => onChange({ ...e, target: { ...e.target, value: e.target.checked } as any }) : onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
-                    />
+                    <>
+                        <input 
+                            type={type} id={name} name={name} 
+                            value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} 
+                            checked={isCheckbox ? (value as boolean) : undefined}
+                            onChange={onChange} // CORRIGIDO AQUI
+                            onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                            className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
+                        />
+                        {isLoading && (
+                            <div className="absolute right-3 top-3">
+                                <FaSpinner className="animate-spin text-green-600" />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
             {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
@@ -245,16 +270,20 @@ export default function LiderNovaInscricaoPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     
+    // CEP
+    const [cepInput, setCepInput] = useState('');
+    const [cepLoading, setCepLoading] = useState(false);
+
     // Controle de Seleção de Membro
     const [selectedMembroId, setSelectedMembroId] = useState<string>('external');
 
-    // Estado do Formulário (Com inicialização correta de nulos)
+    // Estado do Formulário
     const [formData, setFormData] = useState<InscricaoFaceAFaceFormData>({
         evento_id: eventoId,
         membro_id: null,
-        celula_id: null,
-        lider_celula_nome: null,
-        admin_observacao_pagamento: null,
+        celula_id: null, 
+        lider_celula_nome: null, 
+        admin_observacao_pagamento: null, 
         nome_completo_participante: '',
         cpf: '',
         idade: null,
@@ -326,7 +355,6 @@ export default function LiderNovaInscricaoPage() {
         setSelectedMembroId(membroId);
         
         if (membroId === 'external') {
-            // Limpar formulário para externo
             setFormData(prev => ({
                 ...prev,
                 membro_id: null,
@@ -338,8 +366,8 @@ export default function LiderNovaInscricaoPage() {
                 endereco_completo: '',
                 eh_membro_ib_apascentar: false
             }));
+            setCepInput('');
         } else {
-            // Preencher com dados do membro
             const membro = membros.find(m => m.id === membroId);
             if (membro) {
                 let idadeCalculada = null;
@@ -355,14 +383,15 @@ export default function LiderNovaInscricaoPage() {
                 setFormData(prev => ({
                     ...prev,
                     membro_id: membro.id,
-                    celula_id: membro.celula_id || null, // Preenche ID da célula do membro
-                    nome_completo_participante: membro.nome,
+                    celula_id: membro.celula_id || null, 
+                    nome_completo_participante: formatNameTitleCase(membro.nome), // Já formata o nome do banco
                     contato_pessoal: membro.telefone ? formatPhoneNumberDisplay(membro.telefone) : '',
                     data_nascimento: membro.data_nascimento ? formatDateForInput(membro.data_nascimento) : '',
                     idade: idadeCalculada,
                     endereco_completo: membro.endereco || '',
                     eh_membro_ib_apascentar: true 
                 }));
+                // Não preenchemos CEP pois membro do banco só tem string de endereço
             }
         }
     };
@@ -385,10 +414,51 @@ export default function LiderNovaInscricaoPage() {
         if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
     }, [touched]);
 
+    // Formatador de Nome (Title Case)
+    const handleNameBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        if (name === 'nome_completo_participante') {
+            const formatted = formatNameTitleCase(value);
+            setFormData(prev => ({ ...prev, nome_completo_participante: formatted }));
+        }
+        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
+    }, [touched]);
+
     const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name } = e.target;
         if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
     }, [touched]);
+
+    // BUSCA DE CEP
+    const handleCepBlur = async () => {
+        const cleanCep = cepInput.replace(/\D/g, '');
+        if (cleanCep.length === 8) {
+            setCepLoading(true);
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                const data = await response.json();
+                if (!data.erro) {
+                    setFormData((prev) => ({
+                        ...prev,
+                        endereco_completo: `${data.logradouro}, `, 
+                        bairro: data.bairro,
+                        cidade: data.localidade
+                    }));
+                }
+            } catch (error) {
+                console.error("Erro ao buscar CEP:", error);
+            } finally {
+                setCepLoading(false);
+            }
+        }
+    };
+
+    const handleCepChange = (e: any) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 8) val = val.slice(0, 8);
+        if (val.length > 5) val = val.replace(/^(\d{5})(\d)/, '$1-$2');
+        setCepInput(val);
+    };
 
     const getFieldError = (fieldName: keyof InscricaoFaceAFaceFormData): string | null => {
         if (!touched[fieldName]) return null;
@@ -476,7 +546,18 @@ export default function LiderNovaInscricaoPage() {
                             <div className="space-y-4 pt-2">
                                 <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FaUser /> Dados do Participante</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('nome_completo_participante')} required icon={FaUser} disabled={isMemberSelected} readOnly={isMemberSelected} />
+                                    <InputField 
+                                        label="Nome Completo" 
+                                        name="nome_completo_participante" 
+                                        value={formData.nome_completo_participante ?? ''} 
+                                        onChange={handleChange} 
+                                        onBlur={handleNameBlur} // <-- TITLE CASE AQUI
+                                        error={getFieldError('nome_completo_participante')} 
+                                        required 
+                                        icon={FaUser} 
+                                        disabled={isMemberSelected} 
+                                        readOnly={isMemberSelected} 
+                                    />
                                     
                                     <BirthDateSelect 
                                         value={formData.data_nascimento} 
@@ -493,11 +574,31 @@ export default function LiderNovaInscricaoPage() {
                                     <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('contato_emergencia')} required icon={FaPhone} />
                                 </div>
                                 
-                                <InputField label="Endereço" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={isMemberSelected && !!formData.endereco_completo} readOnly={isMemberSelected} />
+                                {/* BLOCO DE ENDEREÇO COM CEP (NOVO) */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="md:col-span-1">
+                                        <InputField 
+                                            label="CEP (Busca)" 
+                                            name="cep" 
+                                            value={cepInput} 
+                                            onChange={handleCepChange}
+                                            onBlur={handleCepBlur} 
+                                            icon={FaSearchLocation}
+                                            placeholder="00000-000"
+                                            isLoading={cepLoading}
+                                            disabled={isMemberSelected} // Desabilita se for membro (usa endereço do cadastro)
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <InputField label="Endereço" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={isMemberSelected && !!formData.endereco_completo} readOnly={isMemberSelected} />
+                                    </div>
+                                    <InputField label="Bairro" name="bairro" value={formData.bairro ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} />
+                                    <InputField label="Cidade" name="cidade" value={formData.cidade ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} />
+                                </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <CustomSelectSheet label="Estado Civil" icon={<FaRing />} value={formData.estado_civil ?? ''} onChange={(val) => handleSelectChange('estado_civil', val)} options={[{id:'SOLTEIRA',nome:'Solteira'},{id:'CASADA',nome:'Casada'},{id:'DIVORCIADA',nome:'Divorciada'},{id:'VIÚVA',nome:'Viúva'},{id:'UNIÃO ESTÁVEL',nome:'União Estável'}]} required disabled={isMemberSelected && !!formData.estado_civil} />
-                                    {formData.estado_civil === 'CASADA' && <InputField label="Nome Esposo" name="nome_esposo" value={formData.nome_esposo ?? ''} onChange={handleChange} required icon={FaUser} />}
+                                    {formData.estado_civil === 'CASADA' && <InputField label="Nome Esposo" name="nome_esposo" value={formData.nome_esposo ?? ''} onChange={handleChange} onBlur={handleNameBlur} required icon={FaUser} />}
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <CustomSelectSheet label="Camiseta" icon={<FaTshirt />} value={formData.tamanho_camiseta ?? ''} onChange={(val) => handleSelectChange('tamanho_camiseta', val)} options={['PP','P','M','G','GG','G1','G2','G3'].map(t=>({id:t,nome:t}))} required />
@@ -522,17 +623,8 @@ export default function LiderNovaInscricaoPage() {
                             </div>
 
                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
-                                <Link 
-                                    href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} 
-                                    className="px-6 py-4 sm:py-3 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 active:bg-gray-100 text-center transition-colors"
-                                >
-                                    Cancelar
-                                </Link>
-                                <button 
-                                    type="submit" 
-                                    disabled={submitting || loading} 
-                                    className="px-6 py-4 sm:py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 active:bg-green-800 shadow-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
-                                >
+                                <Link href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} className="px-6 py-4 sm:py-3 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 active:bg-gray-100 text-center transition-colors">Cancelar</Link>
+                                <button type="submit" disabled={submitting || loading} className="px-6 py-4 sm:py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 active:bg-green-800 shadow-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2">
                                     {submitting ? (
                                         <>
                                             <LoadingSpinner size="sm" color="white" /> Salvando...
