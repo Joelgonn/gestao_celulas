@@ -8,8 +8,26 @@ import {
     FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, FaRing, FaTshirt, 
     FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, FaHeart, 
     FaCheckCircle, FaExclamationTriangle, FaSpinner, FaHandsHelping, FaCalendarAlt,
-    FaChevronDown, FaTimes, FaSearch
+    FaChevronDown, FaTimes, FaSearch, FaSearchLocation
 } from 'react-icons/fa';
+
+// ============================================================================
+//                       FUNÇÕES AUXILIARES
+// ============================================================================
+
+// Formata Nome: "joao da silva" -> "João da Silva"
+const formatNameTitleCase = (name: string) => {
+    if (!name) return '';
+    const exceptions = ['da', 'de', 'do', 'das', 'dos', 'e'];
+    return name
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) => {
+            if (index > 0 && exceptions.includes(word)) return word;
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join(' ');
+};
 
 // ============================================================================
 //                       COMPONENTES VISUAIS (PADRONIZADOS)
@@ -155,11 +173,12 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
 // 3. InputField (COM TOGGLE E ALTO CONTRASTE)
 interface InputFieldProps {
     label: string; name: string; value: string | number | null | boolean;
-    onChange: (e: any) => void;
+    onChange: (e: any) => void; onBlur?: (e: any) => void;
     error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string;
     maxLength?: number; rows?: number; disabled?: boolean; readOnly?: boolean; toggle?: boolean;
+    isLoading?: boolean; 
 }
-const InputField = ({ label, name, value, onChange, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle }: InputFieldProps) => {
+const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle, isLoading }: InputFieldProps) => {
     const isTextarea = type === 'textarea';
     const isCheckbox = type === 'checkbox';
     
@@ -192,22 +211,29 @@ const InputField = ({ label, name, value, onChange, error, type = 'text', requir
             <div className="relative">
                 {isTextarea ? (
                     <textarea 
-                        id={name} name={name} value={(value as string) || ''} onChange={onChange} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                        id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
                         className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''}`} 
                     />
                 ) : (
-                    <input 
-                        type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
-                        onChange={onChange} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
-                    />
+                    <>
+                        <input 
+                            type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
+                            onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                            className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
+                        />
+                        {isLoading && (
+                            <div className="absolute right-3 top-3">
+                                <FaSpinner className="animate-spin text-purple-600" />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
     );
 };
 
-// 4. RadioCard (Melhorado o contraste)
+// 4. RadioCard
 const RadioCard = ({ label, description, name, value, currentSelection, onChange, icon: Icon }: any) => {
     const isSelected = value === currentSelection;
     return (
@@ -237,8 +263,12 @@ interface Props {
 
 export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, initialName }: Props) {
     const [loading, setLoading] = useState(false);
+    const [cepLoading, setCepLoading] = useState(false); 
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    
+    // Estado local para o CEP input
+    const [cepInput, setCepInput] = useState('');
     
     const participantRole: InscricaoFaceAFaceTipoParticipacao = 'Encontrista';
     const serviceRole: InscricaoFaceAFaceTipoParticipacao = 'Encontreiro';
@@ -298,6 +328,43 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     };
 
+    // Handler específico para o Nome (Formata no Blur)
+    const handleNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const formatted = formatNameTitleCase(e.target.value);
+        setFormData((prev: any) => ({ ...prev, nome_completo_participante: formatted }));
+    };
+
+    // LÓGICA DE BUSCA DE CEP
+    const handleCepBlur = async () => {
+        const cleanCep = cepInput.replace(/\D/g, '');
+        if (cleanCep.length === 8) {
+            setCepLoading(true);
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                const data = await response.json();
+                if (!data.erro) {
+                    setFormData((prev: any) => ({
+                        ...prev,
+                        endereco_completo: `${data.logradouro}, `, 
+                        bairro: data.bairro,
+                        cidade: data.localidade
+                    }));
+                }
+            } catch (error) {
+                console.error("Erro ao buscar CEP:", error);
+            } finally {
+                setCepLoading(false);
+            }
+        }
+    };
+
+    const handleCepChange = (e: any) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 8) val = val.slice(0, 8);
+        if (val.length > 5) val = val.replace(/^(\d{5})(\d)/, '$1-$2');
+        setCepInput(val);
+    };
+
     const processSubmission = async () => {
         setLoading(true);
         setShowConfirmationModal(false);
@@ -343,7 +410,15 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                 <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Seus Dados</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante} onChange={handleChange} required icon={FaUser} />
+                    <InputField 
+                        label="Nome Completo" 
+                        name="nome_completo_participante" 
+                        value={formData.nome_completo_participante} 
+                        onChange={handleChange} 
+                        onBlur={handleNameBlur} // <-- FORMATAGEM DE NOME AQUI
+                        required 
+                        icon={FaUser} 
+                    />
                     
                     <BirthDateSelect value={formData.data_nascimento} onChange={handleChange} required />
                     
@@ -355,8 +430,25 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                     <InputField label="Contato de Emergência" name="contato_emergencia" value={formData.contato_emergencia} onChange={handleChange} required maxLength={15} icon={FaPhone} />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InputField label="Endereço Completo" name="endereco_completo" value={formData.endereco_completo} onChange={handleChange} icon={FaMapMarkerAlt} />
+                {/* BLOCO DE ENDEREÇO COM CEP */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="md:col-span-1">
+                        <InputField 
+                            label="CEP (Preenchimento Automático)" 
+                            name="cep" 
+                            value={cepInput} 
+                            onChange={handleCepChange}
+                            onBlur={handleCepBlur} 
+                            icon={FaSearchLocation}
+                            placeholder="00000-000"
+                            isLoading={cepLoading}
+                        />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                        <InputField label="Endereço Completo" name="endereco_completo" value={formData.endereco_completo} onChange={handleChange} icon={FaMapMarkerAlt} placeholder="Rua, Número, Complemento" />
+                    </div>
+                    
                     <InputField label="Bairro" name="bairro" value={formData.bairro} onChange={handleChange} icon={FaMapMarkerAlt} />
                     <InputField label="Cidade" name="cidade" value={formData.cidade} onChange={handleChange} icon={FaMapMarkerAlt} />
                 </div>
