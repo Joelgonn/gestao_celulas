@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { processarInscricaoPublica } from '@/lib/data';
-import { InscricaoFaceAFaceEstadoCivil, InscricaoFaceAFaceTamanhoCamiseta, InscricaoFaceAFaceTipoParticipacao } from '@/lib/types';
+import { InscricaoFaceAFaceTipoParticipacao } from '@/lib/types';
 import { formatPhoneNumberDisplay, normalizePhoneNumber } from '@/utils/formatters';
 import { 
     FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, FaRing, FaTshirt, 
     FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, FaHeart, 
-    FaCheckCircle, FaExclamationTriangle, FaSpinner, FaHandsHelping 
+    FaCheckCircle, FaExclamationTriangle, FaSpinner, FaHandsHelping, FaCalendarAlt
 } from 'react-icons/fa';
 
-// Componentes internos simplificados para este form
+// --- COMPONENTES INTERNOS ---
+
+// 1. Input Genérico (Manteve igual)
 const InputField = ({ label, name, value, onChange, type = 'text', required = false, icon: Icon, placeholder, maxLength }: any) => (
     <div className="space-y-1">
         <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -29,6 +31,7 @@ const InputField = ({ label, name, value, onChange, type = 'text', required = fa
     </div>
 );
 
+// 2. Select Genérico (Manteve igual)
 const SelectField = ({ label, name, value, onChange, options, icon: Icon, required }: any) => (
     <div className="space-y-1">
         <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -41,6 +44,7 @@ const SelectField = ({ label, name, value, onChange, options, icon: Icon, requir
     </div>
 );
 
+// 3. Card de Rádio (Manteve igual)
 const RadioCard = ({ label, description, name, value, currentSelection, onChange, icon: Icon }: any) => {
     const isSelected = value === currentSelection;
     return (
@@ -72,6 +76,94 @@ const RadioCard = ({ label, description, name, value, currentSelection, onChange
     );
 };
 
+// --- NOVO COMPONENTE: SELETOR DE DATA DE NASCIMENTO AMIGÁVEL ---
+const BirthDateSelect = ({ value, onChange, required }: any) => {
+    const [day, setDay] = useState('');
+    const [month, setMonth] = useState('');
+    const [year, setYear] = useState('');
+
+    // Sincroniza estados locais se vier um valor externo (edição)
+    useEffect(() => {
+        if (value) {
+            const [y, m, d] = value.split('-');
+            setYear(y);
+            setMonth(m);
+            setDay(d);
+        }
+    }, [value]);
+
+    // Atualiza o pai sempre que mudar uma parte
+    const handlePartChange = (type: 'day' | 'month' | 'year', val: string) => {
+        let newD = day;
+        let newM = month;
+        let newY = year;
+
+        if (type === 'day') { setDay(val); newD = val; }
+        if (type === 'month') { setMonth(val); newM = val; }
+        if (type === 'year') { setYear(val); newY = val; }
+
+        if (newD && newM && newY) {
+            // Formata YYYY-MM-DD
+            onChange({ target: { name: 'data_nascimento', value: `${newY}-${newM}-${newD}` } });
+        } else {
+            // Se faltar algo, limpa o valor principal para validar como vazio
+            onChange({ target: { name: 'data_nascimento', value: '' } });
+        }
+    };
+
+    // Gera anos (Do ano atual até 100 anos atrás)
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 90 }, (_, i) => currentYear - i); // Ex: 2025 a 1935
+    const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+    const months = [
+        { val: '01', label: 'Janeiro' }, { val: '02', label: 'Fevereiro' }, { val: '03', label: 'Março' },
+        { val: '04', label: 'Abril' }, { val: '05', label: 'Maio' }, { val: '06', label: 'Junho' },
+        { val: '07', label: 'Julho' }, { val: '08', label: 'Agosto' }, { val: '09', label: 'Setembro' },
+        { val: '10', label: 'Outubro' }, { val: '11', label: 'Novembro' }, { val: '12', label: 'Dezembro' }
+    ];
+
+    return (
+        <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <FaBirthdayCake className="text-purple-600" /> Data de Nascimento {required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+                <select 
+                    value={day} 
+                    onChange={(e) => handlePartChange('day', e.target.value)} 
+                    className="w-full px-2 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white"
+                    required={required}
+                >
+                    <option value="">Dia</option>
+                    {days.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+
+                <select 
+                    value={month} 
+                    onChange={(e) => handlePartChange('month', e.target.value)} 
+                    className="w-full px-2 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white"
+                    required={required}
+                >
+                    <option value="">Mês</option>
+                    {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                </select>
+
+                <select 
+                    value={year} 
+                    onChange={(e) => handlePartChange('year', e.target.value)} 
+                    className="w-full px-2 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white"
+                    required={required}
+                >
+                    <option value="">Ano</option>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+            </div>
+        </div>
+    );
+};
+
+// --- COMPONENTE PRINCIPAL ---
+
 interface Props {
     token: string;
     eventoTipo: 'Mulheres' | 'Homens';
@@ -91,7 +183,7 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         nome_completo_participante: initialName || '',
         cpf: '',
         rg: '',
-        data_nascimento: '',
+        data_nascimento: '', // Formato YYYY-MM-DD
         idade: null,
         contato_pessoal: '',
         contato_emergencia: '',
@@ -101,7 +193,7 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         estado_civil: '',
         nome_esposo: '',
         tamanho_camiseta: '',
-        tipo_participacao: participantRole, // Participante é sempre o padrão
+        tipo_participacao: participantRole,
         eh_membro_ib_apascentar: false,
         pertence_outra_igreja: false,
         nome_outra_igreja: '',
@@ -112,16 +204,34 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
         descricao_sonhos: ''
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    // Calcula idade automaticamente quando a data de nascimento muda
+    useEffect(() => {
+        if (formData.data_nascimento && formData.data_nascimento.length === 10) {
+            const birthDate = new Date(formData.data_nascimento);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            if (age >= 0 && age < 120) {
+                setFormData((prev: any) => ({ ...prev, idade: age }));
+            }
+        }
+    }, [formData.data_nascimento]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | { target: { name: string, value: any } }) => {
+        const { name, value } = e.target;
+        // Para checkboxes, precisamos verificar o 'checked', mas o evento sintético do DateSelect não tem 'checked'
+        const val = (e.target as any).type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
         
         let finalVal: string | boolean | number | null = val;
 
         if (name === 'contato_pessoal' || name === 'contato_emergencia') {
             finalVal = formatPhoneNumberDisplay(normalizePhoneNumber(val as string));
         }
-
+        
+        // Se a pessoa digitar a idade manualmente, respeitamos. Mas o useEffect acima tenta calcular.
         if (name === 'idade') {
             const idadeValue = val ? parseInt(val as string, 10) : null;
             setFormData((prev: any) => ({ ...prev, [name]: idadeValue }));
@@ -182,8 +292,17 @@ export default function PublicRegistrationForm({ token, eventoTipo, onSuccess, i
                 <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Seus Dados</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante} onChange={handleChange} required icon={FaUser} />
-                    <InputField label="Idade" name="idade" value={formData.idade || ''} onChange={handleChange} type="number" required icon={FaBirthdayCake} />
-                    <InputField label="Data de Nascimento" name="data_nascimento" value={formData.data_nascimento} onChange={handleChange} type="date" required icon={FaBirthdayCake} />
+                    
+                    {/* AQUI ESTÁ A MUDANÇA: USANDO O NOVO COMPONENTE */}
+                    <BirthDateSelect 
+                        value={formData.data_nascimento} 
+                        onChange={handleChange} 
+                        required 
+                    />
+
+                    {/* Idade agora pode ser readonly pois calcula sozinho, ou editavel para ajuste */}
+                    <InputField label="Idade (Calculada)" name="idade" value={formData.idade || ''} onChange={handleChange} type="number" required icon={FaBirthdayCake} placeholder="Automático" />
+                    
                     <InputField label="CPF" name="cpf" value={formData.cpf} onChange={handleChange} maxLength={14} icon={FaIdCard} />
                     <InputField label="RG" name="rg" value={formData.rg} onChange={handleChange} icon={FaIdCard} />
                     <InputField label="Celular (WhatsApp)" name="contato_pessoal" value={formData.contato_pessoal} onChange={handleChange} required maxLength={15} icon={FaPhone} />
