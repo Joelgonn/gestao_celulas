@@ -33,7 +33,7 @@ import {
     FaMoneyBillWave
 } from 'react-icons/fa';
 
-// --- COMPONENTES VISUAIS INTERNOS (PARA OS FILTROS) ---
+// --- COMPONENTES VISUAIS INTERNOS ---
 
 const SearchInput = ({ value, onChange, placeholder }: any) => (
     <div className="relative group">
@@ -77,7 +77,11 @@ export default function AdminListagemInscricoesPage() {
     const eventoId = params.evento_id as string;
 
     const [evento, setEvento] = useState<EventoFaceAFace | null>(null);
-    const [inscricoes, setInscricoes] = useState<InscricaoFaceAFace[]>([]);
+    
+    // Separação de dados: Todos vs Filtrados
+    const [allInscricoes, setAllInscricoes] = useState<InscricaoFaceAFace[]>([]);
+    const [filteredInscricoes, setFilteredInscricoes] = useState<InscricaoFaceAFace[]>([]);
+    
     const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
 
     const [loading, setLoading] = useState(true);
@@ -108,23 +112,57 @@ export default function AdminListagemInscricoesPage() {
         { id: 'Encontreiro', nome: 'Encontreiro' },
     ];
 
-    const fetchInscricoes = useCallback(async () => {
+    // Carrega TODOS os dados do servidor uma única vez (ou ao forçar atualização)
+    const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
-            if (!eventoId) { setLoading(false); return; }
-            const fetchedInscricoes = await listarInscricoesFaceAFacePorEvento(eventoId, {
-                statusPagamento: statusFilter,
-                celulaId: celulaFilter,
-                searchTerm: searchTerm.trim() || undefined,
-                tipoParticipacao: tipoParticipacaoFilter === 'all' ? undefined : tipoParticipacaoFilter,
-            });
-            setInscricoes(fetchedInscricoes);
+            if (!eventoId) return;
+
+            // Busca SEM filtros no servidor para pegar tudo
+            const fetchedInscricoes = await listarInscricoesFaceAFacePorEvento(eventoId);
+            setAllInscricoes(fetchedInscricoes);
+            setFilteredInscricoes(fetchedInscricoes); // Inicialmente, filtrados = todos
         } catch (e: any) {
             console.error("Erro ao carregar inscrições:", e);
             addToast(`Erro ao carregar: ${e.message}`, 'error');
         } finally { setLoading(false); }
-    }, [eventoId, statusFilter, celulaFilter, searchTerm, tipoParticipacaoFilter, addToast]); 
+    }, [eventoId, addToast]); 
 
+    // Lógica de Filtragem Local (Executa instantaneamente quando um filtro muda)
+    useEffect(() => {
+        let result = allInscricoes;
+
+        // 1. Filtro de Texto (Nome ou Contato)
+        if (searchTerm.trim() !== '') {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(i => 
+                i.nome_completo_participante.toLowerCase().includes(term) ||
+                (i.contato_pessoal && i.contato_pessoal.includes(term))
+            );
+        }
+
+        // 2. Filtro de Status
+        if (statusFilter !== 'all') {
+            result = result.filter(i => i.status_pagamento === statusFilter);
+        }
+
+        // 3. Filtro de Tipo
+        if (tipoParticipacaoFilter !== 'all') {
+            result = result.filter(i => i.tipo_participacao === tipoParticipacaoFilter);
+        }
+
+        // 4. Filtro de Célula
+        if (celulaFilter !== 'all') {
+            result = result.filter(i => 
+                i.celula_id === celulaFilter || i.celula_inscricao_id === celulaFilter
+            );
+        }
+
+        setFilteredInscricoes(result);
+    }, [allInscricoes, searchTerm, statusFilter, tipoParticipacaoFilter, celulaFilter]);
+
+
+    // Carregamento Inicial da Página
     useEffect(() => {
         async function loadInitialPageData() {
             setLoading(true);
@@ -138,23 +176,15 @@ export default function AdminListagemInscricoesPage() {
                 setEvento(eventData);
                 const celulasData = await listarCelulasParaAdmin();
                 setCelulasOptions([{ id: 'all', nome: 'Célula: Todas' }, ...celulasData]);
-                fetchInscricoes();
+                
+                await fetchAllData(); // Busca inscrições
             } catch (e: any) {
                 addToast(`Erro: ${e.message}`, 'error');
                 router.replace('/admin/eventos-face-a-face');
             }
         }
         if (eventoId) loadInitialPageData();
-    }, [eventoId, router, addToast]); // Removed fetchInscricoes from deps to avoid loop on initial load logic
-
-    useEffect(() => {
-        if (eventoId) { 
-            const timeoutId = setTimeout(() => { 
-                if (!loading) fetchInscricoes();
-            }, 300); 
-            return () => clearTimeout(timeoutId);
-        }
-    }, [statusFilter, celulaFilter, searchTerm, tipoParticipacaoFilter, eventoId]); 
+    }, [eventoId, router, addToast, fetchAllData]); 
 
     const handleDelete = async (inscricaoId: string, nomeParticipante: string) => {
         if (!confirm(`Excluir a inscrição de "${nomeParticipante}"?`)) return;
@@ -162,7 +192,7 @@ export default function AdminListagemInscricoesPage() {
         try {
             await excluirInscricaoFaceAFace(inscricaoId);
             addToast('Inscrição excluída.', 'success');
-            await fetchInscricoes();
+            await fetchAllData(); // Recarrega do servidor para garantir sincronia
         } catch (e: any) {
             addToast(`Erro ao excluir: ${e.message}`, 'error');
         } finally { setSubmitting(false); }
@@ -189,6 +219,8 @@ export default function AdminListagemInscricoesPage() {
         if (!eventoId) return;
         setSubmitting(true);
         try {
+            // Nota: Continuamos exportando via servidor para garantir formato correto,
+            // mas enviamos os filtros atuais para o servidor processar igual.
             const csvData = await exportarInscricoesCSV(eventoId, {
                 statusPagamento: statusFilter,
                 celulaId: celulaFilter,
@@ -211,15 +243,15 @@ export default function AdminListagemInscricoesPage() {
     };
 
     const handleExportPDF = () => {
-        if (inscricoes.length === 0) return addToast('Sem dados para exportar.', 'warning');
+        if (filteredInscricoes.length === 0) return addToast('Sem dados para exportar.', 'warning');
         try {
             const doc = new jsPDF();
             doc.setFontSize(16); doc.text(`Relatório: ${evento?.nome_evento}`, 14, 20);
-            doc.setFontSize(10); doc.setTextColor(100); doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 27);
+            doc.setFontSize(10); doc.setTextColor(100); doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | Filtros Aplicados`, 14, 27);
             
             autoTable(doc, {
                 head: [["Nome", "Contato", "Célula", "Tipo", "Status", "Membro?"]],
-                body: inscricoes.map(i => [
+                body: filteredInscricoes.map(i => [
                     i.nome_completo_participante,
                     formatPhoneNumberDisplay(i.contato_pessoal),
                     i.celula_participante_nome || i.celula_inscricao_nome || '-',
@@ -272,7 +304,7 @@ export default function AdminListagemInscricoesPage() {
                         <FilterSelect icon={FaTransgender} value={tipoParticipacaoFilter} onChange={(e: any) => setTipoParticipacaoFilter(e.target.value)} options={tipoParticipacaoOptions} />
                         <FilterSelect icon={FaUsers} value={celulaFilter} onChange={(e: any) => setCelulaFilter(e.target.value)} options={celulasOptions} />
                         
-                        <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setTipoParticipacaoFilter('all'); setCelulaFilter('all'); fetchInscricoes(); }}
+                        <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setTipoParticipacaoFilter('all'); setCelulaFilter('all'); fetchAllData(); }}
                             className="bg-gray-100 text-gray-700 py-2.5 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm flex items-center justify-center gap-2 active:scale-95 border border-gray-200"
                         >
                             <FaSync /> Limpar
@@ -281,26 +313,26 @@ export default function AdminListagemInscricoesPage() {
 
                     <div className="flex flex-wrap gap-3 mt-5 justify-end border-t border-gray-100 pt-4">
                         <span className="text-xs text-gray-400 self-center mr-auto font-medium">
-                            Total: {inscricoes.length} inscrições
+                            Exibindo: {filteredInscricoes.length} de {allInscricoes.length}
                         </span>
-                        <button onClick={handleExportCSV} disabled={submitting || !inscricoes.length} className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+                        <button onClick={handleExportCSV} disabled={submitting || !filteredInscricoes.length} className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
                             <FaFileCsv /> CSV
                         </button>
-                        <button onClick={handleExportPDF} disabled={submitting || !inscricoes.length} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+                        <button onClick={handleExportPDF} disabled={submitting || !filteredInscricoes.length} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
                             <FaFilePdf /> PDF
                         </button>
                     </div>
                 </div>
 
                 {/* Empty State */}
-                {inscricoes.length === 0 && !loading && (
+                {filteredInscricoes.length === 0 && !loading && (
                     <div className="text-center p-12 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
                         <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                             <FaUsers className="text-2xl text-gray-400" />
                         </div>
                         <h3 className="text-lg font-semibold text-gray-700">Nenhum resultado</h3>
                         <p className="text-gray-500 text-sm mb-6">Tente ajustar os filtros ou busque por outro nome.</p>
-                        <button onClick={() => {setSearchTerm(''); setStatusFilter('all'); fetchInscricoes()}} className="text-purple-600 font-bold text-sm hover:underline">Limpar filtros</button>
+                        <button onClick={() => {setSearchTerm(''); setStatusFilter('all');}} className="text-purple-600 font-bold text-sm hover:underline">Limpar filtros</button>
                     </div>
                 )}
 
@@ -318,7 +350,7 @@ export default function AdminListagemInscricoesPage() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {inscricoes.map((inscricao) => (
+                                {filteredInscricoes.map((inscricao) => (
                                     <tr key={inscricao.id} className="hover:bg-purple-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-gray-900">{inscricao.nome_completo_participante}</div>
@@ -359,7 +391,7 @@ export default function AdminListagemInscricoesPage() {
 
                 {/* Cards Mobile (Otimizados) */}
                 <div className="md:hidden space-y-4 mt-6">
-                    {inscricoes.map((inscricao) => (
+                    {filteredInscricoes.map((inscricao) => (
                         <div key={inscricao.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-4 active:border-purple-300 transition-colors">
                             <div className="flex justify-between items-start">
                                 <div>
