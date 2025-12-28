@@ -27,7 +27,7 @@ import {
 } from 'react-icons/fa';
 
 // ============================================================================
-//                       COMPONENTES VISUAIS (REUTILIZADOS)
+//                       COMPONENTES VISUAIS (COM CORREÇÃO DE CONTRASTE)
 // ============================================================================
 
 // 1. BirthDateSelect
@@ -71,15 +71,16 @@ const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) =>
         { val: '10', label: 'Out' }, { val: '11', label: 'Nov' }, { val: '12', label: 'Dez' }
     ];
 
-    const baseSelectClass = `w-full px-2 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 appearance-none ${
-        error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-green-500'
-    } ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : 'bg-white'}`;
+    // CSS Reforçado para contraste
+    const baseSelectClass = `w-full px-2 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 appearance-none bg-white text-gray-900 ${
+        error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'
+    } ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`;
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <FaBirthdayCake className={error ? "text-red-500" : "text-green-500"} /> 
-                Data de Nascimento {required && <span className="text-red-500">*</span>}
+            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
+                <FaBirthdayCake className={error ? "text-red-600" : "text-green-600"} /> 
+                Data de Nascimento {required && <span className="text-red-600">*</span>}
             </label>
             <div className="grid grid-cols-3 gap-2">
                 <div className="relative">
@@ -87,21 +88,21 @@ const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) =>
                         <option value="">Dia</option>
                         {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
-                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-400 text-xs pointer-events-none" />}
+                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
                 <div className="relative">
                     <select value={month} onChange={(e) => handlePartChange('month', e.target.value)} disabled={disabled} className={baseSelectClass}>
                         <option value="">Mês</option>
                         {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
                     </select>
-                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-400 text-xs pointer-events-none" />}
+                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
                 <div className="relative">
                     <select value={year} onChange={(e) => handlePartChange('year', e.target.value)} disabled={disabled} className={baseSelectClass}>
                         <option value="">Ano</option>
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
-                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-400 text-xs pointer-events-none" />}
+                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
             </div>
             {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
@@ -129,27 +130,27 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                {icon} {label} {required && <span className="text-red-500">*</span>}
+            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
+                {icon} {label} {required && <span className="text-red-600">*</span>}
             </label>
             <button type="button" onClick={() => !disabled && setIsOpen(true)} disabled={disabled}
-                className={`w-full pl-3 pr-3 py-3 border rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 transition-all duration-200 ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-green-500'}`}>
+                className={`w-full pl-3 pr-3 py-3 border rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 transition-all duration-200 bg-white text-gray-900 ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''} ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'}`}>
                 <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
-                {!disabled && <FaChevronDown className="text-gray-400 text-xs ml-2" />}
+                {!disabled && <FaChevronDown className="text-gray-500 text-xs ml-2" />}
             </button>
             {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /><span>{error}</span></p>}
             {isOpen && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
                     <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
-                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
+                            <h3 className="font-bold text-gray-900 text-lg">{label}</h3>
                             <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors"><FaTimes /></button>
                         </div>
                         {searchable && (
                             <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
                                 <div className="relative">
                                     <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
-                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-10 pr-4 py-3 bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 transition-all text-base" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-10 pr-4 py-3 bg-gray-100 text-gray-900 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 transition-all text-base" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                                 </div>
                             </div>
                         )}
@@ -157,9 +158,9 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
                             {filteredOptions.length > 0 ? (filteredOptions.map((option) => {
                                 const isSelected = value === option.id;
                                 return (
-                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-green-50 text-green-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-green-50 text-green-800 font-bold' : 'text-gray-900 hover:bg-gray-100'}`}>
                                         <span className="text-base">{option.nome}</span>
-                                        {isSelected && <FaCheckCircle className="text-green-500 text-lg" />}
+                                        {isSelected && <FaCheckCircle className="text-green-600 text-lg" />}
                                     </button>
                                 );
                             })) : (<div className="text-center py-8 text-gray-500">Nenhum item encontrado.</div>)}
@@ -171,7 +172,7 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
-// 3. InputField
+// 3. InputField (COM CORES REFORÇADAS)
 interface InputFieldProps {
     label: string; name: keyof InscricaoFaceAFaceFormData; value: string | number | null | boolean;
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -183,35 +184,45 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
     const isTextarea = type === 'textarea';
     const isCheckbox = type === 'checkbox';
     
+    // MODO TOGGLE (SWITCH)
     if (toggle) {
         const booleanValue = !!value;
         return (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    {Icon && <Icon className={booleanValue ? "w-5 h-5 text-green-600" : "w-5 h-5 text-gray-400"} />}
-                    <label htmlFor={name} className="text-sm font-semibold text-gray-700">{label} {required && <span className="text-red-500">*</span>}</label>
+            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between transition-all hover:border-gray-400 shadow-sm">
+                <div className="flex items-center gap-3 pr-2">
+                    {Icon && <Icon className={booleanValue ? "w-5 h-5 text-green-700" : "w-5 h-5 text-gray-500"} />}
+                    <label htmlFor={name} className="text-sm font-bold text-gray-900 cursor-pointer select-none">
+                        {label} {required && <span className="text-red-600">*</span>}
+                    </label>
                 </div>
                 <label htmlFor={name} className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id={name} name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" disabled={disabled} />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                 </label>
                 {error && <p className="text-red-600 text-sm flex items-center space-x-1 mt-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
             </div>
         );
     }
+
+    // MODO INPUT / TEXTAREA
     return (
         <div className="space-y-1">
-            <label htmlFor={name} className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                {Icon && <Icon className={error ? "text-red-500" : "text-green-500"} />} {label} {required && <span className="text-red-500">*</span>}
+            <label htmlFor={name} className="block text-sm font-bold text-gray-800 flex items-center gap-2">
+                {Icon && <Icon className={error ? "text-red-600" : "text-green-600"} />} 
+                {label} {required && <span className="text-red-600">*</span>}
             </label>
             <div className="relative">
                 {isTextarea ? (
-                    <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`} />
+                    <textarea 
+                        id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''}`} 
+                    />
                 ) : (
-                    <input type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
+                    <input 
+                        type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
                         onChange={isCheckbox ? (e) => onChange({ ...e, target: { ...e.target, value: e.target.checked } as any }) : onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${isCheckbox ? 'h-5 w-5' : ''}`} />
+                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
+                    />
                 )}
             </div>
             {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
@@ -237,13 +248,13 @@ export default function LiderNovaInscricaoPage() {
     // Controle de Seleção de Membro
     const [selectedMembroId, setSelectedMembroId] = useState<string>('external');
 
-    // Estado do Formulário (AGORA COM OS CAMPOS FALTANTES CORRIGIDOS)
+    // Estado do Formulário (Com inicialização correta de nulos)
     const [formData, setFormData] = useState<InscricaoFaceAFaceFormData>({
         evento_id: eventoId,
         membro_id: null,
-        celula_id: null, // Campo obrigatório inicializado
-        lider_celula_nome: null, // Campo obrigatório inicializado
-        admin_observacao_pagamento: null, // Campo obrigatório inicializado
+        celula_id: null,
+        lider_celula_nome: null,
+        admin_observacao_pagamento: null,
         nome_completo_participante: '',
         cpf: '',
         idade: null,
@@ -510,9 +521,28 @@ export default function LiderNovaInscricaoPage() {
                                 <InputField label="Sonhos com Deus" name="descricao_sonhos" value={formData.descricao_sonhos ?? ''} onChange={handleChange} type="textarea" required icon={FaHeart} />
                             </div>
 
-                            <div className="flex justify-end gap-4 pt-6">
-                                <Link href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} className="px-6 py-3 border rounded-xl">Cancelar</Link>
-                                <button type="submit" disabled={submitting || loading} className="px-6 py-3 bg-green-600 text-white rounded-xl font-bold">{submitting ? 'Salvando...' : 'Realizar Inscrição'}</button>
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
+                                <Link 
+                                    href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} 
+                                    className="px-6 py-4 sm:py-3 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 active:bg-gray-100 text-center transition-colors"
+                                >
+                                    Cancelar
+                                </Link>
+                                <button 
+                                    type="submit" 
+                                    disabled={submitting || loading} 
+                                    className="px-6 py-4 sm:py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 active:bg-green-800 shadow-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                                >
+                                    {submitting ? (
+                                        <>
+                                            <LoadingSpinner size="sm" color="white" /> Salvando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaSave /> Realizar Inscrição
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </form>
                     </div>
