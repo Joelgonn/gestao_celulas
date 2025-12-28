@@ -238,7 +238,7 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
                             type={type} id={name} name={name} 
                             value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} 
                             checked={isCheckbox ? (value as boolean) : undefined}
-                            onChange={onChange}
+                            onChange={onChange} // CORRIGIDO
                             onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
                             className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
                         />
@@ -350,7 +350,7 @@ export default function LiderNovaInscricaoPage() {
         }
     }, [formData.data_nascimento, selectedMembroId]);
 
-    // Manipulador de Seleção de Membro
+    // Manipulador de Seleção de Membro (COM PARSE INTELIGENTE DE ENDEREÇO)
     const handleMembroSelection = (membroId: string) => {
         setSelectedMembroId(membroId);
         
@@ -364,6 +364,8 @@ export default function LiderNovaInscricaoPage() {
                 data_nascimento: '',
                 idade: null,
                 endereco_completo: '',
+                bairro: '',
+                cidade: '',
                 eh_membro_ib_apascentar: false
             }));
             setCepInput('');
@@ -380,18 +382,51 @@ export default function LiderNovaInscricaoPage() {
                     idadeCalculada = age;
                 }
 
+                // LÓGICA DE PARSE DE ENDEREÇO DO MEMBRO
+                let enderecoParsed = '';
+                let bairroParsed = '';
+                let cidadeParsed = '';
+
+                if (membro.endereco) {
+                    // Tenta quebrar "Rua, Num, Bairro - Cidade/UF"
+                    // 1. Separa Cidade (pelo hífen com espaços)
+                    const partesGerais = membro.endereco.split(' - ');
+                    
+                    if (partesGerais.length >= 2) {
+                        // O último pedaço é a cidade
+                        const cidadeUf = partesGerais[partesGerais.length - 1]; // "Cidade/UF"
+                        cidadeParsed = cidadeUf.split('/')[0].trim();
+
+                        // O resto é o endereço + bairro
+                        const restoEndereco = partesGerais.slice(0, partesGerais.length - 1).join(' - ');
+                        
+                        // Tenta separar Bairro (pela última vírgula)
+                        const partesVirgula = restoEndereco.split(',');
+                        if (partesVirgula.length >= 2) {
+                            bairroParsed = partesVirgula.pop()?.trim() || '';
+                            enderecoParsed = partesVirgula.join(',').trim();
+                        } else {
+                            enderecoParsed = restoEndereco;
+                        }
+                    } else {
+                        // Se não achar o padrão, joga tudo no endereço
+                        enderecoParsed = membro.endereco;
+                    }
+                }
+
                 setFormData(prev => ({
                     ...prev,
                     membro_id: membro.id,
                     celula_id: membro.celula_id || null, 
-                    nome_completo_participante: formatNameTitleCase(membro.nome), // Já formata o nome do banco
+                    nome_completo_participante: formatNameTitleCase(membro.nome), 
                     contato_pessoal: membro.telefone ? formatPhoneNumberDisplay(membro.telefone) : '',
                     data_nascimento: membro.data_nascimento ? formatDateForInput(membro.data_nascimento) : '',
                     idade: idadeCalculada,
-                    endereco_completo: membro.endereco || '',
+                    endereco_completo: enderecoParsed,
+                    bairro: bairroParsed,
+                    cidade: cidadeParsed,
                     eh_membro_ib_apascentar: true 
                 }));
-                // Não preenchemos CEP pois membro do banco só tem string de endereço
             }
         }
     };
@@ -538,7 +573,7 @@ export default function LiderNovaInscricaoPage() {
                                 />
                                 {isMemberSelected && (
                                     <p className="text-xs text-blue-600 mt-2 ml-1 flex items-center gap-1">
-                                        <FaCheckCircle /> Dados do membro carregados automaticamente.
+                                        <FaCheckCircle /> Dados do membro carregados (CEP manual disponível).
                                     </p>
                                 )}
                             </div>
@@ -586,11 +621,11 @@ export default function LiderNovaInscricaoPage() {
                                             icon={FaSearchLocation}
                                             placeholder="00000-000"
                                             isLoading={cepLoading}
-                                            disabled={isMemberSelected} // Desabilita se for membro (usa endereço do cadastro)
+                                            // CEP não fica desabilitado, para permitir atualizar endereço de membro
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <InputField label="Endereço" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={isMemberSelected && !!formData.endereco_completo} readOnly={isMemberSelected} />
+                                        <InputField label="Endereço" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={isMemberSelected && !cepInput} readOnly={isMemberSelected && !cepInput} />
                                     </div>
                                     <InputField label="Bairro" name="bairro" value={formData.bairro ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} />
                                     <InputField label="Cidade" name="cidade" value={formData.cidade ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} />
@@ -620,7 +655,7 @@ export default function LiderNovaInscricaoPage() {
                                 <InputField label="Deficiência?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental ?? false} onChange={handleChange} type="checkbox" toggle icon={FaWheelchair} />
                                 <InputField label="Remédio Controlado?" name="toma_medicamento_controlado" value={formData.toma_medicamento_controlado ?? false} onChange={handleChange} type="checkbox" toggle icon={FaPills} />
                                 
-                                {/* CAMPO DE SONHOS (OPCIONAL AQUI) */}
+                                {/* CAMPO DE SONHOS (OPCIONAL) */}
                                 <InputField 
                                     label="Sonhos com Deus (Opcional)" 
                                     name="descricao_sonhos" 
