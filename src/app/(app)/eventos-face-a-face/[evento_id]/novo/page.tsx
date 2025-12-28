@@ -237,10 +237,13 @@ export default function LiderNovaInscricaoPage() {
     // Controle de Seleção de Membro
     const [selectedMembroId, setSelectedMembroId] = useState<string>('external');
 
-    // Estado do Formulário
+    // Estado do Formulário (AGORA COM OS CAMPOS FALTANTES CORRIGIDOS)
     const [formData, setFormData] = useState<InscricaoFaceAFaceFormData>({
         evento_id: eventoId,
         membro_id: null,
+        celula_id: null, // Campo obrigatório inicializado
+        lider_celula_nome: null, // Campo obrigatório inicializado
+        admin_observacao_pagamento: null, // Campo obrigatório inicializado
         nome_completo_participante: '',
         cpf: '',
         idade: null,
@@ -316,6 +319,7 @@ export default function LiderNovaInscricaoPage() {
             setFormData(prev => ({
                 ...prev,
                 membro_id: null,
+                celula_id: null,
                 nome_completo_participante: '',
                 contato_pessoal: '',
                 data_nascimento: '',
@@ -327,7 +331,6 @@ export default function LiderNovaInscricaoPage() {
             // Preencher com dados do membro
             const membro = membros.find(m => m.id === membroId);
             if (membro) {
-                // Calcular idade do membro se tiver data
                 let idadeCalculada = null;
                 if (membro.data_nascimento) {
                     const birthDate = new Date(membro.data_nascimento);
@@ -341,18 +344,18 @@ export default function LiderNovaInscricaoPage() {
                 setFormData(prev => ({
                     ...prev,
                     membro_id: membro.id,
+                    celula_id: membro.celula_id || null, // Preenche ID da célula do membro
                     nome_completo_participante: membro.nome,
                     contato_pessoal: membro.telefone ? formatPhoneNumberDisplay(membro.telefone) : '',
                     data_nascimento: membro.data_nascimento ? formatDateForInput(membro.data_nascimento) : '',
                     idade: idadeCalculada,
                     endereco_completo: membro.endereco || '',
-                    eh_membro_ib_apascentar: true // Assumimos que membros da lista SÃO membros da igreja
+                    eh_membro_ib_apascentar: true 
                 }));
             }
         }
     };
 
-    // Handlers genéricos (mesma lógica da edição)
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string, value: any } }) => {
         const { name, value } = e.target;
         const type = (e.target as HTMLInputElement).type;
@@ -427,7 +430,6 @@ export default function LiderNovaInscricaoPage() {
         ...membros.map(m => ({ id: m.id, nome: m.nome }))
     ];
     
-    // Se selecionou um membro, campos chave ficam travados
     const isMemberSelected = selectedMembroId !== 'external';
 
     return (
@@ -443,7 +445,6 @@ export default function LiderNovaInscricaoPage() {
                     <div className="p-4 sm:p-8">
                         <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
                             
-                            {/* SELETOR DE MEMBRO (A Grande Facilidade) */}
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm">
                                 <CustomSelectSheet 
                                     label="Quem você vai inscrever?" 
