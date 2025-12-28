@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-// CORREÇÃO AQUI: Importar 'supabase' diretamente, que é o cliente do navegador
 import { supabase } from '@/utils/supabase/client'; 
 import { 
     atualizarInscricaoFaceAFaceAdmin 
@@ -22,7 +21,6 @@ import {
     FaExclamationCircle
 } from 'react-icons/fa';
 
-// Tipo local simplificado
 type PendenciaFinanceira = {
     id: string;
     nome_completo_participante: string;
@@ -43,11 +41,9 @@ export default function CentralAprovacoesPage() {
 
     const { addToast, ToastContainer } = useToast();
 
-    // 1. Busca as pendências
     const fetchPendencias = useCallback(async () => {
         setLoading(true);
         try {
-            // Usamos o cliente 'supabase' importado diretamente
             const { data, error } = await supabase
                 .from('inscricoes_face_a_face')
                 .select(`
@@ -61,7 +57,7 @@ export default function CentralAprovacoesPage() {
                     eventos_face_a_face (nome_evento, valor_total, valor_entrada)
                 `)
                 .in('status_pagamento', ['AGUARDANDO_CONFIRMACAO_ENTRADA', 'AGUARDANDO_CONFIRMACAO_RESTANTE'])
-                .order('updated_at', { ascending: true }); // FIFO (Primeiro que entra, primeiro que sai)
+                .order('updated_at', { ascending: true });
 
             if (error) throw error;
 
@@ -91,7 +87,6 @@ export default function CentralAprovacoesPage() {
         fetchPendencias();
     }, [fetchPendencias]);
 
-    // 2. Ação de Aprovar Rápido
     const handleApprove = async (item: PendenciaFinanceira) => {
         if (!confirm(`Confirmar pagamento de ${item.nome_completo_participante}?`)) return;
         
@@ -125,7 +120,6 @@ export default function CentralAprovacoesPage() {
         <div className="min-h-screen bg-gray-50 pb-12">
             <ToastContainer />
 
-            {/* Header Financeiro */}
             <div className="bg-gradient-to-r from-emerald-800 to-teal-700 shadow-xl px-4 pt-8 pb-16 sm:px-8">
                 <div className="max-w-5xl mx-auto flex justify-between items-center">
                     <div>
@@ -145,8 +139,6 @@ export default function CentralAprovacoesPage() {
             </div>
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-10">
-                
-                {/* Empty State */}
                 {pendencias.length === 0 && (
                     <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-gray-100">
                         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
@@ -160,7 +152,6 @@ export default function CentralAprovacoesPage() {
                     </div>
                 )}
 
-                {/* Lista de Cards */}
                 <div className="space-y-4">
                     {pendencias.map((item) => {
                         const isEntrada = item.status_pagamento === 'AGUARDANDO_CONFIRMACAO_ENTRADA';
@@ -171,7 +162,6 @@ export default function CentralAprovacoesPage() {
                         return (
                             <div key={item.id} className="bg-white rounded-xl shadow-md border border-gray-200 p-5 flex flex-col md:flex-row gap-6 hover:border-emerald-300 transition-colors">
                                 
-                                {/* Info */}
                                 <div className="flex-1 space-y-2">
                                     <div className="flex items-start justify-between">
                                         <div>
@@ -198,13 +188,13 @@ export default function CentralAprovacoesPage() {
                                     </div>
                                 </div>
 
-                                {/* Ações */}
                                 <div className="flex md:flex-col justify-end gap-3 md:min-w-[200px]">
+                                    {/* MUDANÇA NO BOTÃO ABAIXO */}
                                     {comprovanteUrl ? (
                                         <a 
                                             href={comprovanteUrl} 
                                             target="_blank" 
-                                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors"
+                                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-bold text-sm transition-colors"
                                         >
                                             <FaEye /> Ver Comprovante
                                         </a>

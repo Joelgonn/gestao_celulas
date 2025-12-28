@@ -29,7 +29,7 @@ export default function NotificationBell() {
     return (
         <Link 
             href="/admin/financeiro/aprovacoes"
-            className="relative p-2.5 rounded-full hover:bg-gray-100 transition-colors group" // Aumentei um pouco o padding (p-2.5) para o click ficar bom
+            className="relative p-3 rounded-full hover:bg-gray-100 transition-colors group flex items-center justify-center" 
             title="Central de Aprovações Financeiras"
         >
             <FaBell 
@@ -38,9 +38,9 @@ export default function NotificationBell() {
                 }`} 
             />
             
-            {/* Badge Ajustada: 'top-1 right-1' traz ela para perto do sino */}
+            {/* AJUSTE AQUI: top-2 right-2 empurra a bolinha para dentro do ícone */}
             {!loading && count > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white animate-in zoom-in duration-300">
+                <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white animate-in zoom-in duration-300">
                     {count > 9 ? '9+' : count}
                 </span>
             )}
