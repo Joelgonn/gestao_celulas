@@ -9,7 +9,6 @@ export default function NotificationBell() {
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    // Função para buscar a contagem atualizada
     const fetchCount = async () => {
         try {
             const total = await contarInscricoesPendentesGlobais();
@@ -23,19 +22,14 @@ export default function NotificationBell() {
 
     useEffect(() => {
         fetchCount();
-
-        // Opcional: Atualizar a cada 60 segundos para manter o Tesoureiro informado em tempo real
         const intervalId = setInterval(fetchCount, 60000);
         return () => clearInterval(intervalId);
     }, []);
-
-    // Se não tiver pendências, mostra o sino "quieto" (cinza)
-    // Se tiver, mostra o sino "ativo" (com badge vermelha)
     
     return (
         <Link 
             href="/admin/financeiro/aprovacoes"
-            className="relative p-2 rounded-full hover:bg-gray-100 transition-colors group"
+            className="relative p-2.5 rounded-full hover:bg-gray-100 transition-colors group" // Aumentei um pouco o padding (p-2.5) para o click ficar bom
             title="Central de Aprovações Financeiras"
         >
             <FaBell 
@@ -44,14 +38,13 @@ export default function NotificationBell() {
                 }`} 
             />
             
-            {/* Badge Vermelha (Só aparece se tiver pendências) */}
+            {/* Badge Ajustada: 'top-1 right-1' traz ela para perto do sino */}
             {!loading && count > 0 && (
-                <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white animate-in zoom-in duration-300">
-                    {count > 99 ? '99+' : count}
+                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white animate-in zoom-in duration-300">
+                    {count > 9 ? '9+' : count}
                 </span>
             )}
             
-            {/* Tooltip simples no hover */}
             {count > 0 && (
                 <span className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 text-gray-700 text-xs rounded-lg shadow-lg p-3 hidden group-hover:block z-50">
                     Você tem <strong>{count}</strong> pagamentos aguardando aprovação.
