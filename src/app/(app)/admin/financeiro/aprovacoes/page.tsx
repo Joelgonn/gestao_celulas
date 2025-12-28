@@ -188,8 +188,8 @@ export default function CentralAprovacoesPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex md:flex-col justify-end gap-3 md:min-w-[200px]">
-                                    {/* MUDANÇA NO BOTÃO ABAIXO */}
+                                {/* Coluna de Ações Ajustada para Mobile */}
+                                <div className="flex flex-wrap md:flex-col justify-end gap-3 md:min-w-[200px]">
                                     {comprovanteUrl ? (
                                         <a 
                                             href={comprovanteUrl} 
@@ -212,9 +212,10 @@ export default function CentralAprovacoesPage() {
                                         {processingId === item.id ? <LoadingSpinner size="sm" color="white" /> : <><FaCheckCircle /> Confirmar Pagamento</>}
                                     </button>
 
+                                    {/* Link Editar agora visível no mobile e alinhado abaixo */}
                                     <Link 
                                         href={`/admin/eventos-face-a-face/${item.evento_id}/inscricoes/editar/${item.id}`}
-                                        className="hidden md:flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-emerald-600 hover:underline mt-1"
+                                        className="flex w-full md:w-auto items-center justify-center gap-2 text-xs text-gray-400 hover:text-emerald-600 hover:underline mt-1 py-2 md:py-0"
                                     >
                                         <FaEdit /> Editar Detalhes
                                     </Link>
