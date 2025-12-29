@@ -1,4 +1,3 @@
-// src/app/activate-account/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,14 +15,16 @@ export default function ActivateAccountPage() {
 
     useEffect(() => {
         async function checkUserSession() {
-            const { data: { user }, error } = await supabase.auth.getUser();
+            // CORREÇÃO: getSession retorna { data: { session } } e o user está dentro da session
+            const { data: { session }, error } = await supabase.auth.getSession();
+            const user = session?.user;
 
             if (error || !user) {
                 router.replace('/login');
                 return;
             }
             
-            setUserEmail(user.email ?? null); // CORRIGIDO AQUI
+            setUserEmail(user.email ?? null);
 
             const { data: profile, error: profileError } = await supabase
                 .from('profiles')
@@ -32,20 +33,13 @@ export default function ActivateAccountPage() {
                 .single();
 
             if (profileError) {
-                console.error("ActivateAccountPage: Erro ao buscar perfil:", profileError);
-                // Se der erro ao buscar o perfil, pode ser que ele ainda não exista,
-                // então permite que a página de ativação continue.
-            } else if (profile && profile.celula_id !== null) {
-                // Se o perfil já existe E tem celula_id (está ativado)
-                // OU se o perfil é admin (admins não precisam de celula_id para acessar)
+                console.warn("ActivateAccountPage: Perfil ainda não encontrado ou erro.", profileError);
+            } else if (profile) {
                 if (profile.role === 'admin' || profile.celula_id !== null) {
-                    router.replace('/dashboard');
+                    window.location.href = '/dashboard';
                     return;
                 }
             }
-            // Se chegou aqui, o usuário está logado, mas ou o perfil não tem celula_id
-            // ou houve um erro ao buscar o perfil, então ele precisa ativar.
-            // Permite que a página de ativação seja renderizada.
         }
         checkUserSession();
     }, [router]);
@@ -67,21 +61,21 @@ export default function ActivateAccountPage() {
             if (result.success) {
                 setStatusMessage("Conta ativada com sucesso! Redirecionando...");
                 setTimeout(() => {
-                    router.replace('/dashboard');
+                    window.location.href = '/dashboard';
                 }, 1500);
             } else {
                 setStatusMessage(`Erro: ${result.message}`);
+                setLoading(false);
             }
         } catch (error: any) {
             console.error("ActivateAccountPage: Erro ao ativar conta:", error);
             setStatusMessage(`Erro inesperado: ${error.message}`);
-        } finally {
             setLoading(false);
         }
     };
 
     if (!userEmail) {
-        return <LoadingSpinner />;
+        return <LoadingSpinner fullScreen text="Verificando conta..." />;
     }
 
     return (
@@ -115,10 +109,10 @@ export default function ActivateAccountPage() {
 
                     <button
                         type="submit"
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
+                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors"
                         disabled={loading}
                     >
-                        {loading ? 'Ativando...' : 'Ativar Conta'}
+                        {loading ? 'Ativando e Configurando...' : 'Ativar Conta'}
                     </button>
                 </form>
 
