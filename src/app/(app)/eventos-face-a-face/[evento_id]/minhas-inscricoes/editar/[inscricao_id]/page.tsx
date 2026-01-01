@@ -11,24 +11,20 @@ import {
 import {
     InscricaoFaceAFace,
     InscricaoFaceAFaceStatus,
-    InscricaoFaceAFaceEstadoCivil,
-    InscricaoFaceAFaceTamanhoCamiseta,
-    InscricaoFaceAFaceTipoParticipacao
 } from '@/lib/types';
-import { formatDateForDisplay, formatPhoneNumberDisplay, normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
+import { formatPhoneNumberDisplay, normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 import {
-    FaArrowLeft, FaEdit, FaSave, FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, 
+    FaArrowLeft, FaEdit, FaSave, FaUser, FaBirthdayCake, FaPhone, FaMapMarkerAlt, 
     FaRing, FaTshirt, FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, 
-    FaHeart, FaMoneyBillWave, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaFileAlt, 
-    FaEye, FaUpload, FaTimes, FaChevronDown, FaSearch, FaCalendarAlt
+    FaHeart, FaMoneyBillWave, FaCheckCircle, FaFileAlt, 
+    FaEye, FaUpload, FaTimes, FaChevronDown, FaSearch, FaIdCard
 } from 'react-icons/fa';
 
-// --- COMPONENTES VISUAIS (COM MELHORIAS DE CONTRASTE) ---
+// --- COMPONENTES AUXILIARES ---
 
-// 1. BirthDateSelect
 const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) => {
     const [day, setDay] = useState('');
     const [month, setMonth] = useState('');
@@ -100,12 +96,10 @@ const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) =>
                     {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
                 </div>
             </div>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
         </div>
     );
 };
 
-// 2. CustomSelectSheet
 interface CustomSelectSheetProps {
     label: string; value: string; onChange: (value: string) => void; options: { id: string; nome: string }[];
     icon: React.ReactNode; placeholder?: string; searchable?: boolean; required?: boolean; error?: string | null; disabled?: boolean;
@@ -133,7 +127,6 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
                 <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
                 {!disabled && <FaChevronDown className="text-gray-500 text-xs ml-2" />}
             </button>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /><span>{error}</span></p>}
             {isOpen && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
                     <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
@@ -167,56 +160,43 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
-// 3. InputField
 interface InputFieldProps {
-    label: string; name: keyof InscricaoFaceAFace; value: string | number | null | boolean;
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-    onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    label: string; name: string; value: string | number | null | boolean;
+    onChange: (e: any) => void; onBlur?: (e: any) => void;
     error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string;
     maxLength?: number; rows?: number; disabled?: boolean; readOnly?: boolean; toggle?: boolean;
 }
 const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle }: InputFieldProps) => {
-    const isTextarea = type === 'textarea';
-    const isCheckbox = type === 'checkbox';
-    
-    // MODO TOGGLE (SWITCH) - MELHORADO
     if (toggle) {
         const booleanValue = !!value;
         return (
-            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between transition-all hover:border-gray-400 shadow-sm">
+            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3 pr-2">
                     {Icon && <Icon className={booleanValue ? "w-5 h-5 text-green-700" : "w-5 h-5 text-gray-500"} />}
-                    <label htmlFor={name} className="text-sm font-bold text-gray-900 cursor-pointer select-none">
-                        {label} {required && <span className="text-red-600">*</span>}
-                    </label>
+                    <label htmlFor={name} className="text-sm font-bold text-gray-900 cursor-pointer">{label}</label>
                 </div>
-                <label htmlFor={name} className="relative inline-flex items-center cursor-pointer">
+                <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id={name} name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" disabled={disabled} />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-green-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all border-gray-300"></div>
                 </label>
-                {error && <p className="text-red-600 text-sm flex items-center space-x-1 mt-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
             </div>
         );
     }
 
-    // MODO INPUT / TEXTAREA - MELHORADO
     return (
         <div className="space-y-1">
             <label htmlFor={name} className="block text-sm font-bold text-gray-800 flex items-center gap-2">
                 {Icon && <Icon className={error ? "text-red-600" : "text-green-600"} />} 
                 {label} {required && <span className="text-red-600">*</span>}
             </label>
-            <div className="relative">
-                {isTextarea ? (
-                    <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''}`} />
-                ) : (
-                    <input type={type} id={name} name={name} value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} checked={isCheckbox ? (value as boolean) : undefined}
-                        onChange={isCheckbox ? (e) => onChange({ ...e, target: { ...e.target, value: e.target.checked } as any }) : onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} />
-                )}
-            </div>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
+            {type === 'textarea' ? (
+                <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                    className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100' : ''}`} />
+            ) : (
+                <input type={type} id={name} name={name} value={(value || '').toString()} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                    className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100' : ''}`} />
+            )}
+            {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
         </div>
     );
 };
@@ -234,33 +214,26 @@ export default function LiderEditarInscricaoPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<string, boolean>>({});
+    
+    // Estados de Upload
     const [fileEntrada, setFileEntrada] = useState<File | null>(null);
     const [uploadingEntrada, setUploadingEntrada] = useState(false);
     const [fileRestante, setFileRestante] = useState<File | null>(null);
     const [uploadingRestante, setUploadingRestante] = useState(false);
+
+    // Refs para os inputs de arquivo (Melhoria para Mobile)
+    const inputEntradaRef = useRef<HTMLInputElement>(null);
+    const inputRestanteRef = useRef<HTMLInputElement>(null);
+
     const router = useRouter();
     const { addToast, ToastContainer } = useToast();
-
-    // Cálculo automático de idade quando a data muda
-    useEffect(() => {
-        if (formData.data_nascimento && formData.data_nascimento.length === 10) {
-            const birthDate = new Date(formData.data_nascimento);
-            const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const m = today.getMonth() - birthDate.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-            if (age >= 0 && age < 120 && !inscricaoOriginal?.membro_id) { 
-                setFormData(prev => ({ ...prev, idade: age }));
-            }
-        }
-    }, [formData.data_nascimento, inscricaoOriginal?.membro_id]);
 
     const fetchInscricaoDetails = useCallback(async () => {
         setLoading(true);
         try {
             const data = await getInscricaoFaceAFaceParaLider(inscricaoId);
             if (!data) {
-                addToast('Inscrição não encontrada ou permissão negada.', 'error');
+                addToast('Inscrição não encontrada.', 'error');
                 router.replace(`/eventos-face-a-face/${eventoId}/minhas-inscricoes`);
                 return;
             }
@@ -278,158 +251,252 @@ export default function LiderEditarInscricaoPage() {
 
     useEffect(() => { if (inscricaoId && eventoId) fetchInscricaoDetails(); }, [inscricaoId, eventoId, fetchInscricaoDetails]);
 
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string, value: any } }) => {
-        const { name, value } = e.target;
-        const type = (e.target as HTMLInputElement).type;
-        const checked = (e.target as HTMLInputElement).checked;
-        
-        let newValue: any = value;
-        if (type === 'checkbox') newValue = checked;
-        else if (name === 'contato_pessoal' || name === 'contato_emergencia') newValue = formatPhoneNumberDisplay(normalizePhoneNumber(value));
-        
+    const handleChange = (e: any) => {
+        const { name, value, type, checked } = e.target;
+        let newValue = type === 'checkbox' ? checked : value;
+        if (name === 'contato_pessoal' || name === 'contato_emergencia') {
+            newValue = formatPhoneNumberDisplay(normalizePhoneNumber(value));
+        }
         setFormData(prev => ({ ...prev, [name]: newValue }));
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        setTouched(prev => ({ ...prev, [name]: true }));
+    };
 
-    const handleSelectChange = useCallback((name: keyof InscricaoFaceAFace, value: string | boolean) => {
+    const handleSelectChange = (name: string, value: any) => {
         setFormData(prev => ({ ...prev, [name]: value }));
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        setTouched(prev => ({ ...prev, [name]: true }));
+    };
 
-    const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name } = e.target;
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
-
-    const getFieldError = (fieldName: keyof InscricaoFaceAFace): string | null => {
+    const getFieldError = (fieldName: string): string | null => {
         if (!touched[fieldName]) return null;
-        const value = formData[fieldName];
+        const value = formData[fieldName as keyof InscricaoFaceAFace];
         if (fieldName === 'nome_completo_participante' && !value) return 'Nome obrigatório.';
-        if ((fieldName === 'contato_pessoal' || fieldName === 'contato_emergencia') && (!value || normalizePhoneNumber(String(value)).length < 10)) return 'Mín. 10 dígitos.';
-        if (fieldName === 'estado_civil' && !value) return 'Obrigatório.';
-        if (fieldName === 'tamanho_camiseta' && !value) return 'Obrigatório.';
-        if (fieldName === 'tipo_participacao' && !value) return 'Obrigatório.';
-        if (fieldName === 'nome_esposo' && formData.estado_civil === 'CASADA' && !value) return 'Obrigatório.';
-        if (fieldName === 'nome_outra_igreja' && formData.pertence_outra_igreja && !value) return 'Obrigatório.';
+        if (['contato_pessoal', 'contato_emergencia'].includes(fieldName) && (!value || normalizePhoneNumber(String(value)).length < 10)) return 'Mín. 10 dígitos.';
         return null;
     };
 
-    const hasErrors = useCallback(() => {
-        const fields: (keyof InscricaoFaceAFace)[] = ['nome_completo_participante', 'contato_pessoal', 'estado_civil', 'tamanho_camiseta', 'tipo_participacao'];
-        return fields.some(f => getFieldError(f) !== null);
-    }, [formData, touched]);
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-        if (hasErrors()) return addToast('Corrija os erros.', 'error');
         setSubmitting(true);
         try {
-            await atualizarInscricaoFaceAFaceLider(inscricaoId, { ...formData, contato_pessoal: normalizePhoneNumber(String(formData.contato_pessoal)), contato_emergencia: normalizePhoneNumber(String(formData.contato_emergencia)) });
-            addToast('Atualizado!', 'success');
+            await atualizarInscricaoFaceAFaceLider(inscricaoId, { 
+                ...formData, 
+                contato_pessoal: normalizePhoneNumber(String(formData.contato_pessoal)), 
+                contato_emergencia: normalizePhoneNumber(String(formData.contato_emergencia)) 
+            });
+            addToast('Dados salvos com sucesso!', 'success');
             await fetchInscricaoDetails();
-        } catch (e: any) { addToast(`Erro: ${e.message}`, 'error'); } finally { setSubmitting(false); }
+        } catch (e: any) { 
+            addToast(`Erro: ${e.message}`, 'error'); 
+        } finally { 
+            setSubmitting(false); 
+        }
     };
 
-    const handleFileUpload = async (file: File | null, tipo: 'entrada' | 'restante') => {
-        if (!file) return addToast('Selecione um arquivo.', 'warning');
-        if (tipo === 'entrada') setUploadingEntrada(true); else setUploadingRestante(true);
+    // --- LOGICA DE UPLOAD REFORÇADA PARA MOBILE ---
+    const handleFileUpload = async (tipo: 'entrada' | 'restante') => {
+        const file = tipo === 'entrada' ? fileEntrada : fileRestante;
+        if (!file) return addToast('Selecione um arquivo primeiro.', 'warning');
+
+        if (tipo === 'entrada') setUploadingEntrada(true); 
+        else setUploadingRestante(true);
+
         try {
             await uploadComprovanteFaceAFace(inscricaoId, tipo, file);
-            addToast('Enviado com sucesso!', 'success');
+            addToast('Comprovante enviado com sucesso!', 'success');
+            
+            // Limpa o estado do arquivo local
+            if (tipo === 'entrada') setFileEntrada(null);
+            else setFileRestante(null);
+
             await fetchInscricaoDetails();
-        } catch (e: any) { addToast(`Erro: ${e.message}`, 'error'); } finally {
-            if (tipo === 'entrada') { setUploadingEntrada(false); setFileEntrada(null); } else { setUploadingRestante(false); setFileRestante(null); }
+        } catch (e: any) { 
+            addToast(`Erro no upload: ${e.message}`, 'error'); 
+        } finally {
+            setUploadingEntrada(false); 
+            setUploadingRestante(false);
         }
     };
 
     if (loading || !inscricaoOriginal) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
+    
     const inscricao = inscricaoOriginal;
-    const isComprovanteEntradaUploadable = inscricao.status_pagamento === 'PENDENTE' || inscricao.status_pagamento === 'AGUARDANDO_CONFIRMACAO_ENTRADA';
-    const isComprovanteRestanteUploadable = inscricao.status_pagamento === 'ENTRADA_CONFIRMADA' || inscricao.status_pagamento === 'AGUARDANDO_CONFIRMACAO_RESTANTE';
+    const isComprovanteEntradaUploadable = ['PENDENTE', 'AGUARDANDO_CONFIRMACAO_ENTRADA'].includes(inscricao.status_pagamento);
+    const isComprovanteRestanteUploadable = ['ENTRADA_CONFIRMADA', 'AGUARDANDO_CONFIRMACAO_RESTANTE'].includes(inscricao.status_pagamento);
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8 font-sans">
             <ToastContainer />
             <div className="max-w-4xl mx-auto mt-4 sm:mt-0">
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-6 sm:px-6 sm:py-8">
-                        <div className="flex justify-between items-center"><h1 className="text-2xl font-bold text-white flex gap-2"><FaEdit /> Editar Inscrição</h1></div>
+                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+                    
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-8 text-white">
+                        <div className="flex justify-between items-center">
+                            <h1 className="text-2xl font-bold flex items-center gap-3"><FaEdit /> Editar Inscrição</h1>
+                            <Link href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} className="bg-white/20 p-2 rounded-lg hover:bg-white/30 transition-colors">
+                                <FaArrowLeft />
+                            </Link>
+                        </div>
                     </div>
-                    <div className="p-4 sm:p-8">
-                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-                            
-                            {/* STATUS PAGAMENTO & UPLOAD (Manteve igual, resumido aqui) */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2"><FaMoneyBillWave /> Status: {inscricao.status_pagamento.replace(/_/g, ' ')}</h2>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Uploads simplificados */}
-                                <div className="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
-                                    <h3 className="font-bold text-gray-900 flex gap-2"><FaFileAlt/> Comprovante Entrada</h3>
-                                    {inscricao.caminho_comprovante_entrada && <a href={inscricao.caminho_comprovante_entrada} target="_blank" className="text-blue-600 text-sm underline">Ver Enviado</a>}
-                                    <input type="file" onChange={(e) => setFileEntrada(e.target.files?.[0] || null)} disabled={!isComprovanteEntradaUploadable} className="w-full mt-2 text-sm text-gray-700" />
-                                    <button type="button" onClick={() => handleFileUpload(fileEntrada, 'entrada')} disabled={uploadingEntrada || !fileEntrada} className="mt-2 w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50">{uploadingEntrada ? 'Enviando...' : 'Enviar'}</button>
-                                </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
-                                    <h3 className="font-bold text-gray-900 flex gap-2"><FaFileAlt/> Comprovante Restante</h3>
-                                    {inscricao.caminho_comprovante_restante && <a href={inscricao.caminho_comprovante_restante} target="_blank" className="text-blue-600 text-sm underline">Ver Enviado</a>}
-                                    <input type="file" onChange={(e) => setFileRestante(e.target.files?.[0] || null)} disabled={!isComprovanteRestanteUploadable} className="w-full mt-2 text-sm text-gray-700" />
-                                    <button type="button" onClick={() => handleFileUpload(fileRestante, 'restante')} disabled={uploadingRestante || !fileRestante} className="mt-2 w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50">{uploadingRestante ? 'Enviando...' : 'Enviar'}</button>
+
+                    <div className="p-4 sm:p-8 space-y-10">
+                        
+                        {/* SEÇÃO DE PAGAMENTO E UPLOAD REFEITA PARA MOBILE */}
+                        <section className="space-y-6">
+                            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                                <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaMoneyBillWave size={20} /></div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-900">Pagamento e Comprovantes</h2>
+                                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Status: {inscricao.status_pagamento.replace(/_/g, ' ')}</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-4 pt-4 border-t border-gray-100">
-                                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FaUser /> Dados do Participante</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('nome_completo_participante')} required icon={FaUser} disabled={!!inscricao.membro_id} readOnly={!!inscricao.membro_id} />
-                                    
-                                    <BirthDateSelect value={formData.data_nascimento} onChange={handleChange} required disabled={!!inscricao.membro_id} error={getFieldError('data_nascimento')} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* CARD UPLOAD ENTRADA */}
+                                <div className={`p-5 rounded-2xl border-2 transition-all ${isComprovanteEntradaUploadable ? 'border-dashed border-gray-200 bg-gray-50/50' : 'border-solid border-green-100 bg-green-50/30'}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm"><FaFileAlt className="text-blue-500" /> Sinal / Entrada</h3>
+                                        {inscricao.caminho_comprovante_entrada && (
+                                            <a href={inscricao.caminho_comprovante_entrada} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1">
+                                                <FaEye /> Ver atual
+                                            </a>
+                                        )}
+                                    </div>
 
-                                    <InputField label="Idade" name="idade" value={formData.idade ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('idade')} type="number" required icon={FaBirthdayCake} disabled={!!inscricao.membro_id} readOnly={!!inscricao.membro_id} />
-                                    <InputField label="CPF" name="cpf" value={formData.cpf ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('cpf')} icon={FaIdCard} maxLength={14} />
-                                    <InputField label="RG" name="rg" value={formData.rg ?? ''} onChange={handleChange} onBlur={handleBlur} icon={FaIdCard} />
-                                    <InputField label="Celular" name="contato_pessoal" value={formData.contato_pessoal ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('contato_pessoal')} required icon={FaPhone} disabled={!!inscricao.membro_id} readOnly={!!inscricao.membro_id} />
-                                    <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('contato_emergencia')} required icon={FaPhone} />
+                                    {isComprovanteEntradaUploadable ? (
+                                        <div className="space-y-3">
+                                            {/* Input Escondido mas acessível por Ref */}
+                                            <input 
+                                                type="file" 
+                                                ref={inputEntradaRef} 
+                                                onChange={(e) => setFileEntrada(e.target.files?.[0] || null)} 
+                                                className="hidden" 
+                                                accept="image/*,application/pdf"
+                                            />
+                                            {/* Botão de Seleção Grande */}
+                                            <button 
+                                                type="button" 
+                                                onClick={() => inputEntradaRef.current?.click()}
+                                                className="w-full py-4 px-4 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 text-sm font-medium flex flex-col items-center gap-2 hover:bg-blue-50 transition-colors"
+                                            >
+                                                {fileEntrada ? <FaCheckCircle className="text-green-500" /> : <FaUpload />}
+                                                {fileEntrada ? fileEntrada.name : "Selecionar Comprovante"}
+                                            </button>
+                                            {/* Botão de Envio */}
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleFileUpload('entrada')} 
+                                                disabled={uploadingEntrada || !fileEntrada} 
+                                                className="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700 disabled:opacity-50 disabled:bg-gray-300 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {uploadingEntrada ? <LoadingSpinner size="sm" color="white" /> : "Fazer Upload do Sinal"}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="py-4 text-center text-green-700 text-xs font-bold bg-green-100/50 rounded-xl flex items-center justify-center gap-2">
+                                            <FaCheckCircle /> Comprovante de entrada processado
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                <InputField label="Endereço" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={!!inscricao.membro_id} readOnly={!!inscricao.membro_id} />
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                {/* CARD UPLOAD RESTANTE */}
+                                <div className={`p-5 rounded-2xl border-2 transition-all ${isComprovanteRestanteUploadable ? 'border-dashed border-gray-200 bg-gray-50/50' : 'border-solid border-green-100 bg-green-50/30'}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm"><FaFileAlt className="text-purple-500" /> Quitação / Restante</h3>
+                                        {inscricao.caminho_comprovante_restante && (
+                                            <a href={inscricao.caminho_comprovante_restante} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1">
+                                                <FaEye /> Ver atual
+                                            </a>
+                                        )}
+                                    </div>
+
+                                    {isComprovanteRestanteUploadable ? (
+                                        <div className="space-y-3">
+                                            <input 
+                                                type="file" 
+                                                ref={inputRestanteRef} 
+                                                onChange={(e) => setFileRestante(e.target.files?.[0] || null)} 
+                                                className="hidden" 
+                                                accept="image/*,application/pdf"
+                                            />
+                                            <button 
+                                                type="button" 
+                                                onClick={() => inputRestanteRef.current?.click()}
+                                                className="w-full py-4 px-4 border-2 border-dashed border-purple-200 rounded-xl text-purple-600 text-sm font-medium flex flex-col items-center gap-2 hover:bg-purple-50 transition-colors"
+                                            >
+                                                {fileRestante ? <FaCheckCircle className="text-green-500" /> : <FaUpload />}
+                                                {fileRestante ? fileRestante.name : "Selecionar Comprovante"}
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleFileUpload('restante')} 
+                                                disabled={uploadingRestante || !fileRestante} 
+                                                className="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700 disabled:opacity-50 disabled:bg-gray-300 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {uploadingRestante ? <LoadingSpinner size="sm" color="white" /> : "Fazer Upload da Quitação"}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="py-4 text-center text-gray-400 text-xs font-bold bg-gray-100 rounded-xl flex items-center justify-center gap-2">
+                                            {inscricao.status_pagamento === 'PAGO_TOTAL' ? <><FaCheckCircle className="text-green-600"/> Pago Total</> : "Aguarde confirmação do sinal"}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+
+                        <form onSubmit={handleSubmit} className="space-y-10">
+                            {/* DADOS PESSOAIS */}
+                            <section className="space-y-6">
+                                <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaUser size={20} /></div>
+                                    <h2 className="text-lg font-bold text-gray-800">Dados do Participante</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante ?? ''} onChange={handleChange} error={getFieldError('nome_completo_participante')} required icon={FaUser} disabled={!!inscricao.membro_id} readOnly={!!inscricao.membro_id} />
+                                    <BirthDateSelect value={formData.data_nascimento} onChange={handleChange} required disabled={!!inscricao.membro_id} />
+                                    <InputField label="Idade" name="idade" value={formData.idade ?? ''} onChange={handleChange} type="number" required icon={FaBirthdayCake} disabled={!!inscricao.membro_id} readOnly={!!inscricao.membro_id} />
+                                    <InputField label="CPF" name="cpf" value={formData.cpf ?? ''} onChange={handleChange} icon={FaIdCard} maxLength={14} />
+                                    <InputField label="Celular" name="contato_pessoal" value={formData.contato_pessoal ?? ''} onChange={handleChange} required icon={FaPhone} disabled={!!inscricao.membro_id} />
+                                    <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia ?? ''} onChange={handleChange} required icon={FaPhone} />
+                                </div>
+                                <InputField label="Endereço Residencial" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={!!inscricao.membro_id} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <CustomSelectSheet label="Estado Civil" icon={<FaRing />} value={formData.estado_civil ?? ''} onChange={(val) => handleSelectChange('estado_civil', val)} options={[{id:'SOLTEIRA',nome:'Solteira'},{id:'CASADA',nome:'Casada'},{id:'DIVORCIADA',nome:'Divorciada'},{id:'VIÚVA',nome:'Viúva'},{id:'UNIÃO ESTÁVEL',nome:'União Estável'}]} required disabled={!!inscricao.membro_id} />
-                                    {formData.estado_civil === 'CASADA' && <InputField label="Nome Esposo" name="nome_esposo" value={formData.nome_esposo ?? ''} onChange={handleChange} required icon={FaUser} />}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <CustomSelectSheet label="Camiseta" icon={<FaTshirt />} value={formData.tamanho_camiseta ?? ''} onChange={(val) => handleSelectChange('tamanho_camiseta', val)} options={['PP','P','M','G','GG','G1','G2','G3'].map(t=>({id:t,nome:t}))} required />
-                                    <CustomSelectSheet label="Papel" icon={<FaTransgender />} value={formData.tipo_participacao ?? ''} onChange={(val) => handleSelectChange('tipo_participacao', val)} options={[{id:'Encontrista',nome:'Encontrista'},{id:'Encontreiro',nome:'Encontreiro'}]} required />
                                 </div>
-                            </div>
+                            </section>
 
-                            <div className="space-y-4 pt-4 border-t border-gray-100">
-                                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FaChurch /> Igreja & Saúde</h2>
-                                <InputField label="Membro IBA?" name="eh_membro_ib_apascentar" value={formData.eh_membro_ib_apascentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaChurch} disabled={!!inscricao.membro_id} />
-                                {!formData.eh_membro_ib_apascentar && (
-                                    <>
-                                        <InputField label="Outra Igreja?" name="pertence_outra_igreja" value={formData.pertence_outra_igreja ?? false} onChange={handleChange} type="checkbox" toggle icon={FaChurch} />
-                                        {formData.pertence_outra_igreja && <InputField label="Qual?" name="nome_outra_igreja" value={formData.nome_outra_igreja ?? ''} onChange={handleChange} required />}
-                                    </>
-                                )}
-                                <InputField label="Dificuldade Beliche?" name="dificuldade_dormir_beliche" value={formData.dificuldade_dormir_beliche ?? false} onChange={handleChange} type="checkbox" toggle icon={FaBed} />
-                                <InputField label="Restrição Alimentar?" name="restricao_alimentar" value={formData.restricao_alimentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaUtensils} />
-                                <InputField label="Deficiência?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental ?? false} onChange={handleChange} type="checkbox" toggle icon={FaWheelchair} />
-                                <InputField label="Remédio Controlado?" name="toma_medicamento_controlado" value={formData.toma_medicamento_controlado ?? false} onChange={handleChange} type="checkbox" toggle icon={FaPills} />
-                                <InputField label="Sonhos com Deus" name="descricao_sonhos" value={formData.descricao_sonhos ?? ''} onChange={handleChange} type="textarea" required icon={FaHeart} />
-                            </div>
+                            {/* IGREJA E SAÚDE */}
+                            <section className="space-y-6">
+                                <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                                    <div className="p-2 bg-orange-100 text-orange-600 rounded-xl"><FaChurch size={20} /></div>
+                                    <h2 className="text-lg font-bold text-gray-800">Igreja & Saúde</h2>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <InputField label="Membro da Igreja Apascentar?" name="eh_membro_ib_apascentar" value={formData.eh_membro_ib_apascentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaChurch} disabled={!!inscricao.membro_id} />
+                                    <InputField label="Dificuldade com Beliche?" name="dificuldade_dormir_beliche" value={formData.dificuldade_dormir_beliche ?? false} onChange={handleChange} type="checkbox" toggle icon={FaBed} />
+                                    <InputField label="Possui Restrição Alimentar?" name="restricao_alimentar" value={formData.restricao_alimentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaUtensils} />
+                                    <InputField label="Deficiência Física ou Mental?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental ?? false} onChange={handleChange} type="checkbox" toggle icon={FaWheelchair} />
+                                </div>
+                                <InputField label="O que você espera de Deus no Face a Face?" name="descricao_sonhos" value={formData.descricao_sonhos ?? ''} onChange={handleChange} type="textarea" rows={4} required icon={FaHeart} placeholder="Conte um pouco sobre suas expectativas..." />
+                            </section>
 
-                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
+                            {/* AÇÕES FINAIS */}
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-8 border-t border-gray-100">
                                 <Link 
                                     href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} 
-                                    className="px-6 py-4 sm:py-3 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 active:bg-gray-100 text-center transition-colors"
+                                    className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all text-center"
                                 >
                                     Cancelar
                                 </Link>
-                                <button type="submit" disabled={submitting || loading} className="px-6 py-4 sm:py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center justify-center gap-2">{submitting ? 'Salvando...' : 'Salvar Alterações'}</button>
+                                <button 
+                                    type="submit" 
+                                    disabled={submitting} 
+                                    className="px-8 py-4 bg-green-600 text-white rounded-2xl font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {submitting ? <LoadingSpinner size="sm" color="white" /> : <><FaSave /> Salvar Alterações</>}
+                                </button>
                             </div>
                         </form>
                     </div>
