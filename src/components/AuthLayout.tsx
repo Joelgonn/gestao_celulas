@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useRouter, usePathname } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -11,14 +11,17 @@ const LOGOUT_ROUTE = '/logout';
 const PUBLIC_INVITE_ROUTE_PREFIX = '/convite/';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+    // Inicializamos como true apenas se não houver indício de sessão
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
+    
+    // Ref para evitar múltiplas verificações simultâneas
+    const isChecking = useRef(false);
 
     const router = useRouter();
     const pathname = usePathname();
 
-    // Função para buscar ou criar o perfil do usuário
     const fetchProfile = useCallback(async (userId: string, email: string | undefined) => {
         const { data, error } = await supabase
             .from('profiles')
@@ -27,7 +30,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             .single();
 
         if (error && error.code === 'PGRST116') {
-            // Perfil não existe, cria um novo como líder sem célula
             const { data: newProfile, error: insertError } = await supabase
                 .from('profiles')
                 .insert({
@@ -42,55 +44,58 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             if (insertError) return null;
             return newProfile;
         }
-
         return data || null;
     }, []);
 
-    const checkAccess = useCallback(async () => {
-        setLoading(true);
+    const checkAccess = useCallback(async (isInitialLoad = false) => {
+        if (isChecking.current) return;
+        isChecking.current = true;
+
+        // Só mostramos o loading de tela cheia no primeiro carregamento
+        // ou se não houver dados de sessão/perfil salvos.
+        if (isInitialLoad) setLoading(true);
         
-        // 1. Obter sessão atual
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        setSession(currentSession);
+        try {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            setSession(currentSession);
 
-        if (!currentSession) {
-            // Não logado: permite apenas rotas de auth ou convite
-            if (!AUTH_ROUTES.includes(pathname) && !pathname.startsWith(PUBLIC_INVITE_ROUTE_PREFIX)) {
-                router.replace('/login');
+            const isPublicInvite = pathname.startsWith(PUBLIC_INVITE_ROUTE_PREFIX);
+            const isAuthRoute = AUTH_ROUTES.includes(pathname);
+            const isActivateRoute = pathname === ACTIVATE_ACCOUNT_ROUTE;
+
+            if (!currentSession) {
+                if (!isAuthRoute && !isPublicInvite) {
+                    router.replace('/login');
+                }
+                setLoading(false);
+                return;
             }
+
+            // Busca o perfil
+            const userProfile = await fetchProfile(currentSession.user.id, currentSession.user.email);
+            setProfile(userProfile);
+
+            if (isPublicInvite) {
+                setLoading(false);
+                return;
+            }
+
+            // Lógica de Redirecionamento (Sem interromper a UI se já estiver correto)
+            if (!userProfile || (userProfile.role === 'líder' && !userProfile.celula_id)) {
+                if (!isActivateRoute) {
+                    router.replace(ACTIVATE_ACCOUNT_ROUTE);
+                }
+            } else {
+                if (isAuthRoute || isActivateRoute) {
+                    router.replace('/dashboard');
+                }
+            }
+        } catch (err) {
+            console.error("Erro no checkAccess:", err);
+        } finally {
             setLoading(false);
-            return;
+            isChecking.current = false;
         }
-
-        // 2. Logado: Buscar Perfil
-        const userProfile = await fetchProfile(currentSession.user.id, currentSession.user.email);
-        setProfile(userProfile);
-
-        // 3. Lógica de Redirecionamento
-        const isAuthRoute = AUTH_ROUTES.includes(pathname);
-        const isActivateRoute = pathname === ACTIVATE_ACCOUNT_ROUTE;
-        const isPublicInvite = pathname.startsWith(PUBLIC_INVITE_ROUTE_PREFIX);
-
-        // Se for rota de convite, permite visualizar independente de estar logado ou não
-        if (isPublicInvite) {
-            setLoading(false);
-            return;
-        }
-
-        // Se não tem perfil ou é líder sem célula -> Forçar Ativação
-        if (!userProfile || (userProfile.role === 'líder' && !userProfile.celula_id)) {
-            if (!isActivateRoute) {
-                router.replace(ACTIVATE_ACCOUNT_ROUTE);
-            }
-        } 
-        // Se já está ativo (Admin ou Líder com célula) -> Tirar da tela de Login/Ativação
-        else {
-            if (isAuthRoute || isActivateRoute) {
-                router.replace('/dashboard');
-            }
-        }
-
-        setLoading(false);
     }, [pathname, router, fetchProfile]);
 
     useEffect(() => {
@@ -99,16 +104,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             return;
         }
 
-        checkAccess();
+        // Executa a verificação inicial
+        checkAccess(true);
 
-        // Escuta mudanças na autenticação (login/logout)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                checkAccess();
+                // Verificação silenciosa nas mudanças de estado
+                checkAccess(false);
             }
             if (event === 'SIGNED_OUT') {
                 setSession(null);
                 setProfile(null);
+                setLoading(false);
                 router.replace('/login');
             }
         });
@@ -116,9 +123,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         return () => subscription.unsubscribe();
     }, [pathname, checkAccess, router]);
 
-    // Renderização
-    if (loading && !pathname.startsWith(PUBLIC_INVITE_ROUTE_PREFIX)) {
-        return <LoadingSpinner fullScreen text="Verificando permissões..." />;
+    // O segredo está aqui: Se já temos uma sessão, não mostramos o loading 
+    // mesmo que o checkAccess esteja rodando em background (comum no mobile).
+    if (loading && !session && !pathname.startsWith(PUBLIC_INVITE_ROUTE_PREFIX)) {
+        return <LoadingSpinner fullScreen text="Carregando dados..." />;
     }
 
     return <>{children}</>;
