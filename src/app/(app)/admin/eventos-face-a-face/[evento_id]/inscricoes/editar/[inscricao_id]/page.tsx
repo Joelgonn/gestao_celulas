@@ -10,6 +10,7 @@ import {
 import {
     InscricaoFaceAFace,
     InscricaoFaceAFaceStatus,
+    InscricaoFaceAFaceTipoParticipacao
 } from '@/lib/types';
 import { formatDateForDisplay, formatPhoneNumberDisplay, normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
@@ -19,20 +20,8 @@ import {
     FaArrowLeft, FaEdit, FaSave, FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, 
     FaRing, FaTshirt, FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, 
     FaHeart, FaMoneyBillWave, FaCheckCircle, FaInfoCircle, FaEye, FaTimes, FaChevronDown, 
-    FaSearch, FaSpinner, FaPen, FaCalendarAlt, FaToggleOn, FaToggleOff,
-    FaUsers, // Adicionado para corrigir o erro de build
-    FaFileAlt
+    FaSearch, FaSpinner, FaPen, FaCalendarAlt, FaToggleOn, FaToggleOff, FaUsers, FaFileAlt
 } from 'react-icons/fa';
-
-// --- FUNÇÕES AUXILIARES ---
-const formatNameTitleCase = (name: string) => {
-    if (!name) return '';
-    const exceptions = ['da', 'de', 'do', 'das', 'dos', 'e'];
-    return name.toLowerCase().split(' ').map((word, index) => {
-        if (index > 0 && exceptions.includes(word)) return word;
-        return word.charAt(0).toUpperCase() + word.slice(1);
-    }).join(' ');
-};
 
 // --- COMPONENTES REFINADOS ---
 
@@ -145,7 +134,7 @@ const InputField = ({ label, name, value, onChange, error, type = 'text', requir
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" />
-                    <div className="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    <div className="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
             </div>
         );
@@ -181,7 +170,7 @@ export default function AdminEditarInscricaoPage() {
     const inscricaoId = params.inscricao_id as string;
 
     const [inscricaoOriginal, setInscricaoOriginal] = useState<InscricaoFaceAFace | null>(null);
-    const [formData, setFormData] = useState<Partial<InscricaoFaceAFace>>({}); 
+    const [formData, setFormData] = useState<any>({}); 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -212,13 +201,13 @@ export default function AdminEditarInscricaoPage() {
         const { name, value, type, checked } = e.target;
         let val = type === 'checkbox' ? checked : value;
         if (name === 'contato_pessoal' || name === 'contato_emergencia') val = formatPhoneNumberDisplay(normalizePhoneNumber(value));
-        setFormData(prev => ({ ...prev, [name]: val }));
-        setTouched(prev => ({ ...prev, [name]: true }));
+        setFormData((prev: any) => ({ ...prev, [name]: val }));
+        setTouched((prev: any) => ({ ...prev, [name]: true }));
     };
 
-    const handleSelectChange = (name: keyof InscricaoFaceAFace, value: any) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
-        setTouched(prev => ({ ...prev, [name]: true }));
+    const handleSelectChange = (name: string, value: any) => {
+        setFormData((prev: any) => ({ ...prev, [name]: value }));
+        setTouched((prev: any) => ({ ...prev, [name]: true }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -265,7 +254,7 @@ export default function AdminEditarInscricaoPage() {
                                 <FaMoneyBillWave /> Gestão Financeira
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <CustomSelectSheet label="Status de Pagamento" icon={<FaMoneyBillWave />} value={formData.status_pagamento} onChange={(v:any) => handleSelectChange('status_pagamento', v)} options={[{id:'PENDENTE',nome:'Pendente'},{id:'ENTRADA_CONFIRMADA',nome:'Entrada Confirmada'},{id:'PAGO_TOTAL',nome:'Pago Total'},{id:'CANCELADO',nome:'Cancelado'}]} />
+                                <CustomSelectSheet label="Status de Pagamento" icon={<FaMoneyBillWave />} value={formData.status_pagamento} onChange={(v:any) => handleSelectChange('status_pagamento', v)} options={[{id:'PENDENTE',nome:'Pendente'},{id:'AGUARDANDO_CONFIRMACAO_ENTRADA',nome:'Aguardando Conf. Entrada'},{id:'ENTRADA_CONFIRMADA',nome:'Entrada Confirmada'},{id:'AGUARDANDO_CONFIRMACAO_RESTANTE',nome:'Aguardando Conf. Restante'},{id:'PAGO_TOTAL',nome:'Pago Total'},{id:'CANCELADO',nome:'Cancelado'}]} />
                                 <InputField label="Obs. Pagamento" name="admin_observacao_pagamento" value={formData.admin_observacao_pagamento} onChange={handleChange} icon={FaInfoCircle} />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -285,28 +274,48 @@ export default function AdminEditarInscricaoPage() {
                                     <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante} onChange={handleChange} required icon={FaPen} />
                                     <BirthDateSelect value={formData.data_nascimento} onChange={handleChange} />
                                     <InputField label="Idade" name="idade" value={formData.idade} onChange={handleChange} type="number" required icon={FaBirthdayCake} />
-                                    <InputField label="CPF" name="cpf" value={formData.cpf} onChange={handleChange} icon={FaIdCard} />
+                                    <InputField label="CPF" name="cpf" value={formData.cpf} onChange={handleChange} icon={FaIdCard} placeholder="000.000.000-00" />
+                                    <InputField label="RG" name="rg" value={formData.rg} onChange={handleChange} icon={FaIdCard} />
                                     <InputField label="Celular" name="contato_pessoal" value={formData.contato_pessoal} onChange={handleChange} required icon={FaPhone} />
                                     <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia} onChange={handleChange} required icon={FaPhone} />
                                 </div>
+                                <InputField label="Endereço Completo" name="endereco_completo" value={formData.endereco_completo} onChange={handleChange} icon={FaMapMarkerAlt} placeholder="Rua, número, bairro e cidade" />
                             </section>
 
-                            {/* Bloco 2: Saúde e Perfil */}
+                            {/* Bloco 2: Perfil e Preferências */}
                             <section className="space-y-6">
                                 <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
                                     <div className="p-2 bg-pink-100 text-pink-600 rounded-xl"><FaUsers size={16}/></div>
-                                    Perfil e Saúde
+                                    Perfil e Preferências
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <CustomSelectSheet label="Estado Civil" icon={<FaRing />} value={formData.estado_civil} onChange={(v:any) => handleSelectChange('estado_civil', v)} options={[{id:'SOLTEIRA',nome:'Solteira'},{id:'CASADA',nome:'Casada'},{id:'DIVORCIADA',nome:'Divorciada'},{id:'VIÚVA',nome:'Viúva'},{id:'UNIÃO ESTÁVEL',nome:'União Estável'}]} />
-                                    <CustomSelectSheet label="Tamanho Camiseta" icon={<FaTshirt />} value={formData.tamanho_camiseta} onChange={(v:any) => handleSelectChange('tamanho_camiseta', v)} options={['PP','P','M','G','GG','G1','G2','G3'].map(t=>({id:t,nome:t}))} />
+                                    {formData.estado_civil === 'CASADA' && <InputField label="Nome do Cônjuge" name="nome_esposo" value={formData.nome_esposo} onChange={handleChange} icon={FaUser} />}
+                                    <CustomSelectSheet label="Tamanho da Camiseta" icon={<FaTshirt />} value={formData.tamanho_camiseta} onChange={(v:any) => handleSelectChange('tamanho_camiseta', v)} options={['PP','P','M','G','GG','G1','G2','G3'].map(t=>({id:t,nome:t}))} />
+                                    <CustomSelectSheet label="Papel no Encontro" icon={<FaTransgender />} value={formData.tipo_participacao} onChange={(v:any) => handleSelectChange('tipo_participacao', v)} options={[{id:'Encontrista',nome:'Encontrista'},{id:'Encontreiro',nome:'Encontreiro'}]} />
                                 </div>
+                            </section>
+
+                            {/* Bloco 3: Saúde e Igreja */}
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-orange-100 text-orange-600 rounded-xl"><FaChurch size={16}/></div>
+                                    Igreja & Cuidados de Saúde
+                                </h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <InputField label="Membro IBA?" name="eh_membro_ib_apascentar" value={formData.eh_membro_ib_apascentar} onChange={handleChange} toggle icon={FaChurch} />
+                                    {!formData.eh_membro_ib_apascentar && (
+                                        <div className="col-span-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <InputField label="Outra Igreja?" name="pertence_outra_igreja" value={formData.pertence_outra_igreja} onChange={handleChange} toggle icon={FaChurch} />
+                                            {formData.pertence_outra_igreja && <InputField label="Nome da Igreja" name="nome_outra_igreja" value={formData.nome_outra_igreja} onChange={handleChange} icon={FaPen} />}
+                                        </div>
+                                    )}
                                     <InputField label="Dificuldade Beliche?" name="dificuldade_dormir_beliche" value={formData.dificuldade_dormir_beliche} onChange={handleChange} toggle icon={FaBed} />
                                     <InputField label="Restrição Alimentar?" name="restricao_alimentar" value={formData.restricao_alimentar} onChange={handleChange} toggle icon={FaUtensils} />
+                                    <InputField label="Alguma Deficiência?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental} onChange={handleChange} toggle icon={FaWheelchair} />
                                     <InputField label="Usa Remédios?" name="toma_medicamento_controlado" value={formData.toma_medicamento_controlado} onChange={handleChange} toggle icon={FaPills} />
                                 </div>
+                                <InputField label="Sonhos e Expectativas" name="descricao_sonhos" value={formData.descricao_sonhos} onChange={handleChange} type="textarea" rows={4} icon={FaHeart} placeholder="O que o candidato espera de Deus?" />
                             </section>
 
                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-8 border-t border-gray-50">
