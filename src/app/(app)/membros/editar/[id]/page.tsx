@@ -5,59 +5,79 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { atualizarMembro, getMembro } from '@/lib/data';
 import { Membro, MembroEditFormData } from '@/lib/types'; 
-import { normalizePhoneNumber } from '@/utils/formatters';
+import { normalizePhoneNumber, formatPhoneNumberDisplay, formatDateForInput } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 import {
-    FaUser, FaPhone, FaCalendarAlt, FaMapMarkerAlt, FaCheckCircle, FaSave, FaArrowLeft, FaUserTag,
-    FaChevronDown, FaSearch, FaTimes, FaSearchLocation, FaSpinner
+    FaUser, 
+    FaPhone, 
+    FaCalendarAlt, 
+    FaMapMarkerAlt, 
+    FaCheckCircle, 
+    FaSave, 
+    FaArrowLeft, 
+    FaUserTag,
+    FaChevronDown, 
+    FaTimes, 
+    FaSearchLocation, 
+    FaSpinner, 
+    FaPen,
+    FaBirthdayCake,
+    FaEdit // Adicionado aqui para corrigir o erro de build
 } from 'react-icons/fa';
 
-// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
-interface CustomSelectSheetProps {
-    label: string; value: string; onChange: (value: string) => void; options: { id: string; nome: string }[];
-    icon: React.ReactNode; placeholder?: string;
-}
-const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione..." }: CustomSelectSheetProps) => {
+// --- FUNÇÕES AUXILIARES ---
+const formatNameTitleCase = (name: string) => {
+    if (!name) return '';
+    const exceptions = ['da', 'de', 'do', 'das', 'dos', 'e'];
+    return name.toLowerCase().split(' ').map((word, index) => {
+        if (index > 0 && exceptions.includes(word)) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+};
+
+// --- COMPONENTES REFINADOS ---
+
+const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione..." }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
-    const selectedName = options.find(o => o.id === value)?.nome || null;
+    const selectedName = options.find((o: any) => o.id === value)?.nome || null;
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(event.target as Node)) setIsOpen(false); };
-        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        const handleClick = (e: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(e.target as Node)) setIsOpen(false); };
+        if (isOpen) document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
     }, [isOpen]);
-
-    useEffect(() => { if (isOpen) document.body.style.overflow = 'hidden'; else document.body.style.overflow = 'unset'; return () => { document.body.style.overflow = 'unset'; }; }, [isOpen]);
-
-    const handleSelect = (id: string) => { onChange(id); setIsOpen(false); };
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">{icon} {label}</label>
-            <button type="button" onClick={() => setIsOpen(true)} className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none text-left">
-                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
-                <FaChevronDown className="text-gray-400 text-xs ml-2" />
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+                {label}
+            </label>
+            <button type="button" onClick={() => setIsOpen(true)}
+                className="w-full px-4 py-4 border-2 border-gray-100 rounded-2xl flex items-center justify-between bg-gray-50 transition-all hover:border-emerald-200 focus:ring-4 focus:ring-emerald-500/10 outline-none">
+                <div className="flex items-center gap-3">
+                    <span className="text-emerald-500">{icon}</span>
+                    <span className={`text-sm font-bold truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
+                </div>
+                <FaChevronDown className="text-gray-300 text-xs ml-2" />
             </button>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
-                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
-                            <h3 className="font-bold text-gray-800 text-lg">{label}</h3>
-                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors"><FaTimes /></button>
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 rounded-t-[2.5rem]">
+                            <h3 className="font-black text-gray-800 uppercase tracking-tighter">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-3 bg-gray-200 text-gray-600 rounded-2xl active:scale-90 transition-transform"><FaTimes /></button>
                         </div>
-                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
-                            {options.map((option) => {
-                                const isSelected = value === option.id;
-                                return (
-                                    <button key={option.id} type="button" onClick={() => handleSelect(option.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}>
-                                        <span className="text-base">{option.nome}</span>
-                                        {isSelected && <FaCheckCircle className="text-indigo-500 text-lg" />}
-                                    </button>
-                                );
-                            })}
+                        <div className="overflow-y-auto p-4 space-y-2 flex-1 pb-10 sm:pb-4">
+                            {options.map((option: any) => (
+                                <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); }}
+                                    className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${value === option.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                    <span className="text-sm font-bold">{option.nome}</span>
+                                    {value === option.id && <FaCheckCircle className="text-white" />}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -66,6 +86,26 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
+const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, isLoading }: any) => {
+    return (
+        <div className="space-y-1">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="relative group">
+                {Icon && <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-500" : "text-gray-400 group-focus-within:text-emerald-500"}`} />}
+                <input type={type} name={name} value={value || ''} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder}
+                    className={`w-full pl-11 pr-11 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'}`} />
+                {isLoading && <FaSpinner className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-600" />}
+            </div>
+        </div>
+    );
+};
+
+// ============================================================================
+//                       PÁGINA PRINCIPAL
+// ============================================================================
+
 export default function EditMembroPage() {
     const params = useParams();
     const membroId = params.id as string;
@@ -73,14 +113,13 @@ export default function EditMembroPage() {
         nome: '', telefone: '', data_nascimento: null, endereco: null, data_ingresso: '', status: 'Ativo',
     });
 
-    // CEP
     const [cepInput, setCepInput] = useState('');
     const [cepLoading, setCepLoading] = useState(false);
-
-    const { addToast, ToastContainer } = useToast();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+
     const router = useRouter();
+    const { addToast, ToastContainer } = useToast();
 
     useEffect(() => {
         const fetchMembro = async () => {
@@ -90,32 +129,32 @@ export default function EditMembroPage() {
                 const membro = await getMembro(membroId);
                 if (membro) {
                     setFormData({
-                        nome: membro.nome || '', telefone: membro.telefone || '', data_nascimento: membro.data_nascimento || null, endereco: membro.endereco || null, data_ingresso: membro.data_ingresso || '', status: membro.status || 'Ativo',
+                        nome: membro.nome || '',
+                        telefone: formatPhoneNumberDisplay(membro.telefone) || '',
+                        data_nascimento: membro.data_nascimento ? formatDateForInput(membro.data_nascimento) : null,
+                        endereco: membro.endereco || null,
+                        data_ingresso: membro.data_ingresso ? formatDateForInput(membro.data_ingresso) : '',
+                        status: membro.status || 'Ativo',
                     });
-                } else {
-                    addToast('Membro não encontrado.', 'error');
-                    router.push('/membros');
                 }
-            } catch (error: any) { addToast(`Erro: ${error.message}`, 'error'); } finally { setLoading(false); }
+            } catch (error: any) {
+                addToast('Erro ao carregar dados do membro.', 'error');
+            } finally {
+                setLoading(false);
+            }
         };
         fetchMembro();
-    }, [membroId, router, addToast]); 
+    }, [membroId, addToast]); 
 
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: any) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'telefone' ? normalizePhoneNumber(value) : (value === '' ? null : value) }));
-    }, []);
+        let val = value;
+        if (name === 'telefone') val = formatPhoneNumberDisplay(normalizePhoneNumber(value));
+        setFormData(prev => ({ ...prev, [name]: val }));
+    };
 
-    const handleSelectChange = useCallback((name: 'status', value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value as Membro['status'] }));
-    }, []);
-
-    // --- LÓGICA DE CEP ---
-    const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let val = e.target.value.replace(/\D/g, '');
-        if (val.length > 8) val = val.slice(0, 8);
-        if (val.length > 5) val = val.replace(/^(\d{5})(\d)/, '$1-$2');
-        setCepInput(val);
+    const handleNameBlur = (e: any) => {
+        setFormData(prev => ({ ...prev, nome: formatNameTitleCase(e.target.value) }));
     };
 
     const handleCepBlur = async () => {
@@ -123,14 +162,21 @@ export default function EditMembroPage() {
         if (cleanCep.length === 8) {
             setCepLoading(true);
             try {
-                const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-                const data = await response.json();
+                const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                const data = await res.json();
                 if (!data.erro) {
                     const fullAddress = `${data.logradouro}, , ${data.bairro} - ${data.localidade}/${data.uf}`;
                     setFormData(prev => ({ ...prev, endereco: fullAddress }));
                 }
-            } catch (error) { console.error("Erro ao buscar CEP:", error); } finally { setCepLoading(false); }
+            } catch (err) { console.error(err); } finally { setCepLoading(false); }
         }
+    };
+
+    const handleCepChange = (e: any) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 8) val = val.slice(0, 8);
+        if (val.length > 5) val = val.replace(/^(\d{5})(\d)/, '$1-$2');
+        setCepInput(val);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -138,57 +184,85 @@ export default function EditMembroPage() {
         setSubmitting(true);
         try {
             await atualizarMembro(membroId, {
-                nome: formData.nome, telefone: normalizePhoneNumber(formData.telefone) || null, data_nascimento: formData.data_nascimento || null, endereco: formData.endereco || null, data_ingresso: formData.data_ingresso, status: formData.status,
+                ...formData,
+                telefone: normalizePhoneNumber(formData.telefone as string) || null,
             });
-            addToast('Membro atualizado!', 'success');
+            addToast('Perfil atualizado com sucesso!', 'success');
             setTimeout(() => router.push('/membros'), 1500);
-        } catch (error: any) { addToast(`Erro: ${error.message}`, 'error'); setSubmitting(false); }
+        } catch (error: any) { 
+            addToast(`Erro: ${error.message}`, 'error'); 
+            setSubmitting(false); 
+        }
     };
 
-    const statusOptions = [{ id: 'Ativo', nome: 'Ativo' }, { id: 'Inativo', nome: 'Inativo' }, { id: 'Em transição', nome: 'Em transição' }];
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
-            <div className="max-w-2xl mx-auto mt-4 sm:mt-0">
-                {loading ? (
-                    <div className="text-center py-16"><LoadingSpinner /><p className="mt-4 text-gray-500 font-medium animate-pulse">Carregando dados...</p></div>
-                ) : (
-                    <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-6 sm:px-6 sm:py-8">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div><h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3"><FaUser className="w-6 h-6 sm:w-8 sm:h-8" /> Editar Membro</h1><p className="text-indigo-100 mt-1 text-sm sm:text-base">Atualize as informações</p></div>
-                                <Link href="/membros" className="inline-flex justify-center items-center px-4 py-3 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/30 text-sm font-medium w-full sm:w-auto"><FaArrowLeft className="w-3 h-3 mr-2" /> Voltar</Link>
-                            </div>
-                        </div>
-                        <div className="p-4 sm:p-8">
-                            <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-                                <div className="space-y-1"><label htmlFor="nome" className="text-sm font-semibold text-gray-700 flex items-center gap-2"><FaUser className="text-indigo-500" /> Nome Completo *</label><input type="text" id="nome" name="nome" value={formData.nome} onChange={handleChange} required className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none placeholder:text-gray-400" /></div>
-                                <div className="space-y-1"><label htmlFor="telefone" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><FaPhone className="text-indigo-500" /> Telefone</label><input type="text" id="telefone" name="telefone" value={formData.telefone || ''} onChange={handleChange} placeholder="(XX) XXXXX-XXXX" maxLength={11} className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none placeholder:text-gray-400" /></div>
-                                
-                                {/* BLOCO DE ENDEREÇO COM CEP (EDICAO) */}
-                                <div className="space-y-4 pt-2 border-t border-gray-100">
-                                    <div className="space-y-1 relative">
-                                        <label htmlFor="cep" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><FaSearchLocation className="text-indigo-500" /> Atualizar Endereço via CEP</label>
-                                        <input id="cep" name="cep" type="tel" value={cepInput} onChange={handleCepChange} onBlur={handleCepBlur} placeholder="Digite para buscar..." maxLength={9} className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none placeholder:text-gray-400" />
-                                        {cepLoading && <div className="absolute right-3 top-10"><FaSpinner className="animate-spin text-indigo-500" /></div>}
-                                    </div>
-                                    <div className="space-y-1"><label htmlFor="endereco" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><FaMapMarkerAlt className="text-indigo-500" /> Endereço</label><input type="text" id="endereco" name="endereco" value={formData.endereco || ''} onChange={handleChange} className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none placeholder:text-gray-400" /></div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                                    <div className="space-y-1"><label htmlFor="data_ingresso" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><FaCalendarAlt className="text-indigo-500" /> Data de Ingresso *</label><input type="date" id="data_ingresso" name="data_ingresso" value={formData.data_ingresso} onChange={handleChange} required className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none" /></div>
-                                    <div className="space-y-1"><label htmlFor="data_nascimento" className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><FaCalendarAlt className="text-indigo-500" /> Data de Nascimento</label><input type="date" id="data_nascimento" name="data_nascimento" value={formData.data_nascimento || ''} onChange={handleChange} className="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none" /></div>
-                                </div>
-                                <CustomSelectSheet label="Status *" icon={<FaUserTag className="text-indigo-500" />} value={formData.status} onChange={(val) => handleSelectChange('status', val)} options={statusOptions} />
-                                <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-6 border-t border-gray-200">
-                                    <Link href="/membros" className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 font-medium w-full sm:w-auto text-base"><FaArrowLeft /><span>Cancelar</span></Link>
-                                    <button type="submit" disabled={submitting} className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg hover:shadow-xl w-full sm:w-auto text-base">{submitting ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Atualizando...</span></> : <><FaSave /><span>Atualizar Membro</span></>}</button>
-                                </div>
-                            </form>
+            
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-24 px-4 sm:px-8 shadow-lg">
+                <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/membros" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
+                        </Link>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                <FaEdit /> Editar Membro
+                            </h1>
+                            <p className="text-emerald-100 text-sm font-medium opacity-80 uppercase tracking-widest">Atualização cadastral</p>
                         </div>
                     </div>
-                )}
+                </div>
+            </div>
+
+            <div className="max-w-3xl mx-auto px-4 sm:px-8 -mt-12">
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="p-8 sm:p-10 space-y-10">
+                        
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaUser size={16}/></div>
+                                    Dados Gerais
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Nome Completo" name="nome" value={formData.nome} onChange={handleChange} onBlur={handleNameBlur} required icon={FaPen} />
+                                    <InputField label="Telefone / WhatsApp" name="telefone" value={formData.telefone} onChange={handleChange} icon={FaPhone} placeholder="(00) 00000-0000" />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Data de Ingresso" name="data_ingresso" value={formData.data_ingresso} onChange={handleChange} type="date" required icon={FaCalendarAlt} />
+                                    <InputField label="Data de Nascimento" name="data_nascimento" value={formData.data_nascimento} onChange={handleChange} type="date" icon={FaBirthdayCake} />
+                                </div>
+                                <CustomSelectSheet label="Status no Sistema" icon={<FaUserTag />} value={formData.status} onChange={(v:any) => setFormData(p => ({ ...p, status: v }))} options={[{ id: 'Ativo', nome: 'Ativo' }, { id: 'Inativo', nome: 'Inativo' }, { id: 'Em transição', nome: 'Em transição' }]} />
+                            </section>
+
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaSearchLocation size={16}/></div>
+                                    Endereço e Localização
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <div className="md:col-span-1">
+                                        <InputField label="CEP p/ Busca" name="cep" value={cepInput} onChange={handleCepChange} onBlur={handleCepBlur} icon={FaSearchLocation} placeholder="00000-000" isLoading={cepLoading} />
+                                    </div>
+                                    <div className="md:col-span-3">
+                                        <InputField label="Endereço Completo" name="endereco" value={formData.endereco} onChange={handleChange} icon={FaMapMarkerAlt} placeholder="Rua, número, bairro..." />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-8 border-t border-gray-100">
+                                <Link href="/membros" className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all text-center">Cancelar</Link>
+                                <button type="submit" disabled={submitting} className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer uppercase">
+                                    {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />} Salvar Alterações
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     );
