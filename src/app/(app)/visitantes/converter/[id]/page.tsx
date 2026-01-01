@@ -5,74 +5,67 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getVisitante, converterVisitanteEmMembro } from '@/lib/data';
 import { Visitante, Membro } from '@/lib/types';
-import { normalizePhoneNumber, formatDateForInput } from '@/utils/formatters';
+import { normalizePhoneNumber, formatDateForInput, formatPhoneNumberDisplay } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 import {
     FaUserPlus, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaUserTag, FaArrowLeft,
     FaCheckCircle, FaInfoCircle, FaChevronDown, FaTimes, FaSearch, FaSearchLocation,
-    FaSpinner
+    FaSpinner, FaPen, FaUser, FaMapMarkedAlt
 } from 'react-icons/fa';
 
-// ============================================================================
-//                       COMPONENTES VISUAIS (PADRONIZADOS)
-// ============================================================================
+// --- FUNÇÕES AUXILIARES ---
+const formatNameTitleCase = (name: string) => {
+    if (!name) return '';
+    const exceptions = ['da', 'de', 'do', 'das', 'dos', 'e'];
+    return name.toLowerCase().split(' ').map((word, index) => {
+        if (index > 0 && exceptions.includes(word)) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+};
 
-// 1. CustomSelectSheet
-interface CustomSelectSheetProps {
-    label: string; value: string; onChange: (value: string) => void; options: { id: string; nome: string }[];
-    icon: React.ReactNode; placeholder?: string; searchable?: boolean; required?: boolean; error?: string | null;
-}
-const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione...", searchable = false, required = false, error }: CustomSelectSheetProps) => {
+// --- COMPONENTES REFINADOS ---
+
+const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione..." }: any) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
     const modalRef = useRef<HTMLDivElement>(null);
-    const selectedName = options.find(o => o.id === value)?.nome || value;
-    const filteredOptions = options.filter(option => option.nome.toLowerCase().includes(searchTerm.toLowerCase()));
+    const selectedName = options.find((o: any) => o.id === value)?.nome || null;
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(event.target as Node)) setIsOpen(false); };
-        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        const handleClick = (e: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(e.target as Node)) setIsOpen(false); };
+        if (isOpen) document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
     }, [isOpen]);
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
-                {icon} {label} {required && <span className="text-red-600">*</span>}
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+                {label}
             </label>
             <button type="button" onClick={() => setIsOpen(true)}
-                className={`w-full pl-3 pr-3 py-3 border rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 transition-all duration-200 bg-white text-gray-900 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}>
-                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
-                <FaChevronDown className="text-gray-500 text-xs ml-2" />
+                className="w-full px-4 py-4 border-2 border-gray-100 rounded-2xl flex items-center justify-between bg-gray-50 transition-all hover:border-emerald-200 focus:ring-4 focus:ring-emerald-500/10 outline-none">
+                <div className="flex items-center gap-3">
+                    <span className="text-emerald-500">{icon}</span>
+                    <span className={`text-sm font-bold truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
+                </div>
+                <FaChevronDown className="text-gray-300 text-xs ml-2" />
             </button>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /><span>{error}</span></p>}
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
-                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
-                            <h3 className="font-bold text-gray-900 text-lg">{label}</h3>
-                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors"><FaTimes /></button>
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 rounded-t-[2.5rem]">
+                            <h3 className="font-black text-gray-800 uppercase tracking-tighter">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-3 bg-gray-200 text-gray-600 rounded-2xl active:scale-90 transition-transform"><FaTimes /></button>
                         </div>
-                        {searchable && (
-                            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
-                                <div className="relative">
-                                    <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
-                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-10 pr-4 py-3 bg-gray-100 text-gray-900 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500 transition-all text-base" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                </div>
-                            </div>
-                        )}
-                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
-                            {filteredOptions.length > 0 ? (filteredOptions.map((option) => {
-                                const isSelected = value === option.id;
-                                return (
-                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-orange-50 text-orange-800 font-bold' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                        <span className="text-base">{option.nome}</span>
-                                        {isSelected && <FaCheckCircle className="text-orange-600 text-lg" />}
-                                    </button>
-                                );
-                            })) : (<div className="text-center py-8 text-gray-500">Nenhum item encontrado.</div>)}
+                        <div className="overflow-y-auto p-4 space-y-2 flex-1 pb-10 sm:pb-4">
+                            {options.map((option: any) => (
+                                <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); }}
+                                    className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${value === option.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                    <span className="text-sm font-bold">{option.nome}</span>
+                                    {value === option.id && <FaCheckCircle className="text-white" />}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -81,38 +74,18 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
-// 2. InputField
-interface InputFieldProps {
-    label: string; name: string; value: string | number | null; 
-    onChange: (e: any) => void; onBlur?: (e: any) => void;
-    error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string; maxLength?: number; rows?: number;
-    isLoading?: boolean;
-}
-const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, isLoading }: InputFieldProps) => {
-    const isTextarea = type === 'textarea';
+const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, isLoading }: any) => {
     return (
         <div className="space-y-1">
-            <label htmlFor={name} className="block text-sm font-bold text-gray-800 flex items-center gap-2">
-                {Icon && <Icon className={error ? "text-red-600" : "text-orange-600"} />} 
-                {label} {required && <span className="text-red-600">*</span>}
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+                {label} {required && <span className="text-red-500">*</span>}
             </label>
-            <div className="relative">
-                {isTextarea ? (
-                    <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} 
-                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`} />
-                ) : (
-                    <>
-                        <input type={type} id={name} name={name} value={(value || '').toString()} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength}
-                            className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`} />
-                        {isLoading && (
-                            <div className="absolute right-3 top-3">
-                                <FaSpinner className="animate-spin text-orange-600" />
-                            </div>
-                        )}
-                    </>
-                )}
+            <div className="relative group">
+                {Icon && <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-500" : "text-gray-400 group-focus-within:text-emerald-500"}`} />}
+                <input type={type} name={name} value={value || ''} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder}
+                    className={`w-full pl-11 pr-11 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'}`} />
+                {isLoading && <FaSpinner className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-600" />}
             </div>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
         </div>
     );
 };
@@ -121,69 +94,57 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
 //                       PÁGINA PRINCIPAL
 // ============================================================================
 
-interface MembroConversionFormData {
-    nome: string; telefone: string | null; data_ingresso: string; data_nascimento: string | null; endereco: string | null; status: Membro['status']; celula_id: string;
-}
-
 export default function ConverterVisitantePage() {
     const params = useParams();
     const visitanteId = params.id as string;
 
-    const [formData, setFormData] = useState<MembroConversionFormData>({
-        nome: '', telefone: null, data_ingresso: formatDateForInput(new Date().toISOString()), data_nascimento: null, endereco: null, status: 'Ativo', celula_id: '',
+    const [formData, setFormData] = useState<any>({
+        nome: '', telefone: '', data_ingresso: formatDateForInput(new Date().toISOString()), data_nascimento: null, endereco: null, status: 'Ativo', celula_id: '',
     });
 
     const [cepInput, setCepInput] = useState('');
     const [cepLoading, setCepLoading] = useState(false);
-
-    const { addToast, ToastContainer } = useToast();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [touched, setTouched] = useState<Record<string, boolean>>({});
+
     const router = useRouter();
+    const { addToast, ToastContainer } = useToast();
 
     useEffect(() => {
-        const fetchVisitanteData = async () => {
+        const fetchVisitante = async () => {
+            if (!visitanteId) return;
             setLoading(true);
             try {
                 const data = await getVisitante(visitanteId);
-                if (!data) { addToast('Visitante não encontrado.', 'error'); setTimeout(() => router.replace('/visitantes'), 2000); return; }
-                setFormData({
-                    nome: data.nome || '',
-                    telefone: normalizePhoneNumber(data.telefone) || null,
-                    data_ingresso: formatDateForInput(new Date().toISOString()),
-                    data_nascimento: data.data_nascimento || null,
-                    endereco: data.endereco || null,
-                    status: 'Ativo',
-                    celula_id: data.celula_id,
-                });
-            } catch (e: any) { console.error("Erro fetch:", e); addToast('Erro ao carregar visitante', 'error'); setTimeout(() => router.replace('/visitantes'), 2000); } finally { setLoading(false); }
+                if (data) {
+                    setFormData({
+                        nome: data.nome || '',
+                        telefone: formatPhoneNumberDisplay(data.telefone) || '',
+                        data_ingresso: formatDateForInput(new Date().toISOString()),
+                        data_nascimento: data.data_nascimento ? formatDateForInput(data.data_nascimento) : null,
+                        endereco: data.endereco || null,
+                        status: 'Ativo',
+                        celula_id: data.celula_id,
+                    });
+                }
+            } catch (e) {
+                addToast('Erro ao carregar visitante', 'error');
+            } finally {
+                setLoading(false);
+            }
         };
-        if (visitanteId) fetchVisitanteData();
-    }, [visitanteId, router, addToast]);
+        fetchVisitante();
+    }, [visitanteId, addToast]);
 
-    const handleChange = useCallback((e: any) => {
+    const handleChange = (e: any) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'telefone' ? normalizePhoneNumber(value) : value }));
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        let val = value;
+        if (name === 'telefone') val = formatPhoneNumberDisplay(normalizePhoneNumber(value));
+        setFormData((prev: any) => ({ ...prev, [name]: val }));
+    };
 
-    const handleSelectChange = useCallback((name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
-
-    const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name } = e.target;
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
-
-    // CEP LOGIC
-    const handleCepChange = (e: any) => {
-        let val = e.target.value.replace(/\D/g, '');
-        if (val.length > 8) val = val.slice(0, 8);
-        if (val.length > 5) val = val.replace(/^(\d{5})(\d)/, '$1-$2');
-        setCepInput(val);
+    const handleNameBlur = (e: any) => {
+        setFormData((prev: any) => ({ ...prev, nome: formatNameTitleCase(e.target.value) }));
     };
 
     const handleCepBlur = async () => {
@@ -191,100 +152,116 @@ export default function ConverterVisitantePage() {
         if (cleanCep.length === 8) {
             setCepLoading(true);
             try {
-                const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-                const data = await response.json();
+                const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                const data = await res.json();
                 if (!data.erro) {
                     const fullAddress = `${data.logradouro}, , ${data.bairro} - ${data.localidade}/${data.uf}`;
-                    setFormData(prev => ({ ...prev, endereco: fullAddress }));
+                    setFormData((prev: any) => ({ ...prev, endereco: fullAddress }));
                 }
-            } catch (error) { console.error("Erro CEP:", error); } finally { setCepLoading(false); }
+            } catch (err) { console.error(err); } finally { setCepLoading(false); }
         }
     };
 
-    const getFieldError = (fieldName: keyof MembroConversionFormData): string | null => {
-        if (!touched[fieldName]) return null;
-        const value = formData[fieldName];
-        switch (fieldName) {
-            case 'nome': return !value || !(value as string).trim() ? 'Nome obrigatório.' : null;
-            case 'data_ingresso': return !value ? 'Data obrigatória.' : null;
-            default: return null;
-        }
-    };
-
-    const hasErrors = () => {
-        return !formData.nome.trim() || !formData.data_ingresso || !formData.celula_id;
+    const handleCepChange = (e: any) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 5) val = val.replace(/^(\d{5})(\d)/, '$1-$2');
+        setCepInput(val);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setTouched(Object.keys(formData).reduce((acc, key) => { acc[key as keyof MembroConversionFormData] = true; return acc; }, {} as Record<string, boolean>));
-        
-        if (hasErrors()) { addToast('Verifique os campos obrigatórios', 'error'); return; }
-
         setSubmitting(true);
         try {
-            const { success, message } = await converterVisitanteEmMembro(visitanteId, { ...formData, telefone: normalizePhoneNumber(formData.telefone) || null });
-            if (success) { addToast('Visitante convertido com sucesso!', 'success', 4000); setTimeout(() => router.push('/membros'), 2000); } 
-            else { addToast(message || 'Erro na conversão', 'error'); }
-        } catch (e: any) { console.error("Erro submit:", e); addToast('Erro inesperado', 'error'); } finally { setSubmitting(false); }
+            const { success, message } = await converterVisitanteEmMembro(visitanteId, {
+                ...formData,
+                telefone: normalizePhoneNumber(formData.telefone) || null,
+            });
+            if (success) {
+                addToast('Visitante convertido com sucesso!', 'success');
+                setTimeout(() => router.push('/membros'), 1500);
+            } else {
+                addToast(message || 'Erro na conversão', 'error');
+                setSubmitting(false);
+            }
+        } catch (e) {
+            addToast('Erro inesperado', 'error');
+            setSubmitting(false);
+        }
     };
-
-    const statusOptions = [{ id: 'Ativo', nome: 'Ativo' }, { id: 'Inativo', nome: 'Inativo' }, { id: 'Em transição', nome: 'Em transição' }];
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
-
-            <div className="max-w-2xl mx-auto mt-4 sm:mt-0">
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-6 sm:px-6 sm:py-8">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3"><FaUserPlus /> Converter Visitante</h1>
-                                <p className="text-orange-100 mt-1 text-sm sm:text-base">Transforme este visitante em membro</p>
-                            </div>
-                            <Link href="/visitantes" className="inline-flex justify-center items-center px-4 py-3 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/30 text-sm font-medium w-full sm:w-auto"><FaArrowLeft className="w-3 h-3 mr-2" /> Voltar</Link>
+            
+            {/* Header Emerald */}
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-24 px-4 sm:px-8 shadow-lg">
+                <div className="max-w-3xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/visitantes" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
+                        </Link>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                <FaUserPlus /> Efetivar Membro
+                            </h1>
+                            <p className="text-emerald-100 text-sm font-medium opacity-80 uppercase tracking-widest">Conversão de Visitante</p>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <div className="p-4 sm:p-8">
-                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-                            
-                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 sm:p-5 flex gap-3">
-                                <FaInfoCircle className="text-blue-700 mt-1" />
-                                <div>
-                                    <h3 className="text-blue-800 font-bold text-sm sm:text-base">Revisão de Dados</h3>
-                                    <p className="text-blue-700 text-xs sm:text-sm">Confirme e complete os dados abaixo para efetivar o cadastro como membro.</p>
-                                </div>
+            <div className="max-w-3xl mx-auto px-4 sm:px-8 -mt-12">
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="p-8 sm:p-10 space-y-10">
+                        
+                        <div className="bg-blue-50 border border-blue-100 p-6 rounded-[2rem] flex gap-4">
+                            <FaInfoCircle className="text-blue-500 shrink-0 mt-1" size={20} />
+                            <div className="text-sm text-blue-700 leading-relaxed">
+                                <p className="font-black uppercase tracking-tighter mb-1">Quase lá!</p>
+                                Revise os dados do visitante para torná-lo oficialmente um membro da célula. A data de ingresso será registrada como hoje por padrão.
                             </div>
+                        </div>
 
-                            <InputField label="Nome Completo" name="nome" value={formData.nome} onChange={handleChange} onBlur={handleBlur} error={getFieldError('nome')} required icon={FaUserPlus} />
-                            <InputField label="Telefone" name="telefone" value={formData.telefone || ''} onChange={handleChange} onBlur={handleBlur} icon={FaPhone} placeholder="(XX) XXXXX-XXXX" maxLength={15} />
-
-                            {/* BLOCO CEP */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in">
-                                <div className="md:col-span-1">
-                                    <InputField label="CEP (Busca)" name="cep" value={cepInput} onChange={handleCepChange} onBlur={handleCepBlur} icon={FaSearchLocation} placeholder="00000-000" isLoading={cepLoading} />
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaUser size={16}/></div>
+                                    Dados Cadastrais
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Nome Completo" name="nome" value={formData.nome} onChange={handleChange} onBlur={handleNameBlur} required icon={FaPen} />
+                                    <InputField label="Telefone / WhatsApp" name="telefone" value={formData.telefone} onChange={handleChange} icon={FaPhone} />
                                 </div>
-                                <div className="md:col-span-2">
-                                    <InputField label="Endereço" name="endereco" value={formData.endereco || ''} onChange={handleChange} onBlur={handleBlur} icon={FaMapMarkerAlt} placeholder="Rua, número, bairro..." />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Data de Ingresso" name="data_ingresso" value={formData.data_ingresso} onChange={handleChange} type="date" required icon={FaCalendarAlt} />
+                                    <InputField label="Data de Nascimento" name="data_nascimento" value={formData.data_nascimento} onChange={handleChange} type="date" icon={FaCalendarAlt} />
                                 </div>
+                                <CustomSelectSheet label="Status de Membro" icon={<FaUserTag />} value={formData.status} onChange={(v:any) => setFormData((p:any) => ({ ...p, status: v }))} options={[{ id: 'Ativo', nome: 'Ativo' }, { id: 'Inativo', nome: 'Inativo' }, { id: 'Em transição', nome: 'Em transição' }]} />
+                            </section>
+
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaSearchLocation size={16}/></div>
+                                    Localização
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <div className="md:col-span-1">
+                                        <InputField label="CEP p/ Busca" name="cep" value={cepInput} onChange={handleCepChange} onBlur={handleCepBlur} icon={FaSearchLocation} placeholder="00000-000" isLoading={cepLoading} />
+                                    </div>
+                                    <div className="md:col-span-3">
+                                        <InputField label="Endereço" name="endereco" value={formData.endereco} onChange={handleChange} icon={FaMapMarkerAlt} placeholder="Rua, número, bairro..." />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-8 border-t border-gray-100">
+                                <Link href="/visitantes" className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all text-center">Cancelar</Link>
+                                <button type="submit" disabled={submitting} className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer uppercase">
+                                    {submitting ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />} Confirmar Conversão
+                                </button>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                                <InputField label="Data Ingresso" name="data_ingresso" value={formData.data_ingresso} onChange={handleChange} onBlur={handleBlur} error={getFieldError('data_ingresso')} type="date" required icon={FaCalendarAlt} />
-                                <InputField label="Data Nascimento" name="data_nascimento" value={formData.data_nascimento || ''} onChange={handleChange} onBlur={handleBlur} type="date" icon={FaCalendarAlt} />
-                            </div>
-
-                            <CustomSelectSheet label="Status" icon={<FaUserTag />} value={formData.status} onChange={(val) => handleSelectChange('status', val)} options={statusOptions} required />
-
-                            <button type="submit" disabled={submitting} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2 text-lg">
-                                {submitting ? <><FaSpinner className="animate-spin" /> Convertendo...</> : <><FaCheckCircle /> Confirmar Conversão</>}
-                            </button>
                         </form>
                     </div>
                 </div>
