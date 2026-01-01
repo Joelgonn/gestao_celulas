@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
     listarEventosFaceAFaceAtivos,
-    gerarLinkConvite // <-- Nova função importada
+    gerarLinkConvite
 } from '@/lib/data';
 import {
     EventoFaceAFace,
@@ -24,10 +24,12 @@ import {
     FaSync,
     FaCalendarAlt,
     FaClipboardList,
-    FaLink, // <-- Ícone para o link
-    FaWhatsapp, // <-- Ícone do WhatsApp
-    FaCopy, // <-- Ícone de copiar
-    FaTimes // <-- Ícone de fechar modal
+    FaLink,
+    FaWhatsapp,
+    FaCopy,
+    FaTimes,
+    FaArrowLeft,
+    FaClock // Adicionado para corrigir o erro de build
 } from 'react-icons/fa';
 
 export default function EventosFaceAFacePage() {
@@ -50,24 +52,19 @@ export default function EventosFaceAFacePage() {
             const data = await listarEventosFaceAFaceAtivos();
             setEventos(data);
         } catch (e: any) {
-            console.error("Erro ao carregar eventos ativos:", e);
             addToast(`Erro ao carregar eventos: ${e.message}`, 'error');
-            router.replace('/dashboard');
         } finally {
             setLoading(false);
         }
-    }, [addToast, router]);
+    }, [addToast]);
 
-    useEffect(() => {
-        fetchActiveEvents();
-    }, [fetchActiveEvents]);
+    useEffect(() => { fetchActiveEvents(); }, [fetchActiveEvents]);
 
-    // Fechar modal ao clicar fora
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
                 setShowInviteModal(false);
-                setInviteLink(null); // Limpa o link ao fechar
+                setInviteLink(null);
             }
         };
         if (showInviteModal) document.addEventListener('mousedown', handleClickOutside);
@@ -77,8 +74,8 @@ export default function EventosFaceAFacePage() {
     const handleGenerateLink = async (eventoId: string, nomeEvento: string) => {
         setGeneratingLink(true);
         setSelectedEventName(nomeEvento);
-        setShowInviteModal(true); // Abre o modal imediatamente
-        setInviteLink(null); // Reseta link anterior
+        setShowInviteModal(true);
+        setInviteLink(null);
 
         try {
             const result = await gerarLinkConvite(eventoId);
@@ -88,8 +85,7 @@ export default function EventosFaceAFacePage() {
                 addToast(result.message || 'Erro ao gerar link.', 'error');
                 setShowInviteModal(false);
             }
-        } catch (e: any) {
-            console.error("Erro ao gerar link:", e);
+        } catch (e) {
             addToast("Erro ao conectar com o servidor.", 'error');
             setShowInviteModal(false);
         } finally {
@@ -100,7 +96,7 @@ export default function EventosFaceAFacePage() {
     const copyToClipboard = () => {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink);
-            addToast('Link copiado para a área de transferência!', 'success');
+            addToast('Link copiado!', 'success');
         }
     };
 
@@ -112,183 +108,172 @@ export default function EventosFaceAFacePage() {
         }
     };
 
-    const getTypeBadge = (type: EventoFaceAFaceTipo) => {
-        return type === 'Mulheres'
-            ? 'bg-pink-100 text-pink-800'
-            : 'bg-blue-100 text-blue-800';
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <LoadingSpinner />
-            </div>
-        );
-    }
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12 relative">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans relative">
             <ToastContainer />
 
-            {/* MODAL DE CONVITE */}
+            {/* MODAL DE CONVITE PROFISSIONAL */}
             {showInviteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
                     <div 
                         ref={modalRef}
-                        className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+                        className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300"
                     >
-                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white flex justify-between items-start">
-                            <div>
-                                <h3 className="text-lg font-bold flex items-center gap-2">
-                                    <FaLink /> Link de Inscrição (24h)
-                                </h3>
-                                <p className="text-purple-100 text-sm mt-1">Para: {selectedEventName}</p>
-                            </div>
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-700 p-8 text-white relative">
                             <button 
                                 onClick={() => setShowInviteModal(false)}
-                                className="text-white/80 hover:text-white transition-colors"
+                                className="absolute right-6 top-6 p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-all cursor-pointer"
                             >
-                                <FaTimes size={20} />
+                                <FaTimes size={16} />
                             </button>
+                            <div className="p-3 bg-white/20 w-fit rounded-2xl mb-4">
+                                <FaLink size={24} />
+                            </div>
+                            <h3 className="text-2xl font-black tracking-tight">Link de Inscrição</h3>
+                            <p className="text-purple-100 text-sm font-bold mt-1 uppercase tracking-widest">{selectedEventName}</p>
                         </div>
 
-                        <div className="p-6">
+                        <div className="p-8">
                             {generatingLink ? (
-                                <div className="text-center py-8">
-                                    <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-gray-600">Gerando seu link exclusivo...</p>
+                                <div className="text-center py-10 space-y-4">
+                                    <div className="w-12 h-12 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
+                                    <p className="text-gray-500 font-bold animate-pulse uppercase text-xs tracking-widest">Gerando link exclusivo...</p>
                                 </div>
                             ) : inviteLink ? (
                                 <div className="space-y-6">
-                                    <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
-                                        <p className="text-xs text-purple-600 font-bold uppercase tracking-wider mb-2">Seu Link (Válido por 24h)</p>
-                                        <p className="text-gray-800 font-mono text-sm break-all select-all">{inviteLink}</p>
+                                    <div className="bg-gray-50 border-2 border-gray-100 rounded-[1.5rem] p-5 text-center transition-all hover:border-purple-200">
+                                        <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest mb-3">Válido por 24 horas</p>
+                                        <p className="text-gray-800 font-mono text-sm break-all font-bold select-all">{inviteLink}</p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button 
-                                            onClick={copyToClipboard}
-                                            className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-                                        >
-                                            <FaCopy /> Copiar
-                                        </button>
+                                    <div className="grid grid-cols-1 gap-3">
                                         <button 
                                             onClick={shareOnWhatsApp}
-                                            className="flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition-colors"
+                                            className="w-full flex items-center justify-center gap-3 bg-[#25D366] text-white py-4 rounded-2xl font-black shadow-lg shadow-green-100 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                                         >
-                                            <FaWhatsapp size={20} /> WhatsApp
+                                            <FaWhatsapp size={20} /> ENVIAR VIA WHATSAPP
+                                        </button>
+                                        <button 
+                                            onClick={copyToClipboard}
+                                            className="w-full flex items-center justify-center gap-3 bg-gray-100 text-gray-700 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-95 cursor-pointer"
+                                        >
+                                            <FaCopy /> COPIAR LINK
                                         </button>
                                     </div>
-                                    
-                                    <p className="text-xs text-center text-gray-500">
-                                        Este link está vinculado à sua célula. Quando o participante se inscrever, ele aparecerá automaticamente na sua lista.
-                                    </p>
                                 </div>
-                            ) : (
-                                <p className="text-red-500 text-center">Erro ao gerar link. Tente novamente.</p>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Header */}
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 shadow-lg px-4 pt-6 pb-12 sm:px-8">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-                            <FaCalendarCheck /> Inscrições Face a Face
-                        </h1>
-                        <p className="text-teal-100 text-sm mt-1">Eventos disponíveis para inscrição</p>
+            {/* Header Teal */}
+            <div className="bg-gradient-to-br from-teal-600 to-emerald-700 shadow-lg px-4 pt-8 pb-20 sm:px-8 border-b border-teal-500/20">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/10 text-white">
+                            <FaCalendarCheck size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight">Inscrições Abertas</h1>
+                            <p className="text-teal-50 text-sm font-bold opacity-80 uppercase tracking-widest">Face a Face</p>
+                        </div>
                     </div>
                     
-                    <button
-                        onClick={fetchActiveEvents}
-                        className="bg-white text-teal-700 py-2.5 px-6 rounded-xl hover:bg-teal-50 transition-colors font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 w-full md:w-auto"
-                        disabled={loading}
-                    >
-                        <FaSync /> Atualizar Lista
-                    </button>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <button
+                            onClick={fetchActiveEvents}
+                            className="bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-2xl transition-all backdrop-blur-md border border-white/10 cursor-pointer"
+                        >
+                            <FaSync className={loading ? 'animate-spin' : ''} />
+                        </button>
+                        <Link href="/dashboard" className="flex-1 md:flex-none bg-white text-teal-700 py-3.5 px-8 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">
+                            <FaArrowLeft size={12} /> Dashboard
+                        </Link>
+                    </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
-                
-                {eventos.length === 0 && (
-                    <div className="text-center p-12 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
-                        <FaCalendarCheck className="text-4xl text-gray-300 mx-auto mb-3" />
-                        <h3 className="text-lg font-semibold text-gray-700">Nenhum evento ativo encontrado</h3>
-                        <p className="text-gray-500 text-sm mb-6">Entre em contato com a administração caso acredite que deveria haver eventos disponíveis.</p>
-                        <button 
-                            onClick={fetchActiveEvents} 
-                            className="bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 inline-flex items-center gap-2 shadow-md"
-                        >
-                            <FaSync /> Tentar Novamente
-                        </button>
-                    </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-10">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {eventos.map((evento) => (
-                        <div key={evento.id} className="bg-white p-6 rounded-xl shadow-md border border-gray-200 flex flex-col justify-between h-full">
-                            <div>
-                                <div className="flex justify-between items-center mb-3">
-                                    <h3 className="font-bold text-gray-900 text-xl leading-tight">{evento.nome_evento}</h3>
-                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${getTypeBadge(evento.tipo)}`}>
-                                        {evento.tipo}
-                                    </span>
+                        <div key={evento.id} className="bg-white rounded-[2.5rem] shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 flex flex-col group">
+                            <div className="p-8 space-y-6 flex-1">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="min-w-0 flex-1">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                                            evento.tipo === 'Mulheres' ? 'bg-pink-50 text-pink-600 border-pink-100' : 'bg-blue-50 text-blue-600 border-blue-100'
+                                        }`}>
+                                            {evento.tipo}
+                                        </span>
+                                        <h3 className="text-2xl font-black text-gray-900 mt-3 group-hover:text-teal-600 transition-colors leading-tight">
+                                            {evento.nome_evento}
+                                        </h3>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-xl font-black text-gray-800">R$ {evento.valor_total.toFixed(2).replace('.', ',')}</p>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Investimento</p>
+                                    </div>
                                 </div>
-                                <div className="space-y-1 text-sm text-gray-600 mb-4">
-                                    <p className="flex items-center gap-2"><FaCalendarAlt className="text-teal-500" /> 
-                                        {formatDateForDisplay(evento.data_inicio)} a {formatDateForDisplay(evento.data_fim)}
-                                    </p>
-                                    <p className="flex items-center gap-2"><FaMapMarkerAlt className="text-teal-500" /> {evento.local_evento}</p>
-                                    <p className="flex items-center gap-2"><FaMoneyBillWave className="text-teal-500" /> 
-                                        Valor Total: <span className="font-semibold text-gray-800">R$ {evento.valor_total.toFixed(2).replace('.', ',')}</span>
-                                    </p>
-                                    <p className="flex items-center gap-2"><FaMoneyBillWave className="text-teal-500" /> 
-                                        Valor de Entrada: <span className="font-semibold text-gray-800">R$ {evento.valor_entrada.toFixed(2).replace('.', ',')}</span>
-                                    </p>
-                                    <p className="flex items-center gap-2"><FaCalendarAlt className="text-teal-500" /> 
-                                        Limite para Entrada: {formatDateForDisplay(evento.data_limite_entrada)}
-                                    </p>
-                                    {evento.informacoes_adicionais && (
-                                        <div className="flex items-center gap-2"><FaInfoCircle className="text-teal-500" /> 
-                                            <p className="text-xs text-gray-500 italic mt-1 line-clamp-2">{evento.informacoes_adicionais}</p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 rounded-3xl p-5 border border-gray-100">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-white rounded-xl shadow-sm text-teal-600"><FaCalendarAlt size={14}/></div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase truncate">Datas do Evento</p>
+                                            <p className="text-xs font-bold text-gray-700">{formatDateForDisplay(evento.data_inicio)} a {formatDateForDisplay(evento.data_fim)}</p>
                                         </div>
-                                    )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-white rounded-xl shadow-sm text-orange-600"><FaMapMarkerAlt size={14}/></div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase truncate">Local</p>
+                                            <p className="text-xs font-bold text-gray-700 truncate" title={evento.local_evento}>{evento.local_evento}</p>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <div className="flex items-center gap-3 text-xs font-bold text-gray-400 px-2">
+                                    <FaClock className="text-amber-500" />
+                                    <span>Limite para entrada: <span className="text-gray-600">{formatDateForDisplay(evento.data_limite_entrada)}</span></span>
+                                </div>
+
+                                {evento.informacoes_adicionais && (
+                                    <div className="bg-teal-50/50 p-4 rounded-2xl flex gap-3 border border-teal-100/50">
+                                        <FaInfoCircle className="text-teal-500 shrink-0 mt-0.5" />
+                                        <p className="text-xs text-teal-800 italic leading-relaxed line-clamp-3">{evento.informacoes_adicionais}</p>
+                                    </div>
+                                )}
                             </div>
                             
-                            {/* Botões de Ação */}
-                            <div className="space-y-2 mt-auto border-t border-gray-100 pt-4">
-                                {/* Botão Novo: Gerar Link */}
+                            <div className="p-8 pt-0 mt-auto flex flex-col gap-3">
                                 <button 
                                     onClick={() => handleGenerateLink(evento.id, evento.nome_evento)}
-                                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md active:scale-95"
+                                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-5 rounded-2xl font-black text-base shadow-lg shadow-purple-100 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 cursor-pointer"
                                 >
-                                    <FaLink /> Gerar Link de Inscrição
+                                    <FaLink /> GERAR LINK DE CONVITE
                                 </button>
 
-                                <div className="flex gap-2">
+                                <div className="grid grid-cols-2 gap-3">
                                     <Link 
                                         href={`/eventos-face-a-face/${evento.id}/novo`}
-                                        className="flex-1 bg-teal-50 text-teal-700 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-teal-100 transition-colors text-sm"
+                                        className="bg-gray-100 text-gray-600 py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs hover:bg-gray-200 transition-all"
                                     >
-                                        <FaUserPlus /> Manual
+                                        <FaUserPlus /> MANUAL
                                     </Link>
                                     <Link 
                                         href={`/eventos-face-a-face/${evento.id}/minhas-inscricoes`}
-                                        className="flex-1 bg-blue-50 text-blue-700 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-blue-100 transition-colors text-sm"
+                                        className="bg-teal-50 text-teal-700 py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs hover:bg-teal-100 transition-all border border-teal-100"
                                     >
-                                        <FaClipboardList /> Listar
+                                        <FaClipboardList /> MINHA LISTA
                                     </Link>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
-
             </div>
         </div>
     );
