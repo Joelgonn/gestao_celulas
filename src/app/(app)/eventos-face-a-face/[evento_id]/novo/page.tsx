@@ -10,9 +10,6 @@ import {
 } from '@/lib/data';
 import {
     InscricaoFaceAFaceFormData,
-    InscricaoFaceAFaceEstadoCivil,
-    InscricaoFaceAFaceTamanhoCamiseta,
-    InscricaoFaceAFaceTipoParticipacao,
     MembroNomeTelefoneId,
     EventoFaceAFace
 } from '@/lib/types';
@@ -21,15 +18,39 @@ import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 import {
-    FaArrowLeft, FaSave, FaUser, FaIdCard, FaBirthdayCake, FaPhone, FaMapMarkerAlt, 
-    FaRing, FaTshirt, FaTransgender, FaChurch, FaBed, FaUtensils, FaWheelchair, FaPills, 
-    FaHeart, FaCheckCircle, FaTimes, FaChevronDown, FaSearch, FaUserPlus, FaSearchLocation,
-    FaSpinner
+    FaArrowLeft, 
+    FaSave, 
+    FaUser, 
+    FaIdCard, 
+    FaBirthdayCake, 
+    FaPhone, 
+    FaMapMarkerAlt, 
+    FaRing, 
+    FaTshirt, 
+    FaTransgender, 
+    FaChurch, 
+    FaBed, 
+    FaUtensils, 
+    FaWheelchair, 
+    FaPills, 
+    FaHeart, 
+    FaCheckCircle, 
+    FaTimes, 
+    FaChevronDown, 
+    FaSearch, 
+    FaUserPlus, 
+    FaSearchLocation,
+    FaSpinner, 
+    FaPen, 
+    FaMapMarkedAlt, 
+    FaBriefcaseMedical,
+    FaUsers,
+    FaClock,
+    FaToggleOn,
+    FaToggleOff
 } from 'react-icons/fa';
 
-// ============================================================================
-//                       FUNÇÕES AUXILIARES
-// ============================================================================
+// --- FUNÇÕES AUXILIARES ---
 
 const formatNameTitleCase = (name: string) => {
     if (!name) return '';
@@ -40,11 +61,8 @@ const formatNameTitleCase = (name: string) => {
     }).join(' ');
 };
 
-// ============================================================================
-//                       COMPONENTES VISUAIS (PADRONIZADOS)
-// ============================================================================
+// --- COMPONENTES REFINADOS ---
 
-// 1. BirthDateSelect
 const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) => {
     const [day, setDay] = useState('');
     const [month, setMonth] = useState('');
@@ -63,7 +81,6 @@ const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) =>
         let newD = type === 'day' ? val : day;
         let newM = type === 'month' ? val : month;
         let newY = type === 'year' ? val : year;
-
         if (type === 'day') setDay(val);
         if (type === 'month') setMonth(val);
         if (type === 'year') setYear(val);
@@ -75,108 +92,81 @@ const BirthDateSelect = ({ value, onChange, required, disabled, error }: any) =>
         }
     };
 
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 90 }, (_, i) => currentYear - i);
-    const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-    const months = [
-        { val: '01', label: 'Jan' }, { val: '02', label: 'Fev' }, { val: '03', label: 'Mar' },
-        { val: '04', label: 'Abr' }, { val: '05', label: 'Mai' }, { val: '06', label: 'Jun' },
-        { val: '07', label: 'Jul' }, { val: '08', label: 'Ago' }, { val: '09', label: 'Set' },
-        { val: '10', label: 'Out' }, { val: '11', label: 'Nov' }, { val: '12', label: 'Dez' }
-    ];
+    const years = Array.from({ length: 90 }, (_, i) => new Date().getFullYear() - i);
+    const months = [{v:'01',l:'Jan'},{v:'02',l:'Fev'},{v:'03',l:'Mar'},{v:'04',l:'Abr'},{v:'05',l:'Mai'},{v:'06',l:'Jun'},{v:'07',l:'Jul'},{v:'08',l:'Ago'},{v:'09',l:'Set'},{v:'10',l:'Out'},{v:'11',l:'Nov'},{v:'12',l:'Dez'}];
 
-    const baseSelectClass = `w-full px-2 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 appearance-none bg-white text-gray-900 ${
-        error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'
-    } ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`;
+    const baseClass = `w-full px-3 py-4 border-2 rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all appearance-none bg-gray-50 text-sm font-bold text-gray-700 ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
-                <FaBirthdayCake className={error ? "text-red-600" : "text-green-600"} /> 
-                Data de Nascimento {required && <span className="text-red-600">*</span>}
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 flex items-center gap-2">
+                <FaBirthdayCake className="text-emerald-500" /> Data de Nascimento {required && <span className="text-red-500">*</span>}
             </label>
             <div className="grid grid-cols-3 gap-2">
-                <div className="relative">
-                    <select value={day} onChange={(e) => handlePartChange('day', e.target.value)} disabled={disabled} className={baseSelectClass}>
-                        <option value="">Dia</option>
-                        {days.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
-                </div>
-                <div className="relative">
-                    <select value={month} onChange={(e) => handlePartChange('month', e.target.value)} disabled={disabled} className={baseSelectClass}>
-                        <option value="">Mês</option>
-                        {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-                    </select>
-                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
-                </div>
-                <div className="relative">
-                    <select value={year} onChange={(e) => handlePartChange('year', e.target.value)} disabled={disabled} className={baseSelectClass}>
-                        <option value="">Ano</option>
-                        {years.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                    {!disabled && <FaChevronDown className="absolute right-2 top-4 text-gray-500 text-xs pointer-events-none" />}
-                </div>
+                <select value={day} onChange={e => handlePartChange('day', e.target.value)} disabled={disabled} className={baseClass}>
+                    <option value="">Dia</option>
+                    {Array.from({length:31}, (_,i)=> (i+1).toString().padStart(2,'0')).map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select value={month} onChange={e => handlePartChange('month', e.target.value)} disabled={disabled} className={baseClass}>
+                    <option value="">Mês</option>
+                    {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+                </select>
+                <select value={year} onChange={e => handlePartChange('year', e.target.value)} disabled={disabled} className={baseClass}>
+                    <option value="">Ano</option>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
             </div>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
         </div>
     );
 };
 
-// 2. CustomSelectSheet
-interface CustomSelectSheetProps {
-    label: string; value: string; onChange: (value: string) => void; options: { id: string; nome: string }[];
-    icon: React.ReactNode; placeholder?: string; searchable?: boolean; required?: boolean; error?: string | null; disabled?: boolean;
-}
-const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione...", searchable = false, required = false, error, disabled = false }: CustomSelectSheetProps) => {
+const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder = "Selecione...", searchable = false, required = false, error, disabled = false }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const modalRef = useRef<HTMLDivElement>(null);
-    const selectedName = options.find(o => o.id === value)?.nome || null;
-    const filteredOptions = options.filter(option => option.nome.toLowerCase().includes(searchTerm.toLowerCase()));
+    const selectedName = options.find((o: any) => o.id === value)?.nome || null;
+    const filtered = options.filter((o: any) => o.nome.toLowerCase().includes(searchTerm.toLowerCase()));
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(event.target as Node)) setIsOpen(false); };
-        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        const handleClick = (e: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(e.target as Node)) setIsOpen(false); };
+        if (isOpen) document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
     }, [isOpen]);
 
     return (
         <div className="space-y-1">
-            <label className="block text-sm font-bold text-gray-800 flex items-center gap-2">
-                {icon} {label} {required && <span className="text-red-600">*</span>}
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+                {label} {required && <span className="text-red-500">*</span>}
             </label>
-            <button type="button" onClick={() => !disabled && setIsOpen(true)} disabled={disabled}
-                className={`w-full pl-3 pr-3 py-3 border rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 transition-all duration-200 bg-white text-gray-900 ${disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''} ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'}`}>
-                <span className={`text-base truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
-                {!disabled && <FaChevronDown className="text-gray-500 text-xs ml-2" />}
+            <button type="button" onClick={() => !disabled && setIsOpen(true)} className={`w-full px-4 py-4 border-2 rounded-2xl flex items-center justify-between bg-gray-50 transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-200'} ${error ? 'border-red-300' : 'border-gray-100'}`}>
+                <div className="flex items-center gap-3 truncate">
+                    <span className="text-emerald-500">{icon}</span>
+                    <span className={`text-sm font-bold truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>{selectedName || placeholder}</span>
+                </div>
+                <FaChevronDown className="text-gray-300 text-xs ml-2" />
             </button>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /><span>{error}</span></p>}
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
-                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[600px] animate-in slide-in-from-bottom duration-300">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
-                            <h3 className="font-bold text-gray-900 text-lg">{label}</h3>
-                            <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 hover:bg-gray-300 transition-colors"><FaTimes /></button>
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                            <h3 className="font-black text-gray-800 uppercase tracking-tighter">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-3 bg-gray-200 text-gray-600 rounded-2xl active:scale-90"><FaTimes /></button>
                         </div>
                         {searchable && (
-                            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+                            <div className="p-4 border-b border-gray-100">
                                 <div className="relative">
-                                    <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
-                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-10 pr-4 py-3 bg-gray-100 text-gray-900 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 transition-all text-base" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input type="text" placeholder="Buscar..." autoFocus className="w-full pl-11 pr-4 py-4 bg-gray-100 border-transparent rounded-2xl focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                                 </div>
                             </div>
                         )}
-                        <div className="overflow-y-auto p-2 space-y-1 flex-1">
-                            {filteredOptions.length > 0 ? (filteredOptions.map((option) => {
-                                const isSelected = value === option.id;
-                                return (
-                                    <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${isSelected ? 'bg-green-50 text-green-700 font-bold' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                        <span className="text-base">{option.nome}</span>
-                                        {isSelected && <FaCheckCircle className="text-green-500 text-lg" />}
-                                    </button>
-                                );
-                            })) : (<div className="text-center py-8 text-gray-500">Nenhum item encontrado.</div>)}
+                        <div className="overflow-y-auto p-4 space-y-2 flex-1 pb-10 sm:pb-4">
+                            {filtered.length > 0 ? filtered.map((option: any) => (
+                                <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }} className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${value === option.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                    <span className="text-sm font-bold truncate">{option.nome}</span>
+                                    {value === option.id && <FaCheckCircle className="text-white" />}
+                                </button>
+                            )) : <div className="text-center py-10 text-gray-400 font-bold italic text-sm">Nenhum item encontrado.</div>}
                         </div>
                     </div>
                 </div>
@@ -185,72 +175,44 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
-// 3. InputField (COM TOGGLE, CONTRASTE E LOADING)
-interface InputFieldProps {
-    label: string; name: keyof InscricaoFaceAFaceFormData | 'cep'; 
-    value: string | number | null | boolean;
-    onChange: (e: any) => void;
-    onBlur?: (e: any) => void;
-    error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string;
-    maxLength?: number; rows?: number; disabled?: boolean; readOnly?: boolean; toggle?: boolean;
-    isLoading?: boolean;
-}
-const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle, isLoading }: InputFieldProps) => {
-    const isTextarea = type === 'textarea';
-    const isCheckbox = type === 'checkbox';
-    
-    // MODO TOGGLE
+const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, disabled = false, readOnly = false, toggle, isLoading }: any) => {
     if (toggle) {
         const booleanValue = !!value;
         return (
-            <div className="bg-white rounded-xl p-4 border border-gray-300 flex items-center justify-between transition-all hover:border-green-300 shadow-sm">
-                <div className="flex items-center gap-3 pr-2">
-                    {Icon && <Icon className={booleanValue ? "w-5 h-5 text-green-700" : "w-5 h-5 text-gray-500"} />}
-                    <label htmlFor={name} className="text-sm font-bold text-gray-900 cursor-pointer select-none">
-                        {label} {required && <span className="text-red-600">*</span>}
-                    </label>
+            <div className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all ${booleanValue ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'}`}>
+                <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-xl ${booleanValue ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
+                        {Icon && <Icon size={20} />}
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-gray-900 uppercase tracking-tighter">{label}</p>
+                    </div>
                 </div>
-                <label htmlFor={name} className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id={name} name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" disabled={disabled} />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" disabled={disabled} />
+                    <div className="w-12 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                 </label>
-                {error && <p className="text-red-600 text-sm flex items-center space-x-1 mt-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
             </div>
         );
     }
 
-    // MODO INPUT / TEXTAREA
     return (
         <div className="space-y-1">
-            <label htmlFor={name} className="block text-sm font-bold text-gray-800 flex items-center gap-2">
-                {Icon && <Icon className={error ? "text-red-600" : "text-green-600"} />} 
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
                 {label} {required && <span className="text-red-600">*</span>}
             </label>
-            <div className="relative">
-                {isTextarea ? (
-                    <textarea 
-                        id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                        className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''}`} 
-                    />
+            <div className="relative group">
+                {Icon && <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-500" : "text-gray-400 group-focus-within:text-emerald-500"}`} />}
+                {type === 'textarea' ? (
+                    <textarea name={name} value={value || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} disabled={disabled} readOnly={readOnly}
+                        className={`w-full px-5 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${disabled ? 'opacity-50' : ''}`} />
                 ) : (
-                    <>
-                        <input 
-                            type={type} id={name} name={name} 
-                            value={isCheckbox ? (value as boolean) ? 'on' : '' : (value || '').toString()} 
-                            checked={isCheckbox ? (value as boolean) : undefined}
-                            onChange={onChange} // CORRIGIDO
-                            onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
-                            className={`w-full px-4 py-3 text-base text-gray-900 bg-white border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-green-500'} ${disabled || readOnly ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''} ${isCheckbox ? 'h-5 w-5' : ''}`} 
-                        />
-                        {isLoading && (
-                            <div className="absolute right-3 top-3">
-                                <FaSpinner className="animate-spin text-green-600" />
-                            </div>
-                        )}
-                    </>
+                    <input type={type} name={name} value={value || ''} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled} readOnly={readOnly}
+                        className={`w-full pl-11 pr-11 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${disabled ? 'opacity-50' : ''}`} />
                 )}
+                {isLoading && <FaSpinner className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-600" />}
             </div>
-            {error && <p className="text-red-600 text-sm flex items-center space-x-1"><FaTimes className="w-3 h-3" /> <span>{error}</span></p>}
+            {error && <p className="text-red-500 text-[10px] font-bold uppercase tracking-tighter ml-1 mt-1">{error}</p>}
         </div>
     );
 };
@@ -270,73 +232,36 @@ export default function LiderNovaInscricaoPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     
-    // CEP
     const [cepInput, setCepInput] = useState('');
     const [cepLoading, setCepLoading] = useState(false);
-
-    // Controle de Seleção de Membro
     const [selectedMembroId, setSelectedMembroId] = useState<string>('external');
 
-    // Estado do Formulário
     const [formData, setFormData] = useState<InscricaoFaceAFaceFormData>({
-        evento_id: eventoId,
-        membro_id: null,
-        celula_id: null, 
-        lider_celula_nome: null, 
-        admin_observacao_pagamento: null, 
-        nome_completo_participante: '',
-        cpf: '',
-        idade: null,
-        rg: '',
-        data_nascimento: '',
-        contato_pessoal: '',
-        contato_emergencia: '',
-        endereco_completo: '',
-        bairro: '',
-        cidade: '',
-        estado_civil: null,
-        nome_esposo: '',
-        tamanho_camiseta: null,
-        eh_membro_ib_apascentar: false,
-        pertence_outra_igreja: false,
-        nome_outra_igreja: '',
-        dificuldade_dormir_beliche: false,
-        restricao_alimentar: false,
-        deficiencia_fisica_mental: false,
-        toma_medicamento_controlado: false,
-        descricao_sonhos: '',
-        tipo_participacao: 'Encontrista',
+        evento_id: eventoId, membro_id: null, celula_id: null, lider_celula_nome: null, 
+        admin_observacao_pagamento: null, nome_completo_participante: '', cpf: '',
+        idade: null, rg: '', data_nascimento: '', contato_pessoal: '', contato_emergencia: '',
+        endereco_completo: '', bairro: '', cidade: '', estado_civil: null, nome_esposo: '',
+        tamanho_camiseta: null, eh_membro_ib_apascentar: false, pertence_outra_igreja: false,
+        nome_outra_igreja: '', dificuldade_dormir_beliche: false, restricao_alimentar: false,
+        deficiencia_fisica_mental: false, toma_medicamento_controlado: false,
+        descricao_sonhos: '', tipo_participacao: 'Encontrista',
     });
     
     const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-    // Carregar dados iniciais
     useEffect(() => {
         async function loadData() {
             setLoading(true);
             try {
-                const [eventData, membersData] = await Promise.all([
-                    getEventoFaceAFace(eventoId),
-                    listarMembrosDaCelulaDoLider()
-                ]);
-
-                if (!eventData) {
-                    addToast('Evento não encontrado.', 'error');
-                    router.push('/eventos-face-a-face');
-                    return;
-                }
+                const [eventData, membersData] = await Promise.all([getEventoFaceAFace(eventoId), listarMembrosDaCelulaDoLider()]);
+                if (!eventData) { addToast('Evento não encontrado.', 'error'); router.push('/eventos-face-a-face'); return; }
                 setEvento(eventData);
                 setMembros(membersData);
-            } catch (error: any) {
-                addToast(error.message, 'error');
-            } finally {
-                setLoading(false);
-            }
+            } catch (error: any) { addToast(error.message, 'error'); } finally { setLoading(false); }
         }
         if (eventoId) loadData();
     }, [eventoId, router, addToast]);
 
-    // Cálculo automático de idade
     useEffect(() => {
         if (formData.data_nascimento && formData.data_nascimento.length === 10) {
             const birthDate = new Date(formData.data_nascimento);
@@ -350,141 +275,68 @@ export default function LiderNovaInscricaoPage() {
         }
     }, [formData.data_nascimento, selectedMembroId]);
 
-    // Manipulador de Seleção de Membro (COM PARSE INTELIGENTE DE ENDEREÇO)
     const handleMembroSelection = (membroId: string) => {
         setSelectedMembroId(membroId);
-        
         if (membroId === 'external') {
-            setFormData(prev => ({
-                ...prev,
-                membro_id: null,
-                celula_id: null,
-                nome_completo_participante: '',
-                contato_pessoal: '',
-                data_nascimento: '',
-                idade: null,
-                endereco_completo: '',
-                bairro: '',
-                cidade: '',
-                eh_membro_ib_apascentar: false
-            }));
+            setFormData(prev => ({ ...prev, membro_id: null, celula_id: null, nome_completo_participante: '', contato_pessoal: '', data_nascimento: '', idade: null, endereco_completo: '', bairro: '', cidade: '', eh_membro_ib_apascentar: false }));
             setCepInput('');
         } else {
-            const membro = membros.find(m => m.id === membroId);
-            if (membro) {
-                let idadeCalculada = null;
-                if (membro.data_nascimento) {
-                    const birthDate = new Date(membro.data_nascimento);
+            const m = membros.find(x => x.id === membroId);
+            if (m) {
+                let idade = null;
+                if (m.data_nascimento) {
+                    const birth = new Date(m.data_nascimento);
                     const today = new Date();
-                    let age = today.getFullYear() - birthDate.getFullYear();
-                    const m = today.getMonth() - birthDate.getMonth();
-                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-                    idadeCalculada = age;
+                    idade = today.getFullYear() - birth.getFullYear();
+                    const month = today.getMonth() - birth.getMonth();
+                    if (month < 0 || (month === 0 && today.getDate() < birth.getDate())) idade--;
                 }
 
-                // LÓGICA DE PARSE DE ENDEREÇO DO MEMBRO
-                let enderecoParsed = '';
-                let bairroParsed = '';
-                let cidadeParsed = '';
-
-                if (membro.endereco) {
-                    // Tenta quebrar "Rua, Num, Bairro - Cidade/UF"
-                    // 1. Separa Cidade (pelo hífen com espaços)
-                    const partesGerais = membro.endereco.split(' - ');
-                    
-                    if (partesGerais.length >= 2) {
-                        // O último pedaço é a cidade
-                        const cidadeUf = partesGerais[partesGerais.length - 1]; // "Cidade/UF"
-                        cidadeParsed = cidadeUf.split('/')[0].trim();
-
-                        // O resto é o endereço + bairro
-                        const restoEndereco = partesGerais.slice(0, partesGerais.length - 1).join(' - ');
-                        
-                        // Tenta separar Bairro (pela última vírgula)
-                        const partesVirgula = restoEndereco.split(',');
-                        if (partesVirgula.length >= 2) {
-                            bairroParsed = partesVirgula.pop()?.trim() || '';
-                            enderecoParsed = partesVirgula.join(',').trim();
-                        } else {
-                            enderecoParsed = restoEndereco;
-                        }
-                    } else {
-                        // Se não achar o padrão, joga tudo no endereço
-                        enderecoParsed = membro.endereco;
-                    }
+                let e = '', b = '', c = '';
+                if (m.endereco) {
+                    const pg = m.endereco.split(' - ');
+                    if (pg.length >= 2) {
+                        c = pg[pg.length - 1].split('/')[0].trim();
+                        const re = pg.slice(0, pg.length - 1).join(' - ');
+                        const pv = re.split(',');
+                        if (pv.length >= 2) { b = pv.pop()?.trim() || ''; e = pv.join(',').trim(); } else { e = re; }
+                    } else { e = m.endereco; }
                 }
 
-                setFormData(prev => ({
-                    ...prev,
-                    membro_id: membro.id,
-                    celula_id: membro.celula_id || null, 
-                    nome_completo_participante: formatNameTitleCase(membro.nome), 
-                    contato_pessoal: membro.telefone ? formatPhoneNumberDisplay(membro.telefone) : '',
-                    data_nascimento: membro.data_nascimento ? formatDateForInput(membro.data_nascimento) : '',
-                    idade: idadeCalculada,
-                    endereco_completo: enderecoParsed,
-                    bairro: bairroParsed,
-                    cidade: cidadeParsed,
-                    eh_membro_ib_apascentar: true 
-                }));
+                setFormData(prev => ({ ...prev, membro_id: m.id, celula_id: m.celula_id || null, nome_completo_participante: formatNameTitleCase(m.nome), contato_pessoal: m.telefone ? formatPhoneNumberDisplay(m.telefone) : '', data_nascimento: m.data_nascimento ? formatDateForInput(m.data_nascimento) : '', idade, endereco_completo: e, bairro: b, cidade: c, eh_membro_ib_apascentar: true }));
             }
         }
     };
 
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string, value: any } }) => {
-        const { name, value } = e.target;
-        const type = (e.target as HTMLInputElement).type;
-        const checked = (e.target as HTMLInputElement).checked;
-        
-        let newValue: any = value;
-        if (type === 'checkbox') newValue = checked;
-        else if (name === 'contato_pessoal' || name === 'contato_emergencia') newValue = formatPhoneNumberDisplay(normalizePhoneNumber(value));
-        
-        setFormData(prev => ({ ...prev, [name]: newValue }));
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+    const handleChange = (e: any) => {
+        const { name, value, type, checked } = e.target;
+        let val = type === 'checkbox' ? checked : (type === 'number' ? (value === '' ? null : parseFloat(value)) : value);
+        if (name === 'contato_pessoal' || name === 'contato_emergencia') val = formatPhoneNumberDisplay(normalizePhoneNumber(value));
+        setFormData(prev => ({ ...prev, [name]: val }));
+        setTouched(prev => ({ ...prev, [name]: true }));
+    };
 
-    const handleSelectChange = useCallback((name: keyof InscricaoFaceAFaceFormData, value: string | boolean) => {
+    // FUNÇÃO ADICIONADA PARA CORRIGIR O ERRO DE COMPILAÇÃO
+    const handleSelectChange = (name: keyof InscricaoFaceAFaceFormData, value: any) => {
         setFormData(prev => ({ ...prev, [name]: value }));
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        setTouched(prev => ({ ...prev, [name]: true }));
+    };
 
-    // Formatador de Nome (Title Case)
-    const handleNameBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    const handleNameBlur = (e: any) => {
         const { name, value } = e.target;
-        if (name === 'nome_completo_participante') {
-            const formatted = formatNameTitleCase(value);
-            setFormData(prev => ({ ...prev, nome_completo_participante: formatted }));
-        }
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        if (name === 'nome_completo_participante') setFormData(prev => ({ ...prev, nome_completo_participante: formatNameTitleCase(value) }));
+        setTouched(prev => ({ ...prev, [name]: true }));
+    };
 
-    const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name } = e.target;
-        if (!touched[name]) setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
-
-    // BUSCA DE CEP
     const handleCepBlur = async () => {
         const cleanCep = cepInput.replace(/\D/g, '');
         if (cleanCep.length === 8) {
             setCepLoading(true);
             try {
-                const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-                const data = await response.json();
-                if (!data.erro) {
-                    setFormData((prev) => ({
-                        ...prev,
-                        endereco_completo: `${data.logradouro}, `, 
-                        bairro: data.bairro,
-                        cidade: data.localidade
-                    }));
-                }
-            } catch (error) {
-                console.error("Erro ao buscar CEP:", error);
-            } finally {
-                setCepLoading(false);
-            }
+                const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                const data = await res.json();
+                if (!data.erro) setFormData(prev => ({ ...prev, endereco_completo: `${data.logradouro}, `, bairro: data.bairro, cidade: data.localidade }));
+            } catch (err) { console.error(err); } finally { setCepLoading(false); }
         }
     };
 
@@ -495,190 +347,135 @@ export default function LiderNovaInscricaoPage() {
         setCepInput(val);
     };
 
-    const getFieldError = (fieldName: keyof InscricaoFaceAFaceFormData): string | null => {
-        if (!touched[fieldName]) return null;
-        const value = formData[fieldName];
-        if (fieldName === 'nome_completo_participante' && !value) return 'Nome obrigatório.';
-        if ((fieldName === 'contato_pessoal' || fieldName === 'contato_emergencia') && (!value || normalizePhoneNumber(String(value)).length < 10)) return 'Mín. 10 dígitos.';
-        if (fieldName === 'estado_civil' && !value) return 'Obrigatório.';
-        if (fieldName === 'tamanho_camiseta' && !value) return 'Obrigatório.';
-        if (fieldName === 'tipo_participacao' && !value) return 'Obrigatório.';
-        if (fieldName === 'nome_esposo' && formData.estado_civil === 'CASADA' && !value) return 'Obrigatório.';
-        if (fieldName === 'nome_outra_igreja' && formData.pertence_outra_igreja && !value) return 'Obrigatório.';
-        return null;
-    };
-
-    const hasErrors = useCallback(() => {
-        const fields: (keyof InscricaoFaceAFaceFormData)[] = ['nome_completo_participante', 'contato_pessoal', 'estado_civil', 'tamanho_camiseta', 'tipo_participacao'];
-        return fields.some(f => getFieldError(f) !== null);
-    }, [formData, touched]);
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-        
-        if (hasErrors()) {
-            addToast('Por favor, corrija os erros no formulário.', 'error');
-            return;
-        }
-
         setSubmitting(true);
         try {
-            await criarInscricaoFaceAFace({
-                ...formData,
-                contato_pessoal: normalizePhoneNumber(String(formData.contato_pessoal)),
-                contato_emergencia: normalizePhoneNumber(String(formData.contato_emergencia)),
-                cpf: normalizePhoneNumber(String(formData.cpf)),
-            });
-            addToast('Inscrição realizada com sucesso!', 'success');
+            await criarInscricaoFaceAFace({ ...formData, contato_pessoal: normalizePhoneNumber(String(formData.contato_pessoal)), contato_emergencia: normalizePhoneNumber(String(formData.contato_emergencia)), cpf: normalizePhoneNumber(String(formData.cpf)) });
+            addToast('Inscrição realizada!', 'success');
             router.push(`/eventos-face-a-face/${eventoId}/minhas-inscricoes`);
-        } catch (e: any) {
-            addToast(`Erro ao criar inscrição: ${e.message}`, 'error');
-        } finally {
-            setSubmitting(false);
-        }
+        } catch (e: any) { addToast(`Erro: ${e.message}`, 'error'); } finally { setSubmitting(false); }
     };
 
     if (loading || !evento) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
-    const memberOptions = [
-        { id: 'external', nome: '+ Novo / Visitante / Externo' },
-        ...membros.map(m => ({ id: m.id, nome: m.nome }))
-    ];
-    
-    const isMemberSelected = selectedMembroId !== 'external';
-
     return (
-        <div className="min-h-screen bg-gray-50 pb-12 sm:py-8 px-2 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
-            <div className="max-w-4xl mx-auto mt-4 sm:mt-0">
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-6 sm:px-6 sm:py-8">
-                        <div className="flex justify-between items-center"><h1 className="text-2xl font-bold text-white flex gap-2"><FaUserPlus /> Nova Inscrição</h1></div>
-                        <p className="text-green-100 mt-1">{evento.nome_evento}</p>
+            
+            {/* Header Emerald */}
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-24 px-4 sm:px-8 shadow-lg">
+                <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
+                        </Link>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                <FaUserPlus /> Nova Inscrição
+                            </h1>
+                            <p className="text-emerald-100 text-sm font-medium opacity-80 uppercase tracking-widest">{evento.nome_evento}</p>
+                        </div>
                     </div>
-                    
-                    <div className="p-4 sm:p-8">
-                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+                </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-12">
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="p-8 sm:p-10 space-y-10">
+                        
+                        {/* Seletor de Membro */}
+                        <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-[2rem] shadow-sm">
+                            <CustomSelectSheet 
+                                label="Quem você deseja inscrever?" 
+                                icon={<FaUsers size={20} />}
+                                value={selectedMembroId} 
+                                onChange={handleMembroSelection} 
+                                options={[{ id: 'external', nome: '+ Novo / Visitante / Externo' }, ...membros.map(m => ({ id: m.id, nome: m.nome }))]} 
+                                searchable 
+                            />
+                            {selectedMembroId !== 'external' && (
+                                <div className="mt-4 flex items-center gap-2 text-indigo-700 text-xs font-black uppercase tracking-widest bg-white/50 w-fit px-3 py-1.5 rounded-lg border border-indigo-100">
+                                    <FaCheckCircle /> Dados sincronizados
+                                </div>
+                            )}
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-10">
                             
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm">
-                                <CustomSelectSheet 
-                                    label="Quem você vai inscrever?" 
-                                    icon={<FaUserPlus className="text-blue-600" />}
-                                    value={selectedMembroId} 
-                                    onChange={handleMembroSelection} 
-                                    options={memberOptions} 
-                                    searchable 
-                                    placeholder="Selecione um membro ou 'Novo'..."
-                                />
-                                {isMemberSelected && (
-                                    <p className="text-xs text-blue-600 mt-2 ml-1 flex items-center gap-1">
-                                        <FaCheckCircle /> Dados do membro carregados (CEP manual disponível).
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="space-y-4 pt-2">
-                                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FaUser /> Dados do Participante</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField 
-                                        label="Nome Completo" 
-                                        name="nome_completo_participante" 
-                                        value={formData.nome_completo_participante ?? ''} 
-                                        onChange={handleChange} 
-                                        onBlur={handleNameBlur} // <-- TITLE CASE AQUI
-                                        error={getFieldError('nome_completo_participante')} 
-                                        required 
-                                        icon={FaUser} 
-                                        disabled={isMemberSelected} 
-                                        readOnly={isMemberSelected} 
-                                    />
-                                    
-                                    <BirthDateSelect 
-                                        value={formData.data_nascimento} 
-                                        onChange={handleChange} 
-                                        required 
-                                        disabled={isMemberSelected && !!formData.data_nascimento} 
-                                        error={getFieldError('data_nascimento')} 
-                                    />
-
-                                    <InputField label="Idade" name="idade" value={formData.idade ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('idade')} type="number" required icon={FaBirthdayCake} disabled={isMemberSelected && !!formData.data_nascimento} readOnly={isMemberSelected} />
-                                    <InputField label="CPF" name="cpf" value={formData.cpf ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('cpf')} icon={FaIdCard} maxLength={14} />
-                                    <InputField label="RG" name="rg" value={formData.rg ?? ''} onChange={handleChange} onBlur={handleBlur} icon={FaIdCard} />
-                                    <InputField label="Celular" name="contato_pessoal" value={formData.contato_pessoal ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('contato_pessoal')} required icon={FaPhone} disabled={isMemberSelected && !!formData.contato_pessoal} readOnly={isMemberSelected} />
-                                    <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia ?? ''} onChange={handleChange} onBlur={handleBlur} error={getFieldError('contato_emergencia')} required icon={FaPhone} />
+                            {/* Bloco 1: Dados Pessoais */}
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaUser size={16}/></div>
+                                    Dados do Participante
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante} onChange={handleChange} onBlur={handleNameBlur} required icon={FaPen} disabled={selectedMembroId !== 'external'} />
+                                    <BirthDateSelect value={formData.data_nascimento} onChange={handleChange} required disabled={selectedMembroId !== 'external' && !!formData.data_nascimento} />
+                                    <InputField label="Idade" name="idade" value={formData.idade} onChange={handleChange} type="number" required icon={FaBirthdayCake} disabled={selectedMembroId !== 'external'} />
+                                    <InputField label="CPF" name="cpf" value={formData.cpf} onChange={handleChange} icon={FaIdCard} maxLength={14} placeholder="000.000.000-00" />
+                                    <InputField label="Celular" name="contato_pessoal" value={formData.contato_pessoal} onChange={handleChange} required icon={FaPhone} disabled={selectedMembroId !== 'external'} />
+                                    <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia} onChange={handleChange} required icon={FaPhone} placeholder="Telefone de um parente" />
                                 </div>
-                                
-                                {/* BLOCO DE ENDEREÇO COM CEP (NOVO) */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2">
-                                    <div className="md:col-span-1">
-                                        <InputField 
-                                            label="CEP (Busca)" 
-                                            name="cep" 
-                                            value={cepInput} 
-                                            onChange={handleCepChange}
-                                            onBlur={handleCepBlur} 
-                                            icon={FaSearchLocation}
-                                            placeholder="00000-000"
-                                            isLoading={cepLoading}
-                                            // CEP não fica desabilitado, para permitir atualizar endereço de membro
-                                        />
-                                    </div>
+                            </section>
+
+                            {/* Bloco 2: Localização */}
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaSearchLocation size={16}/></div>
+                                    Endereço do Candidato
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <InputField label="CEP p/ Busca" name="cep" value={cepInput} onChange={handleCepChange} onBlur={handleCepBlur} icon={FaSearchLocation} placeholder="00000-000" isLoading={cepLoading} />
                                     <div className="md:col-span-2">
-                                        <InputField label="Endereço" name="endereco_completo" value={formData.endereco_completo ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} disabled={isMemberSelected && !cepInput} readOnly={isMemberSelected && !cepInput} />
+                                        <InputField label="Endereço / Número" name="endereco_completo" value={formData.endereco_completo} onChange={handleChange} required icon={FaMapMarkerAlt} disabled={selectedMembroId !== 'external' && !cepInput} />
                                     </div>
-                                    <InputField label="Bairro" name="bairro" value={formData.bairro ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} />
-                                    <InputField label="Cidade" name="cidade" value={formData.cidade ?? ''} onChange={handleChange} icon={FaMapMarkerAlt} />
+                                    <InputField label="Bairro" name="bairro" value={formData.bairro} onChange={handleChange} required icon={FaMapMarkerAlt} />
+                                    <InputField label="Cidade" name="cidade" value={formData.cidade} onChange={handleChange} required icon={FaMapMarkerAlt} />
                                 </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <CustomSelectSheet label="Estado Civil" icon={<FaRing />} value={formData.estado_civil ?? ''} onChange={(val) => handleSelectChange('estado_civil', val)} options={[{id:'SOLTEIRA',nome:'Solteira'},{id:'CASADA',nome:'Casada'},{id:'DIVORCIADA',nome:'Divorciada'},{id:'VIÚVA',nome:'Viúva'},{id:'UNIÃO ESTÁVEL',nome:'União Estável'}]} required disabled={isMemberSelected && !!formData.estado_civil} />
-                                    {formData.estado_civil === 'CASADA' && <InputField label="Nome Esposo" name="nome_esposo" value={formData.nome_esposo ?? ''} onChange={handleChange} onBlur={handleNameBlur} required icon={FaUser} />}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <CustomSelectSheet label="Camiseta" icon={<FaTshirt />} value={formData.tamanho_camiseta ?? ''} onChange={(val) => handleSelectChange('tamanho_camiseta', val)} options={['PP','P','M','G','GG','G1','G2','G3'].map(t=>({id:t,nome:t}))} required />
-                                    <CustomSelectSheet label="Papel" icon={<FaTransgender />} value={formData.tipo_participacao ?? ''} onChange={(val) => handleSelectChange('tipo_participacao', val)} options={[{id:'Encontrista',nome:'Encontrista'},{id:'Encontreiro',nome:'Encontreiro'}]} required />
-                                </div>
-                            </div>
+                            </section>
 
-                            <div className="space-y-4 pt-4 border-t border-gray-100">
-                                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FaChurch /> Igreja & Saúde</h2>
-                                <InputField label="Membro IBA?" name="eh_membro_ib_apascentar" value={formData.eh_membro_ib_apascentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaChurch} disabled={isMemberSelected} />
-                                {!formData.eh_membro_ib_apascentar && (
-                                    <>
-                                        <InputField label="Outra Igreja?" name="pertence_outra_igreja" value={formData.pertence_outra_igreja ?? false} onChange={handleChange} type="checkbox" toggle icon={FaChurch} />
-                                        {formData.pertence_outra_igreja && <InputField label="Qual?" name="nome_outra_igreja" value={formData.nome_outra_igreja ?? ''} onChange={handleChange} required />}
-                                    </>
-                                )}
-                                <InputField label="Dificuldade Beliche?" name="dificuldade_dormir_beliche" value={formData.dificuldade_dormir_beliche ?? false} onChange={handleChange} type="checkbox" toggle icon={FaBed} />
-                                <InputField label="Restrição Alimentar?" name="restricao_alimentar" value={formData.restricao_alimentar ?? false} onChange={handleChange} type="checkbox" toggle icon={FaUtensils} />
-                                <InputField label="Deficiência?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental ?? false} onChange={handleChange} type="checkbox" toggle icon={FaWheelchair} />
-                                <InputField label="Remédio Controlado?" name="toma_medicamento_controlado" value={formData.toma_medicamento_controlado ?? false} onChange={handleChange} type="checkbox" toggle icon={FaPills} />
-                                
-                                {/* CAMPO DE SONHOS (OPCIONAL) */}
-                                <InputField 
-                                    label="Sonhos com Deus (Opcional)" 
-                                    name="descricao_sonhos" 
-                                    value={formData.descricao_sonhos ?? ''} 
-                                    onChange={handleChange} 
-                                    type="textarea" 
-                                    icon={FaHeart} 
-                                    placeholder="Se souber, descreva aqui."
-                                />
-                            </div>
+                            {/* Bloco 3: Perfil e Camiseta */}
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-purple-100 text-purple-600 rounded-xl"><FaTshirt size={16}/></div>
+                                    Preferências e Estado Civil
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <CustomSelectSheet label="Estado Civil" icon={<FaRing />} value={formData.estado_civil} onChange={(v:any) => handleSelectChange('estado_civil', v)} options={[{id:'SOLTEIRA',nome:'Solteira'},{id:'CASADA',nome:'Casada'},{id:'DIVORCIADA',nome:'Divorciada'},{id:'VIÚVA',nome:'Viúva'},{id:'UNIÃO ESTÁVEL',nome:'União Estável'}]} required disabled={selectedMembroId !== 'external' && !!formData.estado_civil} />
+                                    {formData.estado_civil === 'CASADA' && <InputField label="Nome do Cônjuge" name="nome_esposo" value={formData.nome_esposo} onChange={handleChange} onBlur={handleNameBlur} required icon={FaUser} />}
+                                    <CustomSelectSheet label="Tamanho da Camiseta" icon={<FaTshirt />} value={formData.tamanho_camiseta} onChange={(v:any) => handleSelectChange('tamanho_camiseta', v)} options={['PP','P','M','G','GG','G1','G2','G3'].map(t=>({id:t,nome:t}))} required />
+                                    <CustomSelectSheet label="Papel no Encontro" icon={<FaTransgender />} value={formData.tipo_participacao} onChange={(v:any) => handleSelectChange('tipo_participacao', v)} options={[{id:'Encontrista',nome:'Encontrista'},{id:'Encontreiro',nome:'Encontreiro'}]} required />
+                                </div>
+                            </section>
 
-                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
-                                <Link href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} className="px-6 py-4 sm:py-3 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 active:bg-gray-100 text-center transition-colors">Cancelar</Link>
-                                <button type="submit" disabled={submitting || loading} className="px-6 py-4 sm:py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 active:bg-green-800 shadow-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2">
-                                    {submitting ? (
-                                        <>
-                                            <LoadingSpinner size="sm" color="white" /> Salvando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FaSave /> Realizar Inscrição
-                                        </>
+                            {/* Bloco 4: Saúde e Igreja */}
+                            <section className="space-y-6">
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-orange-100 text-orange-600 rounded-xl"><FaBriefcaseMedical size={16}/></div>
+                                    Igreja & Cuidados de Saúde
+                                </h2>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <InputField label="É membro da Apascentar?" name="eh_membro_ib_apascentar" value={formData.eh_membro_ib_apascentar} onChange={handleChange} type="checkbox" toggle icon={FaChurch} disabled={selectedMembroId !== 'external'} />
+                                    {!formData.eh_membro_ib_apascentar && (
+                                        <div className="col-span-full grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in zoom-in-95 duration-200">
+                                            <InputField label="Vem de outra igreja?" name="pertence_outra_igreja" value={formData.pertence_outra_igreja} onChange={handleChange} type="checkbox" toggle icon={FaChurch} />
+                                            {formData.pertence_outra_igreja && <InputField label="Qual o nome da igreja?" name="nome_outra_igreja" value={formData.nome_outra_igreja} onChange={handleChange} required icon={FaPen} />}
+                                        </div>
                                     )}
+                                    <InputField label="Dificuldade com Beliche?" name="dificuldade_dormir_beliche" value={formData.dificuldade_dormir_beliche} onChange={handleChange} type="checkbox" toggle icon={FaBed} />
+                                    <InputField label="Restrição Alimentar?" name="restricao_alimentar" value={formData.restricao_alimentar} onChange={handleChange} type="checkbox" toggle icon={FaUtensils} />
+                                    <InputField label="Alguma Deficiência?" name="deficiencia_fisica_mental" value={formData.deficiencia_fisica_mental} onChange={handleChange} type="checkbox" toggle icon={FaWheelchair} />
+                                    <InputField label="Remédio Controlado?" name="toma_medicamento_controlado" value={formData.toma_medicamento_controlado} onChange={handleChange} type="checkbox" toggle icon={FaPills} />
+                                </div>
+                                <InputField label="O que você espera do encontro? (Opcional)" name="descricao_sonhos" value={formData.descricao_sonhos} onChange={handleChange} type="textarea" rows={4} icon={FaHeart} placeholder="Deixe uma mensagem sobre suas expectativas..." />
+                            </section>
+
+                            {/* Botões de Ação */}
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-8 border-t border-gray-50">
+                                <Link href={`/eventos-face-a-face/${eventoId}/minhas-inscricoes`} className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all text-center">Cancelar</Link>
+                                <button type="submit" disabled={submitting} className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer uppercase tracking-tighter">
+                                    {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />} Concluir Inscrição
                                 </button>
                             </div>
                         </form>
