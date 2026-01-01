@@ -10,6 +10,7 @@ import { InscricaoFaceAFaceStatus } from '@/lib/types';
 import { formatPhoneNumberDisplay } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 import {
     FaMoneyBillWave,
@@ -18,7 +19,8 @@ import {
     FaEdit,
     FaSync,
     FaArrowLeft,
-    FaExclamationCircle
+    FaExclamationCircle,
+    FaSpinner // Adicionado aqui para corrigir o erro de build
 } from 'react-icons/fa';
 
 type PendenciaFinanceira = {
@@ -38,6 +40,15 @@ export default function CentralAprovacoesPage() {
     const [pendencias, setPendencias] = useState<PendenciaFinanceira[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+
+    // Estado para o Modal de Confirmação
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        item: PendenciaFinanceira | null;
+    }>({
+        isOpen: false,
+        item: null
+    });
 
     const { addToast, ToastContainer } = useToast();
 
@@ -87,10 +98,13 @@ export default function CentralAprovacoesPage() {
         fetchPendencias();
     }, [fetchPendencias]);
 
-    const handleApprove = async (item: PendenciaFinanceira) => {
-        if (!confirm(`Confirmar pagamento de ${item.nome_completo_participante}?`)) return;
+    const handleApprove = async () => {
+        const item = confirmModal.item;
+        if (!item) return;
         
+        setConfirmModal({ isOpen: false, item: null });
         setProcessingId(item.id);
+        
         try {
             const updateData: any = {};
             
@@ -117,22 +131,33 @@ export default function CentralAprovacoesPage() {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
 
+            <ConfirmationModal 
+                isOpen={confirmModal.isOpen}
+                variant="info"
+                title="Confirmar Pagamento"
+                message={`Deseja validar o comprovante e confirmar o pagamento de ${confirmModal.item?.nome_completo_participante}?`}
+                confirmText="Confirmar Agora"
+                onClose={() => setConfirmModal({ isOpen: false, item: null })}
+                onConfirm={handleApprove}
+                loading={processingId !== null}
+            />
+
             <div className="bg-gradient-to-r from-emerald-800 to-teal-700 shadow-xl px-4 pt-8 pb-16 sm:px-8">
-                <div className="max-w-5xl mx-auto flex justify-between items-center">
+                <div className="max-w-5xl mx-auto flex justify-between items-center text-white">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 tracking-tight">
                             <FaMoneyBillWave className="text-yellow-400" /> Central de Aprovações
                         </h1>
-                        <p className="text-emerald-100 text-sm mt-1">
+                        <p className="text-emerald-100 text-sm mt-1 opacity-90">
                             {pendencias.length === 0 
                                 ? "Tudo em dia! Nenhuma pendência financeira." 
-                                : `Você tem ${pendencias.length} pagamentos aguardando confirmação.`}
+                                : `Você tem ${pendencias.length} pagamentos aguardando análise.`}
                         </p>
                     </div>
-                    <Link href="/admin/dashboard" className="text-white/80 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
+                    <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl backdrop-blur-md border border-white/10">
                         <FaArrowLeft /> Voltar
                     </Link>
                 </div>
@@ -140,13 +165,13 @@ export default function CentralAprovacoesPage() {
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-10">
                 {pendencias.length === 0 && (
-                    <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-gray-100">
-                        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
+                    <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
+                        <div className="w-20 h-20 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl transform -rotate-3">
                             <FaCheckCircle />
                         </div>
-                        <h2 className="text-xl font-bold text-gray-800">Tudo Limpo!</h2>
-                        <p className="text-gray-500 mt-2">Não há comprovantes pendentes de análise no momento.</p>
-                        <button onClick={fetchPendencias} className="mt-6 text-emerald-600 font-bold hover:underline flex items-center justify-center gap-2 mx-auto">
+                        <h2 className="text-2xl font-bold text-gray-800">Tudo Limpo!</h2>
+                        <p className="text-gray-500 mt-2">Não há comprovantes pendentes no momento.</p>
+                        <button onClick={fetchPendencias} className="mt-8 text-emerald-600 font-bold hover:text-emerald-700 flex items-center justify-center gap-2 mx-auto transition-colors">
                             <FaSync /> Atualizar Lista
                         </button>
                     </div>
@@ -160,62 +185,61 @@ export default function CentralAprovacoesPage() {
                         const labelTipo = isEntrada ? "Entrada (Sinal)" : "Restante (Quitação)";
 
                         return (
-                            <div key={item.id} className="bg-white rounded-xl shadow-md border border-gray-200 p-5 flex flex-col md:flex-row gap-6 hover:border-emerald-300 transition-colors">
+                            <div key={item.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col md:flex-row gap-6 hover:shadow-xl transition-all duration-300">
                                 
-                                <div className="flex-1 space-y-2">
+                                <div className="flex-1 space-y-4">
                                     <div className="flex items-start justify-between">
                                         <div>
-                                            <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                                            <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest border border-indigo-100">
                                                 {item.evento_nome}
                                             </span>
-                                            <h3 className="text-lg font-bold text-gray-900 mt-1">{item.nome_completo_participante}</h3>
-                                            <p className="text-sm text-gray-500">{formatPhoneNumberDisplay(item.contato_pessoal)}</p>
+                                            <h3 className="text-xl font-bold text-gray-900 mt-2">{item.nome_completo_participante}</h3>
+                                            <p className="text-sm font-medium text-gray-400">{formatPhoneNumberDisplay(item.contato_pessoal)}</p>
                                         </div>
                                     </div>
                                     
-                                    <div className="flex items-center gap-3 mt-3 bg-yellow-50 border border-yellow-100 p-3 rounded-lg w-fit">
-                                        <div className="bg-yellow-100 p-2 rounded-full text-yellow-700">
-                                            <FaExclamationCircle />
+                                    <div className="flex items-center gap-4 bg-gray-50 border border-gray-100 p-4 rounded-2xl">
+                                        <div className="bg-amber-100 p-2.5 rounded-xl text-amber-600">
+                                            <FaExclamationCircle size={20} />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-yellow-800 uppercase">Aguardando Aprovação</p>
-                                            <p className="text-sm text-gray-800">
-                                                Tipo: <strong>{labelTipo}</strong>
-                                                <span className="mx-2 text-gray-300">|</span>
-                                                Valor Ref.: <strong>R$ {valorReferencia.toFixed(2).replace('.', ',')}</strong>
+                                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-tighter">Tipo de Pagamento</p>
+                                            <p className="text-sm text-gray-700 font-medium">
+                                                <span className="text-gray-900 font-bold">{labelTipo}</span>
+                                                <span className="mx-3 text-gray-300">|</span>
+                                                <span className="text-emerald-600 font-bold">R$ {valorReferencia.toFixed(2).replace('.', ',')}</span>
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Coluna de Ações Ajustada para Mobile */}
-                                <div className="flex flex-wrap md:flex-col justify-end gap-3 md:min-w-[200px]">
+                                <div className="flex flex-col justify-center gap-3 md:min-w-[220px]">
                                     {comprovanteUrl ? (
                                         <a 
                                             href={comprovanteUrl} 
                                             target="_blank" 
-                                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-bold text-sm transition-colors"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl hover:bg-blue-100 font-bold text-sm transition-all active:scale-95"
                                         >
-                                            <FaEye /> Ver Comprovante
+                                            <FaEye /> Visualizar Anexo
                                         </a>
                                     ) : (
-                                        <span className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg text-sm cursor-not-allowed">
-                                            Sem Comprovante
-                                        </span>
+                                        <div className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium italic">
+                                            Sem anexo disponível
+                                        </div>
                                     )}
 
                                     <button 
-                                        onClick={() => handleApprove(item)}
+                                        onClick={() => setConfirmModal({ isOpen: true, item })}
                                         disabled={processingId === item.id}
-                                        className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-bold text-sm shadow-md transition-colors disabled:opacity-70"
+                                        className="flex items-center justify-center gap-2 px-4 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
                                     >
-                                        {processingId === item.id ? <LoadingSpinner size="sm" color="white" /> : <><FaCheckCircle /> Confirmar Pagamento</>}
+                                        {processingId === item.id ? <FaSpinner className="animate-spin" /> : <><FaCheckCircle /> Confirmar Recebimento</>}
                                     </button>
 
-                                    {/* Link Editar agora visível no mobile e alinhado abaixo */}
                                     <Link 
                                         href={`/admin/eventos-face-a-face/${item.evento_id}/inscricoes/editar/${item.id}`}
-                                        className="flex w-full md:w-auto items-center justify-center gap-2 text-xs text-gray-400 hover:text-emerald-600 hover:underline mt-1 py-2 md:py-0"
+                                        className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-indigo-600 transition-colors py-1"
                                     >
                                         <FaEdit /> Editar Detalhes
                                     </Link>
@@ -224,7 +248,6 @@ export default function CentralAprovacoesPage() {
                         );
                     })}
                 </div>
-
             </div>
         </div>
     );
