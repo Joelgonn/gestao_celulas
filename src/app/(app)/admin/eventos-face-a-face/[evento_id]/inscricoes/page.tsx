@@ -1,7 +1,7 @@
 'use client';
 
 import { format } from 'date-fns';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
@@ -26,23 +26,24 @@ import {
 } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 import {
     FaArrowLeft, FaUsers, FaFilter, FaSearch, FaEdit, FaTrash, FaFileCsv, 
-    FaFilePdf, FaSync, FaEye, FaWhatsapp, FaPhone, FaTransgender, FaChevronDown,
-    FaMoneyBillWave
+    FaFilePdf, FaSync, FaWhatsapp, FaTransgender, FaChevronDown,
+    FaMoneyBillWave, FaCheckCircle, FaSpinner, FaInfoCircle
 } from 'react-icons/fa';
 
-// --- COMPONENTES VISUAIS INTERNOS ---
+// --- COMPONENTES VISUAIS ---
 
 const SearchInput = ({ value, onChange, placeholder }: any) => (
-    <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+    <div className="relative group flex-1">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <FaSearch className="text-gray-400 group-focus-within:text-purple-500 transition-colors" />
         </div>
         <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 sm:text-sm"
+            className="block w-full pl-11 pr-3 py-3.5 border border-gray-200 rounded-2xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all sm:text-sm font-medium"
             placeholder={placeholder}
             value={value}
             onChange={onChange}
@@ -52,13 +53,13 @@ const SearchInput = ({ value, onChange, placeholder }: any) => (
 
 const FilterSelect = ({ icon: Icon, value, onChange, options }: any) => (
     <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
             <Icon className="text-gray-400 group-hover:text-purple-500 transition-colors" />
         </div>
         <select
             value={value}
             onChange={onChange}
-            className="block w-full pl-10 pr-10 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-xl appearance-none bg-white border hover:border-purple-300 transition-all cursor-pointer truncate"
+            className="block w-full pl-11 pr-10 py-3.5 text-sm border-gray-200 focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 rounded-2xl appearance-none bg-gray-50 border hover:border-purple-300 transition-all cursor-pointer font-bold text-gray-600"
         >
             {options.map((opt: any) => (
                 <option key={opt.id} value={opt.id}>{opt.nome}</option>
@@ -77,15 +78,16 @@ export default function AdminListagemInscricoesPage() {
     const eventoId = params.evento_id as string;
 
     const [evento, setEvento] = useState<EventoFaceAFace | null>(null);
-    
-    // Separação de dados: Todos vs Filtrados
     const [allInscricoes, setAllInscricoes] = useState<InscricaoFaceAFace[]>([]);
     const [filteredInscricoes, setFilteredInscricoes] = useState<InscricaoFaceAFace[]>([]);
-    
     const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
-
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+
+    // Estado para o Modal de Confirmação
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; id: string; name: string }>({
+        isOpen: false, id: '', name: ''
+    });
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -96,345 +98,180 @@ export default function AdminListagemInscricoesPage() {
     const router = useRouter();
     const { addToast, ToastContainer } = useToast();
 
-    const statusPagamentoOptions = [
-        { id: 'all', nome: 'Status: Todos' },
-        { id: 'PENDENTE', nome: 'Pendente' },
-        { id: 'AGUARDANDO_CONFIRMACAO_ENTRADA', nome: 'Aguard. Entrada' },
-        { id: 'ENTRADA_CONFIRMADA', nome: 'Entrada OK' },
-        { id: 'AGUARDANDO_CONFIRMACAO_RESTANTE', nome: 'Aguard. Restante' },
-        { id: 'PAGO_TOTAL', nome: 'Pago Total' },
-        { id: 'CANCELADO', nome: 'Cancelado' },
-    ];
-
-    const tipoParticipacaoOptions = [
-        { id: 'all', nome: 'Tipo: Todos' },
-        { id: 'Encontrista', nome: 'Encontrista' },
-        { id: 'Encontreiro', nome: 'Encontreiro' },
-    ];
-
-    // Carrega TODOS os dados do servidor uma única vez (ou ao forçar atualização)
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
             if (!eventoId) return;
-
-            // Busca SEM filtros no servidor para pegar tudo
             const fetchedInscricoes = await listarInscricoesFaceAFacePorEvento(eventoId);
             setAllInscricoes(fetchedInscricoes);
-            setFilteredInscricoes(fetchedInscricoes); // Inicialmente, filtrados = todos
+            setFilteredInscricoes(fetchedInscricoes);
         } catch (e: any) {
-            console.error("Erro ao carregar inscrições:", e);
             addToast(`Erro ao carregar: ${e.message}`, 'error');
         } finally { setLoading(false); }
     }, [eventoId, addToast]); 
 
-    // Lógica de Filtragem Local (Executa instantaneamente quando um filtro muda)
     useEffect(() => {
         let result = allInscricoes;
-
-        // 1. Filtro de Texto (Nome ou Contato)
         if (searchTerm.trim() !== '') {
             const term = searchTerm.toLowerCase();
-            result = result.filter(i => 
-                i.nome_completo_participante.toLowerCase().includes(term) ||
-                (i.contato_pessoal && i.contato_pessoal.includes(term))
-            );
+            result = result.filter(i => i.nome_completo_participante.toLowerCase().includes(term) || (i.contato_pessoal && i.contato_pessoal.includes(term)));
         }
-
-        // 2. Filtro de Status
-        if (statusFilter !== 'all') {
-            result = result.filter(i => i.status_pagamento === statusFilter);
-        }
-
-        // 3. Filtro de Tipo
-        if (tipoParticipacaoFilter !== 'all') {
-            result = result.filter(i => i.tipo_participacao === tipoParticipacaoFilter);
-        }
-
-        // 4. Filtro de Célula
-        if (celulaFilter !== 'all') {
-            result = result.filter(i => 
-                i.celula_id === celulaFilter || i.celula_inscricao_id === celulaFilter
-            );
-        }
-
+        if (statusFilter !== 'all') result = result.filter(i => i.status_pagamento === statusFilter);
+        if (tipoParticipacaoFilter !== 'all') result = result.filter(i => i.tipo_participacao === tipoParticipacaoFilter);
+        if (celulaFilter !== 'all') result = result.filter(i => i.celula_id === celulaFilter || i.celula_inscricao_id === celulaFilter);
         setFilteredInscricoes(result);
     }, [allInscricoes, searchTerm, statusFilter, tipoParticipacaoFilter, celulaFilter]);
 
-
-    // Carregamento Inicial da Página
     useEffect(() => {
         async function loadInitialPageData() {
             setLoading(true);
             try {
                 const eventData = await getEventoFaceAFace(eventoId);
-                if (!eventData) {
-                    addToast('Evento não encontrado.', 'error');
-                    router.replace('/admin/eventos-face-a-face');
-                    return;
-                }
+                if (!eventData) { router.replace('/admin/eventos-face-a-face'); return; }
                 setEvento(eventData);
                 const celulasData = await listarCelulasParaAdmin();
-                setCelulasOptions([{ id: 'all', nome: 'Célula: Todas' }, ...celulasData]);
-                
-                await fetchAllData(); // Busca inscrições
-            } catch (e: any) {
-                addToast(`Erro: ${e.message}`, 'error');
-                router.replace('/admin/eventos-face-a-face');
-            }
+                setCelulasOptions([{ id: 'all', nome: 'Todas as Células' }, ...celulasData]);
+                await fetchAllData();
+            } catch (e) { router.replace('/admin/eventos-face-a-face'); }
         }
         if (eventoId) loadInitialPageData();
-    }, [eventoId, router, addToast, fetchAllData]); 
+    }, [eventoId, router, fetchAllData]); 
 
-    const handleDelete = async (inscricaoId: string, nomeParticipante: string) => {
-        if (!confirm(`Excluir a inscrição de "${nomeParticipante}"?`)) return;
+    const confirmDelete = (id: string, name: string) => setDeleteModal({ isOpen: true, id, name });
+
+    const executeDelete = async () => {
         setSubmitting(true);
         try {
-            await excluirInscricaoFaceAFace(inscricaoId);
-            addToast('Inscrição excluída.', 'success');
-            await fetchAllData(); // Recarrega do servidor para garantir sincronia
-        } catch (e: any) {
-            addToast(`Erro ao excluir: ${e.message}`, 'error');
-        } finally { setSubmitting(false); }
-    };
-
-    const getStatusBadge = (status: InscricaoFaceAFaceStatus) => {
-        switch (status) {
-            case 'PENDENTE': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'AGUARDANDO_CONFIRMACAO_ENTRADA': return 'bg-orange-100 text-orange-800 border-orange-200';
-            case 'ENTRADA_CONFIRMADA': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'AGUARDANDO_CONFIRMACAO_RESTANTE': return 'bg-purple-100 text-purple-800 border-purple-200';
-            case 'PAGO_TOTAL': return 'bg-green-100 text-green-800 border-green-200';
-            case 'CANCELADO': return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-gray-100 text-gray-800';
+            await excluirInscricaoFaceAFace(deleteModal.id);
+            addToast('Inscrição removida!', 'success');
+            await fetchAllData();
+        } catch (e: any) { addToast(`Erro ao excluir: ${e.message}`, 'error'); } finally { 
+            setSubmitting(false); 
+            setDeleteModal({ isOpen: false, id: '', name: '' });
         }
     };
 
-    const getStatusText = (status: InscricaoFaceAFaceStatus) => {
-        const option = statusPagamentoOptions.find(o => o.id === status);
-        return option ? option.nome.replace('Status: ', '').replace('Aguard.', 'Aguardando') : status;
+    const getStatusStyle = (status: InscricaoFaceAFaceStatus) => {
+        switch (status) {
+            case 'PENDENTE': return 'bg-amber-50 text-amber-700 border-amber-100';
+            case 'ENTRADA_CONFIRMADA': return 'bg-blue-50 text-blue-700 border-blue-100';
+            case 'PAGO_TOTAL': return 'bg-green-50 text-green-700 border-green-100';
+            case 'CANCELADO': return 'bg-red-50 text-red-700 border-red-100';
+            default: return 'bg-gray-50 text-gray-700 border-gray-100';
+        }
     };
 
     const handleExportCSV = async () => {
-        if (!eventoId) return;
         setSubmitting(true);
         try {
-            // Nota: Continuamos exportando via servidor para garantir formato correto,
-            // mas enviamos os filtros atuais para o servidor processar igual.
-            const csvData = await exportarInscricoesCSV(eventoId, {
-                statusPagamento: statusFilter,
-                celulaId: celulaFilter,
-                searchTerm: searchTerm.trim() || undefined,
-                tipoParticipacao: tipoParticipacaoFilter === 'all' ? undefined : tipoParticipacaoFilter,
-            });
+            const csvData = await exportarInscricoesCSV(eventoId, { statusPagamento: statusFilter, celulaId: celulaFilter, searchTerm: searchTerm.trim() || undefined });
             const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            if (link.download !== undefined) {
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', `inscricoes_${evento?.nome_evento.replace(/\s/g, '_')}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                addToast('CSV exportado!', 'success');
-            }
-        } catch (e: any) { addToast(`Erro CSV: ${e.message}`, 'error'); } finally { setSubmitting(false); }
-    };
-
-    const handleExportPDF = () => {
-        if (filteredInscricoes.length === 0) return addToast('Sem dados para exportar.', 'warning');
-        try {
-            const doc = new jsPDF();
-            doc.setFontSize(16); doc.text(`Relatório: ${evento?.nome_evento}`, 14, 20);
-            doc.setFontSize(10); doc.setTextColor(100); doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | Filtros Aplicados`, 14, 27);
-            
-            autoTable(doc, {
-                head: [["Nome", "Contato", "Célula", "Tipo", "Status", "Membro?"]],
-                body: filteredInscricoes.map(i => [
-                    i.nome_completo_participante,
-                    formatPhoneNumberDisplay(i.contato_pessoal),
-                    i.celula_participante_nome || i.celula_inscricao_nome || '-',
-                    i.tipo_participacao,
-                    getStatusText(i.status_pagamento),
-                    i.eh_membro_ib_apascentar ? 'Sim' : 'Não'
-                ]),
-                startY: 35, theme: 'grid', headStyles: { fillColor: [100, 50, 150] }, styles: { fontSize: 8 }
-            });
-            doc.save(`relatorio_${evento?.nome_evento}_.pdf`);
-            addToast('PDF gerado!', 'success');
-        } catch (error: any) { addToast('Erro ao gerar PDF.', 'error'); }
+            link.href = URL.createObjectURL(blob);
+            link.download = `inscricoes_${evento?.nome_evento.replace(/\s/g, '_')}.csv`;
+            link.click();
+            addToast('CSV exportado!', 'success');
+        } catch (e: any) { addToast('Erro no CSV', 'error'); } finally { setSubmitting(false); }
     };
 
     if (loading || !evento) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
+            <ConfirmationModal 
+                isOpen={deleteModal.isOpen}
+                title="Excluir Inscrição?"
+                message={`Deseja realmente remover a inscrição de ${deleteModal.name}? Esta ação é definitiva.`}
+                variant="danger"
+                onConfirm={executeDelete}
+                onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+                loading={submitting}
+            />
 
-            {/* Header Admin (Roxo) */}
-            <div className="bg-gradient-to-r from-purple-700 to-pink-600 shadow-xl px-4 pt-8 pb-16 sm:px-8">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-                            <FaUsers /> {evento.nome_evento}
-                        </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="bg-white/20 text-white px-2 py-0.5 rounded text-xs font-semibold backdrop-blur-md">Admin Dashboard</span>
-                            <p className="text-purple-100 text-sm">Gerencie todas as inscrições</p>
+            {/* Header Admin */}
+            <div className="bg-gradient-to-br from-purple-700 to-indigo-800 shadow-lg px-4 pt-8 pb-20 sm:px-8 border-b border-indigo-500/20">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/admin/eventos-face-a-face" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
+                        </Link>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight">{evento.nome_evento}</h1>
+                            <p className="text-purple-100 text-sm font-bold opacity-80 uppercase tracking-widest">Painel Administrativo de Inscrições</p>
                         </div>
                     </div>
-                    
-                    <Link
-                        href="/admin/eventos-face-a-face"
-                        className="inline-flex justify-center items-center px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors backdrop-blur-sm border border-white/20 text-sm font-medium"
-                    >
-                        <FaArrowLeft className="w-3 h-3 mr-2" /> Voltar
-                    </Link>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <button onClick={handleExportCSV} disabled={submitting} className="flex-1 md:flex-none bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-all">
+                            <FaFileCsv /> CSV
+                        </button>
+                        <button onClick={fetchAllData} className="p-3.5 bg-white/10 text-white rounded-2xl border border-white/10 hover:bg-white/20 transition-all"><FaSync className={loading ? 'animate-spin' : ''}/></button>
+                    </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-10">
                 
-                {/* Painel de Controle */}
-                <div className="bg-white rounded-2xl shadow-lg p-5 mb-6 border border-gray-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Filtros */}
+                <div className="bg-white rounded-[2rem] shadow-xl p-5 mb-8 border border-gray-100 flex flex-col gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <SearchInput value={searchTerm} onChange={(e: any) => setSearchTerm(e.target.value)} placeholder="Buscar nome..." />
-                        <FilterSelect icon={FaMoneyBillWave} value={statusFilter} onChange={(e: any) => setStatusFilter(e.target.value)} options={statusPagamentoOptions} />
-                        <FilterSelect icon={FaTransgender} value={tipoParticipacaoFilter} onChange={(e: any) => setTipoParticipacaoFilter(e.target.value)} options={tipoParticipacaoOptions} />
+                        <FilterSelect icon={FaMoneyBillWave} value={statusFilter} onChange={(e: any) => setStatusFilter(e.target.value)} options={[{id:'all',nome:'Todos os Status'},{id:'PENDENTE',nome:'Pendente'},{id:'ENTRADA_CONFIRMADA',nome:'Entrada OK'},{id:'PAGO_TOTAL',nome:'Pago Total'}]} />
+                        <FilterSelect icon={FaTransgender} value={tipoParticipacaoFilter} onChange={(e: any) => setTipoParticipacaoFilter(e.target.value)} options={[{id:'all',nome:'Todos os Papéis'},{id:'Encontrista',nome:'Encontrista'},{id:'Encontreiro',nome:'Encontreiro'}]} />
                         <FilterSelect icon={FaUsers} value={celulaFilter} onChange={(e: any) => setCelulaFilter(e.target.value)} options={celulasOptions} />
-                        
-                        <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setTipoParticipacaoFilter('all'); setCelulaFilter('all'); fetchAllData(); }}
-                            className="bg-gray-100 text-gray-700 py-2.5 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm flex items-center justify-center gap-2 active:scale-95 border border-gray-200"
-                        >
-                            <FaSync /> Limpar
-                        </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 mt-5 justify-end border-t border-gray-100 pt-4">
-                        <span className="text-xs text-gray-400 self-center mr-auto font-medium">
-                            Exibindo: {filteredInscricoes.length} de {allInscricoes.length}
-                        </span>
-                        <button onClick={handleExportCSV} disabled={submitting || !filteredInscricoes.length} className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
-                            <FaFileCsv /> CSV
-                        </button>
-                        <button onClick={handleExportPDF} disabled={submitting || !filteredInscricoes.length} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
-                            <FaFilePdf /> PDF
-                        </button>
                     </div>
                 </div>
 
-                {/* Empty State */}
-                {filteredInscricoes.length === 0 && !loading && (
-                    <div className="text-center p-12 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
-                        <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FaUsers className="text-2xl text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-700">Nenhum resultado</h3>
-                        <p className="text-gray-500 text-sm mb-6">Tente ajustar os filtros ou busque por outro nome.</p>
-                        <button onClick={() => {setSearchTerm(''); setStatusFilter('all');}} className="text-purple-600 font-bold text-sm hover:underline">Limpar filtros</button>
-                    </div>
-                )}
-
-                {/* Tabela Desktop */}
-                <div className="hidden md:block bg-white shadow-sm rounded-2xl overflow-hidden border border-gray-200">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Participante</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contato / Célula</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status Financeiro</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredInscricoes.map((inscricao) => (
-                                    <tr key={inscricao.id} className="hover:bg-purple-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-gray-900">{inscricao.nome_completo_participante}</div>
-                                            <div className="mt-1">
-                                                {inscricao.eh_membro_ib_apascentar ? 
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">MEMBRO</span> : 
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-100">EXTERNO</span>
-                                                }
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <a href={`https://wa.me/55${normalizePhoneNumber(inscricao.contato_pessoal)}`} target="_blank" className="text-green-600 hover:text-green-700 bg-green-50 p-1 rounded-full"><FaWhatsapp /></a>
-                                                {formatPhoneNumberDisplay(inscricao.contato_pessoal)}
-                                            </div>
-                                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                                                <FaUsers className="text-gray-300" /> {inscricao.celula_participante_nome || inscricao.celula_inscricao_nome || '-'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-700">{inscricao.tipo_participacao}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${getStatusBadge(inscricao.status_pagamento)}`}>
-                                                {getStatusText(inscricao.status_pagamento)}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Link href={`/admin/eventos-face-a-face/${eventoId}/inscricoes/editar/${inscricao.id}`} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors border border-purple-100"><FaEdit /></Link>
-                                                <button onClick={() => handleDelete(inscricao.id, inscricao.nome_completo_participante)} disabled={submitting} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-100"><FaTrash /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Cards Mobile (Otimizados) */}
-                <div className="md:hidden space-y-4 mt-6">
+                {/* Listagem em Cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {filteredInscricoes.map((inscricao) => (
-                        <div key={inscricao.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-4 active:border-purple-300 transition-colors">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="font-bold text-gray-900 text-lg leading-snug">{inscricao.nome_completo_participante}</h3>
-                                    <div className="flex gap-2 mt-2">
-                                        {inscricao.eh_membro_ib_apascentar ? 
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">MEMBRO</span> : 
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100">EXTERNO</span>
-                                        }
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">{inscricao.tipo_participacao}</span>
+                        <div key={inscricao.id} className="bg-white rounded-[2rem] shadow-lg border border-gray-100 p-6 flex flex-col hover:shadow-2xl transition-all duration-300 group">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+                                <div className="flex items-center gap-5 min-w-0 flex-1">
+                                    <div className="w-16 h-16 rounded-2xl shrink-0 flex items-center justify-center text-2xl font-black shadow-inner transform -rotate-3 group-hover:rotate-0 transition-transform bg-purple-100 text-purple-600">
+                                        {inscricao.nome_completo_participante.charAt(0)}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-xl font-black text-gray-900 truncate group-hover:text-purple-600 transition-colors">{inscricao.nome_completo_participante}</h3>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getStatusStyle(inscricao.status_pagamento)}`}>
+                                                {inscricao.status_pagamento.replace(/_/g, ' ')}
+                                            </span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-indigo-50 text-indigo-600 border-indigo-100">
+                                                {inscricao.tipo_participacao}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded-lg">
-                                    <FaUsers className="text-gray-400" />
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${getStatusBadge(inscricao.status_pagamento)}`}>
-                                        {getStatusText(inscricao.status_pagamento)}
-                                    </span>
-                                    <a href={`https://wa.me/55${normalizePhoneNumber(inscricao.contato_pessoal)}`} target="_blank" className="flex items-center gap-1 text-green-600 text-sm font-bold bg-green-50 px-2 py-1 rounded-lg border border-green-100">
-                                        <FaWhatsapp /> WhatsApp
-                                    </a>
-                                </div>
-                                <p className="text-xs text-gray-500 flex items-center gap-1">
-                                    Célula: <span className="text-gray-700 font-medium">{inscricao.celula_participante_nome || inscricao.celula_inscricao_nome || 'N/A'}</span>
-                                </p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                                <Link href={`/admin/eventos-face-a-face/${eventoId}/inscricoes/editar/${inscricao.id}`} className="bg-purple-50 text-purple-700 py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-sm border border-purple-100">
-                                    <FaEdit /> Detalhes
-                                </Link>
-                                <button onClick={() => handleDelete(inscricao.id, inscricao.nome_completo_participante)} disabled={submitting} className="bg-red-50 text-red-600 py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-sm border border-red-100">
-                                    <FaTrash /> Excluir
-                                </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 rounded-3xl p-5 mb-6 border border-gray-100">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Célula Responsável</p>
+                                    <p className="text-sm font-bold text-gray-700 truncate">{inscricao.celula_participante_nome || inscricao.celula_inscricao_nome || 'N/A'}</p>
+                                </div>
+                                <div className="space-y-1 border-l border-gray-200 pl-5">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Contato</p>
+                                    <p className="text-sm font-bold text-gray-700">{formatPhoneNumberDisplay(inscricao.contato_pessoal)}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0 border-t border-gray-50 pt-4 mt-auto">
+                                <a href={`https://wa.me/55${normalizePhoneNumber(inscricao.contato_pessoal)}`} target="_blank" className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 transition-all active:scale-90"><FaWhatsapp size={20} /></a>
+                                <div className="flex-1" />
+                                <Link href={`/admin/eventos-face-a-face/${eventoId}/inscricoes/editar/${inscricao.id}`} className="p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all active:scale-90"><FaEdit size={20} /></Link>
+                                <button onClick={() => confirmDelete(inscricao.id, inscricao.nome_completo_participante)} disabled={submitting} className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all active:scale-90"><FaTrash size={18} /></button>
                             </div>
                         </div>
                     ))}
                 </div>
 
+                {filteredInscricoes.length === 0 && !loading && (
+                    <div className="text-center py-20 bg-white rounded-[3rem] shadow-inner border border-dashed border-gray-200">
+                        <FaUsers size={48} className="mx-auto text-gray-200 mb-4" />
+                        <h3 className="text-lg font-bold text-gray-400">Nenhuma inscrição encontrada para os filtros aplicados</h3>
+                    </div>
+                )}
             </div>
         </div>
     );
