@@ -1,4 +1,3 @@
-// src/app/(app)/profile/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -21,8 +20,11 @@ import {
   FaArrowLeft,
   FaSave,
   FaSpinner,
-  FaEye,      // NOVO: Ícone de olho
-  FaEyeSlash  // NOVO: Ícone de olho riscado
+  FaEye,
+  FaEyeSlash,
+  FaChevronRight,
+  FaShieldAlt,
+  FaCheckCircle // Adicionado aqui para corrigir o erro de build
 } from 'react-icons/fa';
 
 import useToast from '@/hooks/useToast';
@@ -33,16 +35,9 @@ export default function ProfilePage() {
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
 
-    // Formulário de perfil
-    const [formData, setFormData] = useState({
-        nome_completo: '', 
-        telefone: '',      
-    });
-
-    // Formulário de senha
+    const [formData, setFormData] = useState({ nome_completo: '', telefone: '' });
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    // NOVO ESTADO: Visibilidade da senha (para as duas senhas)
     const [showNewPassword, setShowNewPassword] = useState(false); 
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -59,50 +54,36 @@ export default function ProfilePage() {
                     nome_completo: userProfileData.nome_completo || '', 
                     telefone: normalizePhoneNumber(userProfileData.telefone) || '', 
                 });
-            } else {
-                addToast("Perfil não encontrado.", 'error');
             }
-        } catch (err: any) {
-            console.error("Erro ao carregar perfil:", err);
+        } catch (err) {
             addToast("Falha ao carregar perfil.", 'error');
         } finally {
             setLoading(false);
         }
     }, [addToast]);
 
-    useEffect(() => {
-        fetchUserProfile();
-    }, [fetchUserProfile]);
+    useEffect(() => { fetchUserProfile(); }, [fetchUserProfile]);
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        if (name === 'telefone') {
-            setFormData(prev => ({ ...prev, [name]: normalizePhoneNumber(value) }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-        }
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: name === 'telefone' ? normalizePhoneNumber(value) : value 
+        }));
     };
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!profile) return;
+        if (!profile || !formData.nome_completo.trim()) return;
         setSubmitting(true);
-
-        if (!formData.nome_completo.trim()) {
-            addToast("Nome é obrigatório.", 'error');
-            setSubmitting(false);
-            return;
-        }
-
         try {
             await updateUserProfileData(profile.id, {
                 nome_completo: formData.nome_completo.trim(),
                 telefone: formData.telefone || null, 
             });
-            addToast("Perfil atualizado!", 'success');
+            addToast("Perfil atualizado com sucesso!", 'success');
             fetchUserProfile(); 
-        } catch (err: any) {
-            console.error("Erro update:", err);
+        } catch (err) {
             addToast("Erro ao atualizar perfil.", 'error');
         } finally {
             setSubmitting(false);
@@ -111,270 +92,181 @@ export default function ProfilePage() {
 
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (newPassword.length < 6) return addToast("Mínimo de 6 caracteres.", 'error');
+        if (newPassword !== confirmPassword) return addToast("Senhas não conferem.", 'error');
+        
         setSubmitting(true);
-
-        if (newPassword.length < 6) {
-            addToast("Senha deve ter min. 6 caracteres.", 'error');
-            setSubmitting(false);
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            addToast("Senhas não conferem.", 'error');
-            setSubmitting(false);
-            return;
-        }
-
         try {
             const { success, message } = await updateUserPassword(newPassword);
             if (success) {
-                addToast("Senha alterada com sucesso!", 'success');
-                setNewPassword('');
-                setConfirmPassword('');
-                setShowNewPassword(false); // NOVO: Esconde a senha
-                setShowConfirmPassword(false); // NOVO: Esconde a senha
+                addToast("Senha alterada!", 'success');
+                setNewPassword(''); setConfirmPassword('');
                 setActiveTab('profile'); 
             } else {
                 addToast(message, 'error');
             }
-        } catch (err: any) {
-            console.error("Erro senha:", err);
+        } catch (err) {
             addToast("Erro ao trocar senha.", 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <LoadingSpinner />
-            </div>
-        );
-    }
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
-    if (!profile) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <FaExclamationTriangle className="text-2xl text-red-500" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-800 mb-2">Perfil não encontrado</h2>
-                    <button
-                        onClick={fetchUserProfile}
-                        className="mt-4 w-full bg-red-600 text-white py-3 rounded-xl hover:bg-red-700 font-medium"
-                    >
-                        Tentar Novamente
-                    </button>
-                </div>
+    if (!profile) return (
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+            <div className="bg-white rounded-[2rem] shadow-xl p-10 max-w-sm w-full text-center border border-gray-100">
+                <FaExclamationTriangle className="text-4xl text-amber-500 mx-auto mb-4" />
+                <h2 className="text-xl font-black text-gray-800 mb-6">Perfil não encontrado</h2>
+                <button onClick={fetchUserProfile} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">Tentar Novamente</button>
             </div>
-        );
-    }
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen bg-gray-50 pb-20 font-sans">
             <ToastContainer />
 
-            {/* Header Responsivo */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 shadow-lg px-4 py-6 sm:px-8 pb-16">
-                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                        <Link href="/dashboard" className="bg-white/20 p-3 rounded-xl text-white hover:bg-white/30 transition-colors">
-                            <FaArrowLeft />
+            {/* Header Indigo */}
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 shadow-lg px-4 pt-8 pb-24 sm:px-8 border-b border-indigo-500/20">
+                <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/dashboard" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
                         </Link>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-white">Meu Perfil</h1>
-                            <p className="text-purple-100 text-sm">Gerencie seus dados</p>
+                            <h1 className="text-3xl font-black text-white tracking-tight">Meu Perfil</h1>
+                            <p className="text-indigo-100 text-sm font-medium opacity-80 uppercase tracking-widest">Configurações de Conta</p>
                         </div>
                     </div>
                     
-                    <div className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs font-bold uppercase">
-                        {profile.role === 'admin' ? 'Administrador' : 'Líder'}
+                    <div className="px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-white text-[10px] font-black uppercase tracking-widest">
+                        {profile.role === 'admin' ? 'Administrador' : 'Líder de Célula'}
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-4 -mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="max-w-5xl mx-auto px-4 sm:px-8 -mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                {/* Sidebar Navigation */}
-                <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-2xl shadow-md p-4 space-y-2">
-                        <button
-                            onClick={() => setActiveTab('profile')}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium text-sm ${
-                                activeTab === 'profile'
-                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-purple-200'
-                                    : 'text-gray-600 hover:bg-gray-50'
-                            }`}
-                        >
-                            <FaUser className={activeTab === 'profile' ? 'text-purple-600' : 'text-gray-400'} />
-                            Dados Pessoais
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('password')}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium text-sm ${
-                                activeTab === 'password'
-                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-purple-200'
-                                    : 'text-gray-600 hover:bg-gray-50'
-                            }`}
-                        >
-                            <FaLock className={activeTab === 'password' ? 'text-purple-600' : 'text-gray-400'} />
-                            Segurança
-                        </button>
+                {/* Menu Lateral */}
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-white rounded-[2.5rem] shadow-xl p-4 border border-gray-100">
+                        <nav className="space-y-2">
+                            <button
+                                onClick={() => setActiveTab('profile')}
+                                className={`w-full flex items-center justify-between p-4 rounded-[1.5rem] transition-all font-bold text-sm ${
+                                    activeTab === 'profile'
+                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <FaUser size={16} /> Dados Pessoais
+                                </div>
+                                <FaChevronRight size={10} className={activeTab === 'profile' ? 'opacity-100' : 'opacity-0'} />
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('password')}
+                                className={`w-full flex items-center justify-between p-4 rounded-[1.5rem] transition-all font-bold text-sm ${
+                                    activeTab === 'password'
+                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <FaShieldAlt size={16} /> Segurança
+                                </div>
+                                <FaChevronRight size={10} className={activeTab === 'password' ? 'opacity-100' : 'opacity-0'} />
+                            </button>
+                        </nav>
                     </div>
 
-                    {/* Info Célula */}
-                    <div className="bg-white rounded-2xl shadow-md p-5 border-l-4 border-blue-500">
-                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Célula Vinculada</h3>
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                                <FaUsers />
+                    {/* Card Célula */}
+                    <div className="bg-indigo-900 rounded-[2.5rem] shadow-xl p-8 text-white relative overflow-hidden group">
+                        <FaUsers size={120} className="absolute -bottom-4 -right-4 opacity-10 transform group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Minha Unidade</span>
+                        <h3 className="text-xl font-black mt-1 mb-4">{profile.celula_nome || 'Aguardando Célula'}</h3>
+                        {profile.celula_id ? (
+                            <div className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                                <FaCheckCircle /> Célula Vinculada
                             </div>
-                            <div>
-                                <p className="font-bold text-gray-800">{profile.celula_nome || 'Nenhuma'}</p>
-                                {profile.celula_id === null && profile.role === 'líder' && (
-                                    <Link href="/activate-account" className="text-xs text-orange-600 underline font-medium">
-                                        Ativar agora
-                                    </Link>
-                                )}
-                            </div>
-                        </div>
+                        ) : (
+                            <Link href="/activate-account" className="inline-block bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-orange-600 transition-colors uppercase">
+                                Ativar Agora
+                            </Link>
+                        )}
                     </div>
                 </div>
 
-                {/* Conteúdo Principal */}
+                {/* Área de Edição */}
                 <div className="lg:col-span-2">
-                    <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
+                    <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 sm:p-10">
                         
                         {activeTab === 'profile' ? (
-                            <>
-                                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                                    <FaUser className="text-purple-500" /> Informações
-                                </h2>
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Informações Pessoais</h2>
+                                    <p className="text-gray-400 text-sm mt-1 font-medium">Mantenha seus dados de contato atualizados.</p>
+                                </div>
 
-                                {/* Read-only Info Cards */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                        <div className="flex items-center gap-2 text-gray-500 mb-1">
-                                            <FaEnvelope className="text-xs" /> <span className="text-xs font-bold uppercase">Email</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100">
+                                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">E-mail Principal</label>
+                                        <div className="flex items-center gap-2 text-gray-900 font-bold text-sm truncate">
+                                            <FaEnvelope className="text-indigo-400" /> {profile.email}
                                         </div>
-                                        <p className="font-medium text-gray-900 truncate">{profile.email}</p>
                                     </div>
-                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                        <div className="flex items-center gap-2 text-gray-500 mb-1">
-                                            <FaCalendarAlt className="text-xs" /> <span className="text-xs font-bold uppercase">Membro Desde</span>
+                                    <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100">
+                                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Data de Ingresso</label>
+                                        <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                                            <FaCalendarAlt className="text-indigo-400" /> {formatDateForDisplay(profile.created_at)}
                                         </div>
-                                        <p className="font-medium text-gray-900">{formatDateForDisplay(profile.created_at)}</p>
                                     </div>
                                 </div>
 
                                 <form onSubmit={handleUpdateProfile} className="space-y-6">
-                                    <div className="space-y-1">
-                                        <label htmlFor="nome_completo" className="text-sm font-semibold text-gray-700">Nome Completo</label>
-                                        <input
-                                            type="text"
-                                            id="nome_completo"
-                                            name="nome_completo"
-                                            value={formData.nome_completo}
-                                            onChange={handleFormChange}
-                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                                            required
-                                            disabled={submitting}
-                                        />
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                                        <input type="text" name="nome_completo" value={formData.nome_completo} onChange={handleFormChange} className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-gray-700" required disabled={submitting} />
                                     </div>
 
-                                    <div className="space-y-1">
-                                        <label htmlFor="telefone" className="text-sm font-semibold text-gray-700">Telefone</label>
-                                        <input
-                                            type="tel"
-                                            id="telefone"
-                                            name="telefone"
-                                            value={formData.telefone || ''}
-                                            onChange={handleFormChange}
-                                            placeholder="(XX) XXXXX-XXXX"
-                                            maxLength={11}
-                                            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                                            disabled={submitting}
-                                        />
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                                        <input type="tel" name="telefone" value={formData.telefone} onChange={handleFormChange} placeholder="(00) 00000-0000" maxLength={11} className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-gray-700" disabled={submitting} />
                                     </div>
 
-                                    <button
-                                        type="submit"
-                                        disabled={submitting}
-                                        className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
-                                    >
-                                        {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />}
-                                        Salvar Alterações
+                                    <button type="submit" disabled={submitting} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg shadow-indigo-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer">
+                                        {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />} Salvar Alterações
                                     </button>
                                 </form>
-                            </>
+                            </div>
                         ) : (
-                            <div className="space-y-6"> {/* Espaço adicionado para o título */}
-                                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                                    <FaKey className="text-purple-500" /> Alterar Senha
-                                </h2>
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Segurança</h2>
+                                    <p className="text-gray-400 text-sm mt-1 font-medium">Recomendamos trocar sua senha periodicamente.</p>
+                                </div>
 
                                 <form onSubmit={handleChangePassword} className="space-y-6">
-                                    {/* Nova Senha */}
-                                    <div className="space-y-1">
-                                        <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-700">Nova Senha</label>
-                                        <div className="relative">
-                                            <input
-                                                type={showNewPassword ? 'text' : 'password'} // NOVO: Tipo dinâmico
-                                                id="newPassword"
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                                className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200 pr-11" // NOVO: pr-11 para o ícone
-                                                required
-                                                disabled={submitting}
-                                                minLength={6}
-                                            />
-                                            {/* NOVO: Botão de toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowNewPassword(prev => !prev)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                                aria-label={showNewPassword ? 'Esconder nova senha' : 'Mostrar nova senha'}
-                                            >
-                                                {showNewPassword ? <FaEyeSlash /> : <FaEye />}
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-2">Mínimo de 6 caracteres</p>
-                                    </div>
-
-                                    {/* Confirmar Nova Senha */}
-                                    <div className="space-y-1">
-                                        <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700">Confirmar Nova Senha</label>
-                                        <div className="relative">
-                                            <input
-                                                type={showConfirmPassword ? 'text' : 'password'} // NOVO: Tipo dinâmico
-                                                id="confirmPassword"
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                                className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white transition-all duration-200 pr-11" // NOVO: pr-11 para o ícone
-                                                required
-                                                disabled={submitting}
-                                                minLength={6}
-                                            />
-                                            {/* NOVO: Botão de toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowConfirmPassword(prev => !prev)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                                aria-label={showConfirmPassword ? 'Esconder confirmação de senha' : 'Mostrar confirmação de senha'}
-                                            >
-                                                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                                            </button>
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nova Senha</label>
+                                        <div className="relative group">
+                                            <input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-gray-700 pr-14" required disabled={submitting} minLength={6} />
+                                            <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer"><FaEye size={20} /></button>
                                         </div>
                                     </div>
 
-                                    <button
-                                        type="submit"
-                                        disabled={submitting}
-                                        className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
-                                    >
-                                        {submitting ? <FaSpinner className="animate-spin" /> : <FaLock />}
-                                        Atualizar Senha
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                                        <div className="relative group">
+                                            <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-gray-700 pr-14" required disabled={submitting} minLength={6} />
+                                            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer"><FaEye size={20} /></button>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" disabled={submitting} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg shadow-indigo-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer">
+                                        {submitting ? <FaSpinner className="animate-spin" /> : <FaKey />} Atualizar Senha
                                     </button>
                                 </form>
                             </div>
