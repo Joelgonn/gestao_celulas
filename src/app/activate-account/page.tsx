@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import { activateAccountWithKey } from '@/lib/auth_actions';
@@ -9,116 +9,140 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 export default function ActivateAccountPage() {
     const [key, setKey] = useState('');
     const [loading, setLoading] = useState(false);
-    const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [statusMessage, setStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
     const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [checking, setChecking] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
-        async function checkUserSession() {
-            // CORREÇÃO: getSession retorna { data: { session } } e o user está dentro da session
-            const { data: { session }, error } = await supabase.auth.getSession();
-            const user = session?.user;
+    // Função para verificar se o usuário já foi ativado por fora
+    const checkStatus = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
 
-            if (error || !user) {
-                router.replace('/login');
+        if (!user) {
+            router.replace('/login');
+            return;
+        }
+        
+        setUserEmail(user.email ?? null);
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('celula_id, role')
+            .eq('id', user.id)
+            .single();
+
+        // Se o perfil já tiver celula_id ou for admin, ele não deveria estar aqui
+        if (profile) {
+            if (profile.role === 'admin' || (profile.role === 'líder' && profile.celula_id !== null)) {
+                router.replace('/dashboard');
                 return;
             }
-            
-            setUserEmail(user.email ?? null);
-
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('celula_id, role')
-                .eq('id', user.id)
-                .single();
-
-            if (profileError) {
-                console.warn("ActivateAccountPage: Perfil ainda não encontrado ou erro.", profileError);
-            } else if (profile) {
-                if (profile.role === 'admin' || profile.celula_id !== null) {
-                    window.location.href = '/dashboard';
-                    return;
-                }
-            }
         }
-        checkUserSession();
+        setChecking(false);
     }, [router]);
+
+    useEffect(() => {
+        checkStatus();
+    }, [checkStatus]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setStatusMessage(null);
+        const cleanKey = key.trim();
 
-        if (!key.trim()) {
-            setStatusMessage("Por favor, insira a chave de ativação.");
-            setLoading(false);
+        if (!cleanKey) {
+            setStatusMessage({ type: 'error', text: "Por favor, insira a chave de ativação." });
             return;
         }
 
+        setLoading(true);
+        setStatusMessage(null);
+
         try {
-            const result = await activateAccountWithKey(key.trim());
+            const result = await activateAccountWithKey(cleanKey);
 
             if (result.success) {
-                setStatusMessage("Conta ativada com sucesso! Redirecionando...");
+                setStatusMessage({ type: 'success', text: "Conta ativada com sucesso! Configurando seu acesso..." });
+                
+                // IMPORTANTE: router.refresh() força o Next.js a invalidar o cache dos layouts
+                // Isso faz com que o AuthLayout perceba que agora o usuário tem uma célula.
+                router.refresh();
+                
                 setTimeout(() => {
-                    window.location.href = '/dashboard';
+                    // Usamos replace para o dashboard
+                    router.replace('/dashboard');
                 }, 1500);
             } else {
-                setStatusMessage(`Erro: ${result.message}`);
+                setStatusMessage({ type: 'error', text: result.message });
                 setLoading(false);
             }
         } catch (error: any) {
-            console.error("ActivateAccountPage: Erro ao ativar conta:", error);
-            setStatusMessage(`Erro inesperado: ${error.message}`);
+            console.error("ActivateAccountPage error:", error);
+            setStatusMessage({ type: 'error', text: "Erro inesperado ao processar ativação." });
             setLoading(false);
         }
     };
 
-    if (!userEmail) {
-        return <LoadingSpinner fullScreen text="Verificando conta..." />;
+    if (checking) {
+        return <LoadingSpinner fullScreen text="Verificando sua conta..." />;
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
-            <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-xl text-center">
-                <h2 className="text-2xl font-bold mb-4 text-gray-800">Ativar Sua Conta</h2>
-                <p className="text-gray-600 mb-6">
-                    Bem-vindo(a), <span className="font-semibold">{userEmail}</span>! Para começar a usar o sistema, por favor, insira a chave de ativação fornecida pelo seu administrador.
-                </p>
+        <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4 font-sans">
+            <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+                <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-gray-800">Ativar Conta</h2>
+                    <p className="text-gray-500 mt-2 text-sm text-pretty">
+                        Olá, <span className="font-bold text-orange-600">{userEmail}</span>. 
+                        Insira abaixo a chave de ativação para vincular sua conta à sua célula.
+                    </p>
+                </div>
 
                 {statusMessage && (
-                    <div className={`p-3 mb-4 rounded ${statusMessage.startsWith('Erro') || statusMessage.startsWith('Erro inesperado') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                        {statusMessage}
+                    <div className={`p-4 mb-6 rounded-xl text-sm font-medium animate-in fade-in slide-in-from-top-2 ${
+                        statusMessage.type === 'error' 
+                        ? 'bg-red-50 text-red-700 border border-red-100' 
+                        : 'bg-green-50 text-green-700 border border-green-100'
+                    }`}>
+                        {statusMessage.text}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="activationKey" className="sr-only">Chave de Ativação</label>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <label htmlFor="activationKey" className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
+                            Chave de Ativação
+                        </label>
                         <input
                             id="activationKey"
                             type="text"
-                            placeholder="Insira sua chave de ativação"
+                            placeholder="Ex: XXXX-XXXX-XXXX"
                             value={key}
                             onChange={(e) => setKey(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-lg"
+                            className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-center text-xl font-mono uppercase placeholder:text-gray-300"
                             required
                             disabled={loading}
+                            autoFocus
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors"
+                        className="w-full py-4 px-6 border border-transparent rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all"
                         disabled={loading}
                     >
-                        {loading ? 'Ativando e Configurando...' : 'Ativar Conta'}
+                        {loading ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <span>Configurando...</span>
+                            </div>
+                        ) : 'Confirmar Ativação'}
                     </button>
                 </form>
 
-                <p className="mt-6 text-sm text-gray-500">
-                    Não tem uma chave de ativação? Contate seu administrador.
-                </p>
+                <div className="mt-8 pt-6 border-t border-gray-100 text-center text-xs text-gray-400">
+                    <p>Precisa de ajuda? Peça a chave para o administrador do sistema.</p>
+                </div>
             </div>
         </div>
     );

@@ -1,17 +1,15 @@
-// src/components/AuthForm.tsx
 'use client';
 
 import { useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image'; // Importar Image para usar o logo
+import Image from 'next/image'; 
 import useToast from '@/hooks/useToast'; 
 import { 
   FaEnvelope, 
   FaMagic, 
   FaCheckCircle, 
   FaInfoCircle, 
-  FaShieldAlt,
   FaKey,
   FaLock,
   FaEye,      
@@ -33,28 +31,33 @@ export default function AuthForm() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
-      setLoading(true);
+      const emailValue = email.trim();
 
-      if (!email.trim().includes('@')) {
+      if (!emailValue.includes('@')) {
         addToast('Insira um email válido.', 'error');
         setLoading(false);
         return;
       }
 
       if (authMethod === 'magic_link') {
+        // Criamos a URL de redirecionamento baseada no ambiente atual
+        // Importante: Esta URL DEVE estar cadastrada em 'Redirect URLs' no dashboard do Supabase
+        const redirectTo = `${window.location.origin}/dashboard`;
+
         const { error } = await supabase.auth.signInWithOtp({
-          email: email.trim(),
+          email: emailValue,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: redirectTo,
           },
         });
 
         if (error) throw error;
         
         setStep('success');
-        addToast('Link enviado com sucesso!', 'success');
+        addToast('Link de acesso enviado!', 'success');
 
       } else {
         if (!password) {
@@ -64,22 +67,25 @@ export default function AuthForm() {
         }
 
         const { error } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
+            email: emailValue,
             password: password
         });
 
         if (error) throw error;
 
-        addToast('Login realizado!', 'success');
-        router.push('/dashboard');
+        addToast('Login realizado com sucesso!', 'success');
+        // Usamos replace para evitar que o usuário volte para a tela de login pelo botão "voltar"
+        router.replace('/dashboard');
       }
       
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('AuthForm error:', error);
       let msg = error.message;
-      if (msg.includes('Invalid login')) msg = 'Credenciais incorretas.';
+      if (msg.includes('Invalid login')) msg = 'E-mail ou senha incorretos.';
+      if (msg.includes('too many requests')) msg = 'Muitas solicitações. Tente novamente mais tarde.';
       addToast(msg, 'error');
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,29 +99,29 @@ export default function AuthForm() {
 
   if (step === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4"> {/* Cores Laranja */}
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4">
         <ToastContainer />
         <div className="w-full max-w-md animate-in zoom-in duration-300">
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center border border-orange-50"> {/* Cores Laranja */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center border border-orange-50">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <FaCheckCircle className="text-green-600 text-4xl" />
             </div>
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Verifique seu Email</h2>
-            <p className="text-gray-600 mb-6">Enviamos um link de acesso para <br/><span className="font-semibold text-orange-600">{email}</span></p> {/* Cores Laranja */}
+            <p className="text-gray-600 mb-6">Enviamos um link de acesso para <br/><span className="font-semibold text-orange-600">{email}</span></p>
             
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-left flex gap-3">
               <FaInfoCircle className="text-blue-500 text-xl flex-shrink-0 mt-0.5" />
               <p className="text-sm text-blue-800">
-                O link expira em breve. Verifique também sua caixa de Spam ou Lixo Eletrônico.
+                O link expira em breve. Se não encontrar, verifique a caixa de Spam.
               </p>
             </div>
 
             <button
               onClick={handleResetForm}
-              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white py-3 rounded-xl font-semibold hover:from-orange-700 hover:to-amber-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5" // Cores Laranja
+              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white py-3 rounded-xl font-semibold hover:from-orange-700 hover:to-amber-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer"
             >
-              Voltar / Tentar Novamente
+              Voltar para o início
             </button>
           </div>
         </div>
@@ -124,17 +130,16 @@ export default function AuthForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4"> {/* Cores Laranja */}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4">
       <ToastContainer />
       
       <div className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-orange-50"> {/* Cores Laranja */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-orange-50">
           
-          {/* Header com Logo e Cores Laranja */}
-          <div className="bg-gradient-to-r from-orange-600 to-amber-600 p-8 text-white text-center"> {/* Cores Laranja */}
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner p-2"> {/* Fundo branco para o logo */}
+          <div className="bg-gradient-to-r from-orange-600 to-amber-600 p-8 text-white text-center">
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner p-2">
               <Image 
-                src="/logo.png" // Caminho para o seu arquivo de logo
+                src="/logo.png" 
                 alt="Logo Apascentar" 
                 width={64} 
                 height={64} 
@@ -143,17 +148,16 @@ export default function AuthForm() {
               />
             </div>
             <h1 className="text-2xl font-bold mb-2">Apascentar</h1>
-            <p className="text-orange-100 text-sm mt-1">Gestão de Células</p> {/* Cores Laranja */}
+            <p className="text-orange-100 text-sm mt-1">Gestão de Células</p>
           </div>
 
-          {/* Tabs com Cores Laranja */}
           <div className="flex border-b border-gray-100">
             <button
               type="button"
               onClick={() => setAuthMethod('magic_link')}
-              className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+              className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 authMethod === 'magic_link'
-                  ? 'text-orange-600 border-b-2 border-orange-600 bg-orange-50/50' // Cores Laranja
+                  ? 'text-orange-600 border-b-2 border-orange-600 bg-orange-50/50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -162,9 +166,9 @@ export default function AuthForm() {
             <button
               type="button"
               onClick={() => setAuthMethod('password')}
-              className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+              className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 authMethod === 'password'
-                  ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50/50' // Cores Laranja
+                  ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50/50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -172,7 +176,6 @@ export default function AuthForm() {
             </button>
           </div>
 
-          {/* Form Content */}
           <div className="p-6 sm:p-8">
             <form onSubmit={handleLogin} className="space-y-5">
               
@@ -187,14 +190,13 @@ export default function AuthForm() {
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400" // Cores Laranja
+                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400"
                     required
                     disabled={loading}
                   />
                 </div>
               </div>
 
-              {/* Campo de Senha (Condicional e com Toggle) */}
               {authMethod === 'password' && (
                 <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
                   <label className="text-sm font-bold text-gray-700 ml-1">Senha</label>
@@ -203,20 +205,18 @@ export default function AuthForm() {
                       <FaLock />
                     </div>
                     <input
-                      id="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400" // Cores Laranja
+                      className="w-full pl-11 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-base text-gray-800 placeholder:text-gray-400"
                       required
                       disabled={loading}
                     />
                     <button
                         type="button"
                         onClick={() => setShowPassword(prev => !prev)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                     >
                         {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </button>
@@ -227,10 +227,10 @@ export default function AuthForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 bg-gradient-to-r ${
+                className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 cursor-pointer bg-gradient-to-r ${
                     authMethod === 'magic_link' 
-                    ? 'from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700' // Cores Laranja
-                    : 'from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' // Cores Laranja (usei red como um contraste, mas pode ser outro tom de laranja/âmbar)
+                    ? 'from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700'
+                    : 'from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700'
                 }`}
               >
                 {loading ? (
