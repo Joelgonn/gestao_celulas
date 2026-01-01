@@ -1,7 +1,6 @@
-// src/app/(app)/membros/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react'; 
+import { useState, useEffect, useCallback, useMemo } from 'react'; 
 import { supabase } from '@/utils/supabase/client'; 
 import Link from 'next/link';
 import { 
@@ -19,7 +18,8 @@ import {
     FaUsers,
     FaBirthdayCake,
     FaCalendarAlt,
-    FaUser
+    FaChevronDown,
+    FaCheckCircle
 } from 'react-icons/fa'; 
 
 import { 
@@ -33,6 +33,7 @@ import { Membro, CelulaOption } from '@/lib/types';
 import { formatPhoneNumberDisplay, formatDateForDisplay } from '@/utils/formatters'; 
 import useToast from '@/hooks/useToast'; 
 import LoadingSpinner from '@/components/LoadingSpinner'; 
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 export default function MembrosPage() {
     const [membros, setMembros] = useState<Membro[]>([]); 
@@ -47,6 +48,13 @@ export default function MembrosPage() {
 
     const [submitting, setSubmitting] = useState(false); 
     const [exporting, setExporting] = useState(false); 
+
+    // Estado para o Modal de Confirmação
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; memberId: string; name: string }>({
+        isOpen: false,
+        memberId: '',
+        name: ''
+    });
 
     const { addToast, ToastContainer } = useToast();
 
@@ -65,17 +73,17 @@ export default function MembrosPage() {
                         setUserRole(profile.role as 'admin' | 'líder');
                     }
                 }
-            } catch (e: any) {
-                console.error("Erro perfil:", e);
-                addToast('Erro ao carregar perfil', 'error');
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
             }
         }
         fetchInitialUserRole();
-    }, [addToast]);
+    }, []);
 
     const loadAllData = useCallback(async () => { 
         if (userRole === null) return;
-
         setLoading(true);
         try {
             if (userRole === 'admin') {
@@ -92,31 +100,30 @@ export default function MembrosPage() {
                 selectedStatusFilter 
             );
             setMembros(membrosData);
-            // addToast('Membros carregados', 'success'); // Opcional
-        } catch (e: any) {
-            console.error("Erro membros:", e);
+        } catch (e) {
             addToast('Erro ao carregar membros', 'error'); 
         } finally {
             setLoading(false);
         }
     }, [userRole, selectedCelulaId, searchTerm, selectedBirthdayMonth, selectedStatusFilter, addToast]); 
 
-    useEffect(() => {
-        loadAllData();
-    }, [loadAllData]);
+    useEffect(() => { loadAllData(); }, [loadAllData]);
 
-    const handleDelete = async (membroId: string, nome: string) => {
-        if (!confirm(`Remover ${nome}? Ação irreversível.`)) return;
-        setSubmitting(true); 
+    const confirmDelete = (id: string, nome: string) => {
+        setDeleteModal({ isOpen: true, memberId: id, name: nome });
+    };
+
+    const executeDelete = async () => {
+        setSubmitting(true);
         try {
-            await excluirMembro(membroId);
-            setMembros(prev => prev.filter(m => m.id !== membroId)); 
-            addToast('Membro removido', 'success'); 
-        } catch (e: any) {
-            console.error("Erro delete:", e);
-            addToast('Erro ao remover membro', 'error'); 
+            await excluirMembro(deleteModal.memberId);
+            setMembros(prev => prev.filter(m => m.id !== deleteModal.memberId)); 
+            addToast('Membro removido!', 'success'); 
+        } catch (e) {
+            addToast('Erro ao remover', 'error'); 
         } finally {
             setSubmitting(false); 
+            setDeleteModal({ isOpen: false, memberId: '', name: '' });
         }
     };
 
@@ -138,10 +145,9 @@ export default function MembrosPage() {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            addToast("CSV exportado!", 'success'); 
-        } catch (e: any) {
-            console.error("Erro CSV:", e);
-            addToast('Erro ao exportar CSV', 'error'); 
+            addToast("CSV Exportado!", 'success'); 
+        } catch (e) {
+            addToast('Erro na exportação', 'error'); 
         } finally {
             setExporting(false); 
         }
@@ -152,263 +158,179 @@ export default function MembrosPage() {
         label: new Date(0, i).toLocaleString('pt-BR', { month: 'long' }), 
     }));
 
-    const getStatusBadgeColor = (status: Membro['status']) => {
+    const getStatusColor = (status: Membro['status']) => {
         switch (status) {
-            case 'Ativo': return 'bg-green-100 text-green-800';
-            case 'Inativo': return 'bg-red-100 text-red-800';
-            case 'Em transição': return 'bg-yellow-100 text-yellow-800';
-            default: return 'bg-gray-100 text-gray-800';
+            case 'Ativo': return 'bg-green-50 text-green-700 border-green-100';
+            case 'Inativo': return 'bg-red-50 text-red-700 border-red-100';
+            case 'Em transição': return 'bg-amber-50 text-amber-700 border-amber-100';
+            default: return 'bg-gray-50 text-gray-700 border-gray-100';
         }
     };
 
-    if (loading && !membros.length) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <LoadingSpinner />
-            </div>
-        );
-    }
+    if (loading && !membros.length) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen bg-gray-50 pb-20 font-sans">
             <ToastContainer /> 
             
-            {/* Header Responsivo */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg px-4 pt-6 pb-12 sm:px-8">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <ConfirmationModal 
+                isOpen={deleteModal.isOpen}
+                title="Excluir Membro?"
+                message={`Tem certeza que deseja remover ${deleteModal.name}?`}
+                variant="danger"
+                onConfirm={executeDelete}
+                onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+                loading={submitting}
+            />
+
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 shadow-lg px-4 pt-8 pb-20 sm:px-8 border-b border-green-500/20">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-                            <FaUsers /> {userRole === 'admin' ? 'Todos os Membros' : 'Minha Célula'}
+                        <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                            <FaUsers size={28} /> {userRole === 'admin' ? 'Gestão de Membros' : 'Membros da Célula'}
                         </h1>
-                        <p className="text-green-100 text-sm mt-1 flex items-center gap-2">
-                            <span>{membros.length} cadastrados</span>
+                        <p className="text-emerald-100 text-sm font-bold opacity-80 uppercase tracking-widest mt-1">
+                            {membros.length} Registrados
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                        {userRole === 'admin' ? (
-                            <Link href="/admin/users" className="bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl backdrop-blur-sm text-sm font-medium flex items-center gap-2">
-                                <FaUserCog /> Perfis
-                            </Link>
-                        ) : ( 
-                            <>
-                                <Link href="/membros/novo" className="bg-white text-green-700 hover:bg-green-50 py-2 px-4 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm">
-                                    <FaPlus /> Novo
-                                </Link>
-                                {userRole === 'líder' && (
-                                    <Link href="/membros/importar" className="bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl backdrop-blur-sm text-sm font-medium flex items-center gap-2">
-                                        <FaFileImport /> Importar
-                                    </Link>
-                                )}
-                            </>
-                        )}
+                    <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                        <Link href="/membros/novo" className="flex-1 md:flex-none bg-white text-emerald-700 py-3 px-6 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">
+                            <FaPlus /> Novo Membro
+                        </Link>
                         <button
                             onClick={handleExportCSV}
                             disabled={exporting || !membros.length} 
-                            className="bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl backdrop-blur-sm text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                            className="bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-2xl transition-all backdrop-blur-md border border-white/10 disabled:opacity-50 cursor-pointer"
                         >
-                            {exporting ? <FaSpinner className="animate-spin" /> : <FaFileExport />}
-                            <span className="hidden sm:inline">CSV</span>
+                            {exporting ? <FaSpinner className="animate-spin" /> : <FaFileExport size={20} />}
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-10">
                 
-                {/* Filtros Mobile-Friendly */}
-                <div className="bg-white rounded-xl shadow-md p-4 mb-6 border border-gray-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div className="relative">
-                            <FaSearch className="absolute left-3 top-3.5 text-gray-400 text-sm" />
+                <div className="bg-white rounded-3xl shadow-xl p-5 mb-8 border border-gray-100 flex flex-col gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="relative group">
+                            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500" />
                             <input
                                 type="text"
-                                placeholder="Buscar nome/tel..."
+                                placeholder="Nome ou telefone..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9 w-full border border-gray-300 rounded-lg py-2.5 text-base focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-sm"
                             />
                         </div>
 
                         {userRole === 'admin' && (
-                            <div className="relative">
-                                <FaFilter className="absolute left-3 top-3.5 text-gray-400 text-sm" />
+                            <div className="relative group">
+                                <FaFilter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <select
                                     value={selectedCelulaId}
                                     onChange={(e) => setSelectedCelulaId(e.target.value)}
-                                    className="pl-9 w-full border border-gray-300 rounded-lg py-2.5 text-base bg-white focus:ring-2 focus:ring-green-500"
+                                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold text-sm text-gray-600 appearance-none cursor-pointer"
                                 >
-                                    <option value="">Todas Células</option>
+                                    <option value="">Todas as Células</option>
                                     {celulasOptions.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                                 </select>
+                                <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none size-3" />
                             </div>
                         )}
                         
-                        <div className="relative">
-                            <FaBirthdayCake className="absolute left-3 top-3.5 text-gray-400 text-sm" />
+                        <div className="relative group">
+                            <FaBirthdayCake className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                             <select
                                 value={selectedBirthdayMonth}
                                 onChange={(e) => setSelectedBirthdayMonth(e.target.value)}
-                                className="pl-9 w-full border border-gray-300 rounded-lg py-2.5 text-base bg-white focus:ring-2 focus:ring-green-500"
+                                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold text-sm text-gray-600 appearance-none cursor-pointer"
                             >
-                                <option value="">Aniversários</option>
-                                {months.map(m => ( 
-                                    <option key={m.value} value={m.value}>{m.label}</option>
-                                ))}
+                                <option value="">Mês de Aniversário</option>
+                                {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                             </select>
+                            <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none size-3" />
                         </div>
 
-                        <select
-                            value={selectedStatusFilter}
-                            onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
-                            className="w-full border border-gray-300 rounded-lg py-2.5 text-base px-3 bg-white focus:ring-2 focus:ring-green-500"
-                        >
-                            <option value="all">Status: Todos</option>
-                            <option value="Ativo">Ativo</option>
-                            <option value="Inativo">Inativo</option>
-                            <option value="Em transição">Em transição</option>
-                        </select>
+                        <div className="relative group">
+                            <FaCheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <select
+                                value={selectedStatusFilter}
+                                onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold text-sm text-gray-600 appearance-none cursor-pointer"
+                            >
+                                <option value="all">Todos os Status</option>
+                                <option value="Ativo">Ativo</option>
+                                <option value="Inativo">Inativo</option>
+                                <option value="Em transição">Em transição</option>
+                            </select>
+                            <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none size-3" />
+                        </div>
                     </div>
                 </div>
 
-                {/* Empty State */}
-                {!membros.length && (
-                    <div className="text-center p-12 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
-                        <FaUsers className="text-4xl text-gray-300 mx-auto mb-3" />
-                        <h3 className="text-lg font-semibold text-gray-700">Nenhum membro encontrado</h3>
-                        <p className="text-gray-500 text-sm mb-6">Tente ajustar os filtros ou adicione um novo.</p>
-                        {userRole !== 'admin' && (
-                            <Link href="/membros/novo" className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 inline-flex items-center gap-2">
-                                <FaPlus /> Adicionar Membro
-                            </Link>
-                        )}
-                    </div>
-                )}
-
-                {/* === VISUALIZAÇÃO DESKTOP (TABELA) === */}
-                <div className="hidden md:block bg-white shadow-sm rounded-2xl overflow-hidden border border-gray-200">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Nome</th>
-                                    {userRole === 'admin' && <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Célula</th>}
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contato</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {membros.map((membro) => (
-                                    <tr key={membro.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900">{membro.nome}</div>
-                                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                                <FaCalendarAlt className="text-gray-400" /> 
-                                                Entrou: {formatDateForDisplay(membro.data_ingresso)}
-                                            </div>
-                                        </td>
-                                        {userRole === 'admin' && ( 
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                                                    {membro.celula_nome || '-'}
-                                                </span>
-                                            </td>
-                                        )}
-                                        <td className="px-6 py-4 text-sm text-gray-600">
-                                            {formatPhoneNumberDisplay(membro.telefone)}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(membro.status)}`}>
-                                                {membro.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {membro.telefone && (
-                                                    <a href={`https://wa.me/${membro.telefone.replace(/\D/g, '')}`} target="_blank" className="p-2 text-green-600 bg-green-50 rounded-lg hover:bg-green-100">
-                                                        <FaWhatsapp />
-                                                    </a>
-                                                )}
-                                                <Link href={`/membros/editar/${membro.id}`} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100">
-                                                    <FaEdit />
-                                                </Link>
-                                                <button onClick={() => handleDelete(membro.id, membro.nome)} disabled={submitting} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
-                                                    <FaTrash />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* === VISUALIZAÇÃO MOBILE (CARDS) === */}
-                <div className="md:hidden space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {membros.map((membro) => (
-                        <div key={membro.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
-                            
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-start gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${membro.status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                                        {membro.nome.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 text-lg leading-tight">{membro.nome}</h3>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${getStatusBadgeColor(membro.status)}`}>
-                                                {membro.status}
+                        <div key={membro.id} className="bg-white rounded-[2rem] shadow-lg border border-gray-100 p-6 flex flex-col sm:flex-row justify-between items-center gap-6 hover:shadow-2xl transition-all duration-300 group">
+                            <div className="flex items-center gap-5 w-full sm:w-auto">
+                                <div className={`w-16 h-16 rounded-2xl shrink-0 flex items-center justify-center text-2xl font-black shadow-inner transform -rotate-3 group-hover:rotate-0 transition-transform ${
+                                    membro.status === 'Ativo' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
+                                }`}>
+                                    {membro.nome.charAt(0)}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-xl font-black text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
+                                        {membro.nome}
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${getStatusColor(membro.status)}`}>
+                                            {membro.status}
+                                        </span>
+                                        {membro.celula_nome && (
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border bg-blue-50 text-blue-600 border-blue-100">
+                                                {membro.celula_nome}
                                             </span>
-                                            {userRole === 'admin' && membro.celula_nome && (
-                                                <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">
-                                                    {membro.celula_nome}
-                                                </span>
-                                            )}
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 border-t border-gray-100 pt-3">
-                                <div className="flex items-center gap-2">
-                                    <FaCalendarAlt className="text-gray-400" />
-                                    <span>Entrada: {formatDateForDisplay(membro.data_ingresso)}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <FaBirthdayCake className="text-pink-400" />
-                                    <span>Nasc: {formatDateForDisplay(membro.data_nascimento)}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2 pt-1">
-                                {membro.telefone ? (
-                                    <>
-                                        <a href={`https://wa.me/${membro.telefone.replace(/\D/g, '')}`} target="_blank" className="flex-1 bg-green-50 text-green-700 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium text-sm hover:bg-green-100">
-                                            <FaWhatsapp size={16} /> WhatsApp
-                                        </a>
-                                        <a href={`tel:${membro.telefone}`} className="w-12 bg-gray-50 text-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-100">
-                                            <FaPhone size={14} />
-                                        </a>
-                                    </>
-                                ) : (
-                                    <div className="flex-1 bg-gray-50 text-gray-400 py-2.5 rounded-lg text-center text-sm italic">Sem contato</div>
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-center">
+                                {membro.telefone && (
+                                    <a 
+                                        href={`https://wa.me/${membro.telefone.replace(/\D/g, '')}`} 
+                                        target="_blank" 
+                                        className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 transition-all active:scale-90"
+                                    >
+                                        <FaWhatsapp size={20} />
+                                    </a>
                                 )}
-                                
-                                <Link href={`/membros/editar/${membro.id}`} className="w-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-100">
-                                    <FaEdit size={16} />
+                                <Link 
+                                    href={`/membros/editar/${membro.id}`}
+                                    className="p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all active:scale-90"
+                                >
+                                    <FaEdit size={20} />
                                 </Link>
-                                
-                                <button onClick={() => handleDelete(membro.id, membro.nome)} disabled={submitting} className="w-12 bg-red-50 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-100">
-                                    <FaTrash size={14} />
+                                <button 
+                                    onClick={() => confirmDelete(membro.id, membro.nome)}
+                                    disabled={submitting}
+                                    className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all active:scale-90 cursor-pointer"
+                                >
+                                    <FaTrash size={18} />
                                 </button>
                             </div>
-
                         </div>
                     ))}
                 </div>
 
+                {!membros.length && (
+                    <div className="text-center py-20 bg-white rounded-[3rem] shadow-inner border border-dashed border-gray-200">
+                        <FaUsers size={48} className="mx-auto text-gray-200 mb-4" />
+                        <h3 className="text-lg font-bold text-gray-400 tracking-tight">Nenhum membro encontrado com estes filtros</h3>
+                        {/* CORREÇÃO DO NOME DA FUNÇÃO DE ATUALIZAÇÃO */}
+                        <button onClick={() => { setSearchTerm(''); setSelectedStatusFilter('all'); }} className="mt-4 text-emerald-600 font-bold hover:underline cursor-pointer">Limpar filtros</button>
+                    </div>
+                )}
             </div>
         </div>
     );
