@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react'; 
+import { useState, useEffect, useMemo, useCallback } from 'react'; 
 import { supabase } from '@/utils/supabase/client'; 
 import Link from 'next/link';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
     FaPhone, 
     FaWhatsapp, 
@@ -19,7 +21,9 @@ import {
     FaBirthdayCake,
     FaCalendarAlt,
     FaChevronDown,
-    FaCheckCircle
+    FaCheckCircle,
+    FaFilePdf,
+    FaArrowLeft
 } from 'react-icons/fa'; 
 
 import { 
@@ -92,13 +96,13 @@ export default function MembrosPage() {
 
             let celulaIdForMembrosFetch = userRole === 'admin' && selectedCelulaId !== "" ? selectedCelulaId : null;
 
-            const membrosData = await listarMembros(
+            const mData = await listarMembros(
                 celulaIdForMembrosFetch, 
                 searchTerm, 
                 selectedBirthdayMonth === "" ? null : parseInt(selectedBirthdayMonth), 
                 selectedStatusFilter 
             );
-            setMembros(membrosData);
+            setMembros(mData);
         } catch (e) {
             addToast('Erro ao carregar membros', 'error'); 
         } finally {
@@ -135,20 +139,51 @@ export default function MembrosPage() {
                 selectedBirthdayMonth === "" ? null : parseInt(selectedBirthdayMonth), 
                 selectedStatusFilter 
             );
-            
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `membros_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = `membros_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
-            document.body.removeChild(link);
             addToast("CSV Exportado!", 'success'); 
         } catch (e) {
             addToast('Erro na exportação', 'error'); 
         } finally {
             setExporting(false); 
+        }
+    };
+
+    const handleExportPDF = () => {
+        if (membros.length === 0) return addToast('Sem dados para exportar.', 'warning');
+        
+        try {
+            const doc = new jsPDF();
+            const dateStr = new Date().toLocaleDateString('pt-BR');
+            
+            doc.setFontSize(18);
+            doc.text("Relatório de Membros", 14, 20);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Gerado em: ${dateStr} | Status: ${selectedStatusFilter === 'all' ? 'Todos' : selectedStatusFilter}`, 14, 28);
+
+            autoTable(doc, {
+                head: [["Nome", "Telefone", "Célula", "Status", "Ingresso"]],
+                body: membros.map(m => [
+                    m.nome,
+                    formatPhoneNumberDisplay(m.telefone),
+                    m.celula_nome || '-',
+                    m.status,
+                    formatDateForDisplay(m.data_ingresso)
+                ]),
+                startY: 35,
+                theme: 'grid',
+                headStyles: { fillColor: [16, 185, 129] }, // Emerald 600
+                styles: { fontSize: 8, cellPadding: 3 }
+            });
+
+            doc.save(`membros_apascentar_${new Date().getTime()}.pdf`);
+            addToast("PDF gerado com sucesso!", "success");
+        } catch (error) {
+            addToast("Erro ao gerar PDF", "error");
         }
     };
 
@@ -182,34 +217,52 @@ export default function MembrosPage() {
                 loading={submitting}
             />
 
+            {/* Header Emerald */}
             <div className="bg-gradient-to-br from-emerald-600 to-green-700 shadow-lg px-4 pt-8 pb-20 sm:px-8 border-b border-green-500/20">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                            <FaUsers size={28} /> {userRole === 'admin' ? 'Gestão de Membros' : 'Membros da Célula'}
-                        </h1>
-                        <p className="text-emerald-100 text-sm font-bold opacity-80 uppercase tracking-widest mt-1">
-                            {membros.length} Registrados
-                        </p>
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/10 text-white">
+                            <FaUsers size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                {userRole === 'admin' ? 'Gestão de Membros' : 'Membros da Célula'}
+                            </h1>
+                            <p className="text-emerald-100 text-sm font-bold opacity-80 uppercase tracking-widest mt-1">
+                                {membros.length} Registrados
+                            </p>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                        <Link href="/membros/novo" className="flex-1 md:flex-none bg-white text-emerald-700 py-3 px-6 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">
-                            <FaPlus /> Novo Membro
+                        <Link href="/membros/novo" className="flex-1 md:flex-none bg-white text-emerald-700 py-3.5 px-6 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">
+                            <FaPlus /> Novo
                         </Link>
-                        <button
-                            onClick={handleExportCSV}
-                            disabled={exporting || !membros.length} 
-                            className="bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-2xl transition-all backdrop-blur-md border border-white/10 disabled:opacity-50 cursor-pointer"
-                        >
-                            {exporting ? <FaSpinner className="animate-spin" /> : <FaFileExport size={20} />}
-                        </button>
+                        
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleExportPDF}
+                                className="bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-2xl transition-all backdrop-blur-md border border-white/10"
+                                title="Exportar PDF"
+                            >
+                                <FaFilePdf size={20} />
+                            </button>
+                            <button
+                                onClick={handleExportCSV}
+                                disabled={exporting || !membros.length} 
+                                className="bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-2xl transition-all backdrop-blur-md border border-white/10 disabled:opacity-50"
+                                title="Exportar CSV"
+                            >
+                                {exporting ? <FaSpinner className="animate-spin" /> : <FaFileExport size={20} />}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-10">
                 
+                {/* Filtros */}
                 <div className="bg-white rounded-3xl shadow-xl p-5 mb-8 border border-gray-100 flex flex-col gap-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="relative group">
@@ -272,7 +325,6 @@ export default function MembrosPage() {
                     {membros.map((membro) => (
                         <div key={membro.id} className="bg-white rounded-[2rem] shadow-lg border border-gray-100 p-6 flex flex-col sm:flex-row justify-between items-center gap-6 hover:shadow-2xl transition-all duration-300 group">
                             
-                            {/* Area da Esquerda: Avatar e Texto (Adicionado min-w-0 para permitir truncamento) */}
                             <div className="flex items-center gap-5 w-full sm:w-auto min-w-0 flex-1">
                                 <div className={`w-16 h-16 rounded-2xl shrink-0 flex items-center justify-center text-2xl font-black shadow-inner transform -rotate-3 group-hover:rotate-0 transition-transform ${
                                     membro.status === 'Ativo' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
@@ -280,12 +332,8 @@ export default function MembrosPage() {
                                     {membro.nome.charAt(0)}
                                 </div>
                                 
-                                {/* Container do Texto (min-w-0 é essencial para o truncate funcionar no Flexbox) */}
                                 <div className="min-w-0 flex-1">
-                                    <h3 
-                                        className="text-xl font-black text-gray-900 truncate group-hover:text-emerald-600 transition-colors" 
-                                        title={membro.nome}
-                                    >
+                                    <h3 className="text-xl font-black text-gray-900 truncate group-hover:text-emerald-600 transition-colors" title={membro.nome}>
                                         {membro.nome}
                                     </h3>
                                     <div className="flex flex-wrap gap-2 mt-2">
@@ -301,7 +349,6 @@ export default function MembrosPage() {
                                 </div>
                             </div>
 
-                            {/* Area da Direita: Ações (Adicionado shrink-0 para impedir que os ícones saiam do card) */}
                             <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
                                 {membro.telefone && (
                                     <a 
