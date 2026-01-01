@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react'; 
+import { useState, useEffect, useCallback } from 'react'; 
 import { supabase } from '@/utils/supabase/client'; 
 import Link from 'next/link';
 import { 
@@ -49,7 +49,6 @@ export default function MembrosPage() {
     const [submitting, setSubmitting] = useState(false); 
     const [exporting, setExporting] = useState(false); 
 
-    // Estado para o Modal de Confirmação
     const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; memberId: string; name: string }>({
         isOpen: false,
         memberId: '',
@@ -272,14 +271,21 @@ export default function MembrosPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {membros.map((membro) => (
                         <div key={membro.id} className="bg-white rounded-[2rem] shadow-lg border border-gray-100 p-6 flex flex-col sm:flex-row justify-between items-center gap-6 hover:shadow-2xl transition-all duration-300 group">
-                            <div className="flex items-center gap-5 w-full sm:w-auto">
+                            
+                            {/* Area da Esquerda: Avatar e Texto (Adicionado min-w-0 para permitir truncamento) */}
+                            <div className="flex items-center gap-5 w-full sm:w-auto min-w-0 flex-1">
                                 <div className={`w-16 h-16 rounded-2xl shrink-0 flex items-center justify-center text-2xl font-black shadow-inner transform -rotate-3 group-hover:rotate-0 transition-transform ${
                                     membro.status === 'Ativo' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
                                 }`}>
                                     {membro.nome.charAt(0)}
                                 </div>
+                                
+                                {/* Container do Texto (min-w-0 é essencial para o truncate funcionar no Flexbox) */}
                                 <div className="min-w-0 flex-1">
-                                    <h3 className="text-xl font-black text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
+                                    <h3 
+                                        className="text-xl font-black text-gray-900 truncate group-hover:text-emerald-600 transition-colors" 
+                                        title={membro.nome}
+                                    >
                                         {membro.nome}
                                     </h3>
                                     <div className="flex flex-wrap gap-2 mt-2">
@@ -287,7 +293,7 @@ export default function MembrosPage() {
                                             {membro.status}
                                         </span>
                                         {membro.celula_nome && (
-                                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border bg-blue-50 text-blue-600 border-blue-100">
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border bg-blue-50 text-blue-600 border-blue-100 truncate max-w-[120px]">
                                                 {membro.celula_nome}
                                             </span>
                                         )}
@@ -295,7 +301,8 @@ export default function MembrosPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 w-full sm:w-auto justify-center">
+                            {/* Area da Direita: Ações (Adicionado shrink-0 para impedir que os ícones saiam do card) */}
+                            <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
                                 {membro.telefone && (
                                     <a 
                                         href={`https://wa.me/${membro.telefone.replace(/\D/g, '')}`} 
@@ -327,7 +334,6 @@ export default function MembrosPage() {
                     <div className="text-center py-20 bg-white rounded-[3rem] shadow-inner border border-dashed border-gray-200">
                         <FaUsers size={48} className="mx-auto text-gray-200 mb-4" />
                         <h3 className="text-lg font-bold text-gray-400 tracking-tight">Nenhum membro encontrado com estes filtros</h3>
-                        {/* CORREÇÃO DO NOME DA FUNÇÃO DE ATUALIZAÇÃO */}
                         <button onClick={() => { setSearchTerm(''); setSelectedStatusFilter('all'); }} className="mt-4 text-emerald-600 font-bold hover:underline cursor-pointer">Limpar filtros</button>
                     </div>
                 )}
