@@ -1,5 +1,3 @@
-// src/app/(app)/admin/palavra-semana/page.tsx
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -8,17 +6,19 @@ import {
     FaUpload, 
     FaCalendarAlt, 
     FaFilePdf, 
-    FaRegEdit, 
     FaRegTrashAlt, 
     FaPlus, 
     FaInfoCircle,
     FaArrowLeft,
     FaSpinner,
     FaBookOpen,
-    FaFileDownload
+    FaFileDownload,
+    FaChevronRight,
+    FaPen
 } from 'react-icons/fa';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { 
     uploadPalavraDaSemana, 
     getPalavraDaSemana, 
@@ -38,7 +38,11 @@ export default function AdminPalavraSemanaPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const [currentPalavra, setCurrentPalavra] = useState<PalavraDaSemana | null>(null);
-    const { addToast, removeToast, ToastContainer } = useToast();
+    
+    // Estado para o Modal de Confirmação
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+    const { addToast, ToastContainer } = useToast();
 
     const getDefaultDateForWeek = useMemo(() => {
         const today = new Date();
@@ -62,13 +66,9 @@ export default function AdminPalavraSemanaPage() {
                 setDescricao('');
                 setDataSemana(getDefaultDateForWeek);
                 setSelectedFile(null);
-                if (document.getElementById('file')) {
-                    (document.getElementById('file') as HTMLInputElement).value = '';
-                }
             }
         } catch (error: any) {
-            console.error("Erro ao carregar a Palavra da Semana:", error);
-            addToast(`Erro ao carregar a Palavra da Semana: ${error.message}`, 'error');
+            addToast(`Erro ao carregar: ${error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -81,44 +81,23 @@ export default function AdminPalavraSemanaPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            if (!['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'].includes(file.type)) {
-                addToast('Por favor, selecione um arquivo PDF, PPT ou PPTX.', 'error');
+            const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+            if (!allowedTypes.includes(file.type)) {
+                addToast('Selecione um arquivo PDF ou PPT.', 'error');
                 e.target.value = '';
                 setSelectedFile(null);
                 return;
             }
             setSelectedFile(file);
-        } else {
-            setSelectedFile(null);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
-        setUploadProgress(0);
 
         if (!titulo.trim() || !dataSemana) {
-            addToast('Por favor, preencha o título e a data da semana.', 'error');
-            setSubmitting(false);
-            return;
-        }
-
-        if (!currentPalavra && !selectedFile) {
-            addToast('É necessário selecionar um arquivo PDF/PPT para uma nova Palavra da Semana.', 'error');
-            setSubmitting(false);
-            return;
-        }
-
-        const noChanges = 
-            currentPalavra &&
-            currentPalavra.titulo === titulo.trim() &&
-            currentPalavra.descricao === (descricao.trim() || null) &&
-            currentPalavra.data_semana === dataSemana &&
-            !selectedFile;
-
-        if (noChanges) {
-            addToast('Nenhuma alteração detectada para salvar.', 'info');
+            addToast('Preencha o título e a data.', 'error');
             setSubmitting(false);
             return;
         }
@@ -127,259 +106,210 @@ export default function AdminPalavraSemanaPage() {
         formData.append('titulo', titulo.trim());
         formData.append('descricao', descricao.trim());
         formData.append('data_semana', dataSemana);
-        if (selectedFile) {
-            formData.append('file', selectedFile);
-        }
+        if (selectedFile) formData.append('file', selectedFile);
         
         try {
-            if (selectedFile) {
-                const simulateProgress = setInterval(() => {
-                    setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
-                }, 200);
-
-                const result = await uploadPalavraDaSemana(formData);
-                clearInterval(simulateProgress);
-                setUploadProgress(100);
-                
-                if (result.success) {
-                    addToast(result.message, 'success');
-                    setSelectedFile(null);
-                    if (document.getElementById('file')) {
-                        (document.getElementById('file') as HTMLInputElement).value = '';
-                    }
-                    await fetchCurrentPalavra();
-                } else {
-                    addToast(result.message, 'error');
-                    setUploadProgress(0);
-                }
-
-            } else {
-                const result = await uploadPalavraDaSemana(formData);
-                if (result.success) {
-                    addToast(result.message, 'success');
-                    await fetchCurrentPalavra();
-                } else {
-                    addToast(result.message, 'error');
-                }
-            }
-
-        } catch (error: any) {
-            console.error("Erro ao enviar Palavra da Semana:", error);
-            addToast(`Erro inesperado: ${error.message}`, 'error');
-        } finally {
-            setSubmitting(false);
-            setTimeout(() => setUploadProgress(0), 1000); 
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja excluir esta Palavra da Semana? Esta ação é irreversível.')) {
-            return;
-        }
-        setSubmitting(true);
-        try {
-            const result = await deletePalavraDaSemana(id);
+            setUploadProgress(20);
+            const result = await uploadPalavraDaSemana(formData);
+            
             if (result.success) {
+                setUploadProgress(100);
                 addToast(result.message, 'success');
-                setCurrentPalavra(null);
-                setTitulo('');
-                setDescricao('');
-                setDataSemana(getDefaultDateForWeek);
                 setSelectedFile(null);
-                 if (document.getElementById('file')) {
-                    (document.getElementById('file') as HTMLInputElement).value = '';
-                }
+                await fetchCurrentPalavra();
             } else {
                 addToast(result.message, 'error');
             }
         } catch (error: any) {
-            console.error("Erro ao excluir Palavra da Semana:", error);
-            addToast(`Erro inesperado: ${error.message}`, 'error');
+            addToast(`Erro: ${error.message}`, 'error');
+        } finally {
+            setSubmitting(false);
+            setTimeout(() => setUploadProgress(0), 1000);
+        }
+    };
+
+    const confirmDelete = async () => {
+        if (!currentPalavra) return;
+        setIsDeleteModalOpen(false);
+        setSubmitting(true);
+        try {
+            const result = await deletePalavraDaSemana(currentPalavra.id);
+            if (result.success) {
+                addToast('Removido com sucesso!', 'success');
+                await fetchCurrentPalavra();
+            } else {
+                addToast(result.message, 'error');
+            }
+        } catch (error: any) {
+            addToast(`Erro ao excluir: ${error.message}`, 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
-                <LoadingSpinner />
-            </div>
-        );
-    }
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4 sm:p-6 lg:p-8">
-            {/* Renderiza o ToastContainer do hook global */}
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
 
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-500 rounded-2xl shadow-xl p-6 mb-8 text-white">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                        <div className="flex items-center space-x-4">
-                            <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
-                                <FaBookOpen className="text-2xl" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold">Palavra da Semana</h1>
-                                <p className="text-emerald-100 mt-2">Gerencie o material semanal para todas as células</p>
-                            </div>
-                        </div>
-                        <Link 
-                            href="/dashboard"
-                            className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white font-medium transition-all duration-200"
-                        >
-                            <FaArrowLeft className="text-sm" />
-                            <span>Voltar ao Dashboard</span>
-                        </Link>
-                    </div>
-                </div>
+            {/* Modal Profissional */}
+            <ConfirmationModal 
+                isOpen={isDeleteModalOpen}
+                title="Remover Palavra?"
+                message="Esta ação irá excluir o arquivo atual. Líderes não terão mais acesso a este material até que você publique um novo."
+                variant="danger"
+                onConfirm={confirmDelete}
+                onClose={() => setIsDeleteModalOpen(false)}
+                loading={submitting}
+            />
 
-                {/* Formulário de Upload */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-8">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800 flex items-center space-x-2">
-                        <div className="p-2 bg-emerald-100 rounded-lg">
-                            <FaPlus className="text-emerald-600" />
+            {/* Header com Gradiente */}
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-20 px-4 sm:px-8 border-b border-green-500/20 shadow-lg">
+                <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                            <FaBookOpen className="text-white" size={24} />
                         </div>
-                        <span>{currentPalavra ? 'Atualizar Palavra da Semana' : 'Publicar Nova Palavra da Semana'}</span>
-                    </h2>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-y-4 sm:gap-x-4"> {/* Ajuste de responsividade aqui */}
-                            <div className="space-y-2">
-                                <label htmlFor="dataSemana" className="block text-sm font-medium text-gray-700">
-                                    Data da Semana <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    id="dataSemana"
-                                    value={dataSemana}
-                                    onChange={(e) => setDataSemana(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400"
-                                    required
-                                    disabled={submitting}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Geralmente a segunda-feira da semana</p>
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="titulo" className="block text-sm font-medium text-gray-700">
-                                    Título da Mensagem <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="titulo"
-                                    placeholder="Ex: A Grande Comissão"
-                                    value={titulo}
-                                    onChange={(e) => setTitulo(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400"
-                                    required
-                                    disabled={submitting}
-                                />
-                            </div>
+                        <div>
+                            <h1 className="text-3xl font-black text-white tracking-tight">Palavra da Semana</h1>
+                            <p className="text-emerald-100 text-sm opacity-80 uppercase tracking-widest font-bold">Conteúdo para Células</p>
                         </div>
-                        <div className="space-y-2">
-                            <label htmlFor="descricao" className="block text-sm font-medium text-gray-700">
-                                Descrição (Opcional)
-                            </label>
-                            <textarea
-                                id="descricao"
-                                placeholder="Breve descrição sobre a mensagem"
-                                value={descricao || ''} // Corrigido para lidar com null
-                                onChange={(e) => setDescricao(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400 h-20 resize-none"
-                                disabled={submitting}
-                            ></textarea>
-                        </div>
-                        <div className="space-y-2">
-                            <label htmlFor="file" className="block text-sm font-medium text-gray-700">
-                                Upload de Arquivo (PDF, PPT, PPTX) {currentPalavra ? '(Opcional para atualização)' : <span className="text-red-500">*</span>}
-                            </label>
-                            <input
-                                type="file"
-                                id="file"
-                                accept=".pdf,.ppt,.pptx"
-                                onChange={handleFileChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 hover:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-                                disabled={submitting}
-                            />
-                            {selectedFile && (
-                                <p className="text-sm text-gray-600 mt-2 flex items-center space-x-2">
-                                    <FaFilePdf className="text-red-500" />
-                                    <span>Arquivo selecionado: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-                                </p>
-                            )}
-                            {uploadProgress > 0 && uploadProgress < 100 && (
-                                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                                    <div className="bg-emerald-600 h-2.5 rounded-full transition-all duration-200" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <Link 
+                        href="/dashboard"
+                        className="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 text-sm backdrop-blur-sm border border-white/10"
+                    >
+                        <FaArrowLeft /> Dashboard
+                    </Link>
+                </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-10 space-y-8">
+                
+                {/* Visualização Atual (Card de Destaque) */}
+                <div className={`bg-white rounded-[2rem] shadow-xl border-t-8 p-8 transition-all ${currentPalavra ? 'border-indigo-500' : 'border-gray-200'}`}>
+                    <div className="flex flex-col md:flex-row justify-between gap-6">
+                        <div className="flex-1">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full ${currentPalavra ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
+                                {currentPalavra ? 'Material Ativo' : 'Nenhum Material'}
+                            </span>
+                            <h2 className="text-2xl font-black text-gray-900 mt-4 leading-tight">
+                                {currentPalavra ? currentPalavra.titulo : 'Aguardando publicação'}
+                            </h2>
+                            <p className="text-gray-500 text-sm mt-2 leading-relaxed">
+                                {currentPalavra?.descricao || 'As células ainda não possuem material para esta semana.'}
+                            </p>
+                            
+                            {currentPalavra && (
+                                <div className="flex items-center gap-4 mt-6 text-xs font-bold text-gray-400">
+                                    <span className="flex items-center gap-1.5"><FaCalendarAlt /> {formatDateForDisplay(currentPalavra.data_semana)}</span>
+                                    <span className="flex items-center gap-1.5"><FaInfoCircle /> {currentPalavra.created_by_email?.split('@')[0]}</span>
                                 </div>
                             )}
                         </div>
-                        <button
-                            type="submit"
-                            className="bg-gradient-to-r from-emerald-600 to-green-500 text-white py-3 px-6 rounded-xl hover:from-emerald-700 hover:to-green-600 transition-all duration-200 disabled:from-emerald-400 disabled:to-green-400 disabled:cursor-not-allowed w-full font-medium shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
-                            disabled={submitting || (!selectedFile && !currentPalavra)}
-                        >
-                            {submitting ? (
+
+                        <div className="flex flex-row md:flex-col gap-3 shrink-0">
+                            {currentPalavra && (
                                 <>
-                                    <FaSpinner className="animate-spin" />
-                                    <span>{currentPalavra ? 'Atualizando...' : 'Publicando...'}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <FaUpload />
-                                    <span>{currentPalavra ? 'Atualizar Palavra' : 'Publicar Palavra'}</span>
+                                    <a 
+                                        href={currentPalavra.url_arquivo} 
+                                        target="_blank" 
+                                        className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+                                    >
+                                        <FaFileDownload /> Baixar
+                                    </a>
+                                    <button 
+                                        onClick={() => setIsDeleteModalOpen(true)}
+                                        className="p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all active:scale-95 border border-red-100"
+                                    >
+                                        <FaRegTrashAlt size={18} />
+                                    </button>
                                 </>
                             )}
-                        </button>
-                    </form>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Última Palavra da Semana Publicada */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800 flex items-center space-x-2">
-                        <div className="p-2 bg-indigo-100 rounded-lg">
-                            <FaBookOpen className="text-indigo-600" />
-                        </div>
-                        <span>Última Palavra da Semana</span>
+                {/* Formulário de Upload (Card Secundário) */}
+                <div className="bg-white rounded-[2rem] shadow-lg border border-gray-100 p-8">
+                    <h2 className="text-xl font-black text-gray-800 mb-8 flex items-center gap-3">
+                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaPlus size={16}/></div>
+                        {currentPalavra ? 'Substituir Conteúdo' : 'Novo Conteúdo'}
                     </h2>
-                    {currentPalavra ? (
-                        <div className="border border-gray-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between space-y-3 md:space-y-0">
-                            <div className="flex-1 space-y-1">
-                                <p className="text-gray-500 text-xs">Publicada em: {formatDateForDisplay(currentPalavra.data_semana)}</p>
-                                <h3 className="font-semibold text-gray-900 text-lg">{currentPalavra.titulo}</h3>
-                                <p className="text-gray-700 text-sm">{currentPalavra.descricao || 'Nenhuma descrição.'}</p>
-                                <p className="text-gray-500 text-xs">Por: {currentPalavra.created_by_email || 'Admin'}</p>
+                    
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Data de Referência</label>
+                                <input
+                                    type="date"
+                                    value={dataSemana}
+                                    onChange={(e) => setDataSemana(e.target.value)}
+                                    className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold text-gray-700"
+                                    required
+                                />
                             </div>
-                            <div className="flex flex-wrap gap-2 justify-end mt-4 md:mt-0"> {/* Ajuste de responsividade aqui */}
-                                <a 
-                                    href={currentPalavra.url_arquivo} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="inline-flex items-center space-x-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                                    title="Baixar PDF"
-                                >
-                                    <FaFileDownload className="text-lg" />
-                                    <span className="text-sm hidden sm:inline">Baixar</span> {/* Texto visível em sm: e acima */}
-                                </a>
-                                <button
-                                    onClick={() => handleDelete(currentPalavra.id)}
-                                    className="inline-flex items-center space-x-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                                    title="Excluir Palavra"
-                                    disabled={submitting}
-                                >
-                                    <FaRegTrashAlt className="text-lg" />
-                                    <span className="text-sm hidden sm:inline">Excluir</span> {/* Texto visível em sm: e acima */}
-                                </button>
+                            <div className="space-y-2">
+                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Título da Palavra</label>
+                                <input
+                                    type="text"
+                                    value={titulo}
+                                    onChange={(e) => setTitulo(e.target.value)}
+                                    placeholder="Ex: A Fidelidade de Deus"
+                                    className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold text-gray-700"
+                                    required
+                                />
                             </div>
                         </div>
-                    ) : (
-                        <div className="text-center p-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                            <FaInfoCircle className="text-4xl text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 text-lg">Nenhuma Palavra da Semana publicada ainda.</p>
-                            <p className="text-gray-400 text-sm mt-2">Use o formulário acima para publicar a primeira.</p>
+
+                        <div className="space-y-2">
+                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Descrição Curta</label>
+                            <textarea
+                                value={descricao}
+                                onChange={(e) => setDescricao(e.target.value)}
+                                placeholder="Sobre o que vamos falar?"
+                                className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all h-28 resize-none"
+                            />
                         </div>
-                    )}
+
+                        <div className="space-y-2">
+                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Arquivo (PDF ou PPT)</label>
+                            <div className="relative group">
+                                <input
+                                    type="file"
+                                    accept=".pdf,.ppt,.pptx"
+                                    onChange={handleFileChange}
+                                    className="w-full px-4 py-4 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer file:hidden text-sm font-bold text-gray-400 hover:border-emerald-300 transition-all"
+                                />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2 text-emerald-600">
+                                    <FaUpload />
+                                    <span className="text-xs font-black uppercase">Selecionar</span>
+                                </div>
+                                {selectedFile && (
+                                    <div className="mt-3 flex items-center gap-2 text-emerald-700 bg-emerald-50 p-3 rounded-xl animate-in slide-in-from-top-2">
+                                        <FaFilePdf size={14}/>
+                                        <span className="text-xs font-bold truncate">{selectedFile.name}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {uploadProgress > 0 && (
+                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full bg-gradient-to-r from-emerald-600 to-green-500 text-white py-5 rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                        >
+                            {submitting ? <FaSpinner className="animate-spin" /> : <FaUpload />}
+                            {currentPalavra ? 'Atualizar Material' : 'Publicar Agora'}
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
