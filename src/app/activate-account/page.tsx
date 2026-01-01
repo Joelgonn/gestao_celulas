@@ -14,7 +14,6 @@ export default function ActivateAccountPage() {
     const [checking, setChecking] = useState(true);
     const router = useRouter();
 
-    // Função para verificar se o usuário já foi ativado por fora
     const checkStatus = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
@@ -32,7 +31,6 @@ export default function ActivateAccountPage() {
             .eq('id', user.id)
             .single();
 
-        // Se o perfil já tiver celula_id ou for admin, ele não deveria estar aqui
         if (profile) {
             if (profile.role === 'admin' || (profile.role === 'líder' && profile.celula_id !== null)) {
                 router.replace('/dashboard');
@@ -51,7 +49,7 @@ export default function ActivateAccountPage() {
         const cleanKey = key.trim();
 
         if (!cleanKey) {
-            setStatusMessage({ type: 'error', text: "Por favor, insira a chave de ativação." });
+            setStatusMessage({ type: 'error', text: "Por favor, digite o código de acesso." });
             return;
         }
 
@@ -62,14 +60,9 @@ export default function ActivateAccountPage() {
             const result = await activateAccountWithKey(cleanKey);
 
             if (result.success) {
-                setStatusMessage({ type: 'success', text: "Conta ativada com sucesso! Configurando seu acesso..." });
-                
-                // IMPORTANTE: router.refresh() força o Next.js a invalidar o cache dos layouts
-                // Isso faz com que o AuthLayout perceba que agora o usuário tem uma célula.
+                setStatusMessage({ type: 'success', text: "Acesso liberado! Preparando seu painel..." });
                 router.refresh();
-                
                 setTimeout(() => {
-                    // Usamos replace para o dashboard
                     router.replace('/dashboard');
                 }, 1500);
             } else {
@@ -78,7 +71,7 @@ export default function ActivateAccountPage() {
             }
         } catch (error: any) {
             console.error("ActivateAccountPage error:", error);
-            setStatusMessage({ type: 'error', text: "Erro inesperado ao processar ativação." });
+            setStatusMessage({ type: 'error', text: "Ocorreu um erro ao validar o código." });
             setLoading(false);
         }
     };
@@ -88,18 +81,18 @@ export default function ActivateAccountPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4 font-sans">
-            <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col justify-center items-center p-4 font-sans">
+            <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-2xl border border-white">
                 <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-gray-800">Ativar Conta</h2>
-                    <p className="text-gray-500 mt-2 text-sm text-pretty">
-                        Olá, <span className="font-bold text-orange-600">{userEmail}</span>. 
-                        Insira abaixo a chave de ativação para vincular sua conta à sua célula.
+                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Quase lá!</h2>
+                    <p className="text-gray-500 mt-3 text-sm leading-relaxed">
+                        Olá, <span className="font-semibold text-orange-600">{userEmail}</span>. 
+                        Informe o <strong>código de acesso</strong> enviado pela sua liderança para ativar seu painel.
                     </p>
                 </div>
 
                 {statusMessage && (
-                    <div className={`p-4 mb-6 rounded-xl text-sm font-medium animate-in fade-in slide-in-from-top-2 ${
+                    <div className={`p-4 mb-6 rounded-2xl text-sm font-medium animate-in fade-in slide-in-from-top-2 ${
                         statusMessage.type === 'error' 
                         ? 'bg-red-50 text-red-700 border border-red-100' 
                         : 'bg-green-50 text-green-700 border border-green-100'
@@ -110,16 +103,16 @@ export default function ActivateAccountPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <label htmlFor="activationKey" className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
-                            Chave de Ativação
+                        <label htmlFor="activationKey" className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                            Código de Acesso
                         </label>
                         <input
                             id="activationKey"
                             type="text"
-                            placeholder="Ex: XXXX-XXXX-XXXX"
+                            placeholder="Digite seu código"
                             value={key}
                             onChange={(e) => setKey(e.target.value)}
-                            className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-center text-xl font-mono uppercase placeholder:text-gray-300"
+                            className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all text-center text-2xl font-mono tracking-widest uppercase placeholder:text-gray-300 placeholder:font-sans placeholder:text-sm"
                             required
                             disabled={loading}
                             autoFocus
@@ -128,20 +121,23 @@ export default function ActivateAccountPage() {
 
                     <button
                         type="submit"
-                        className="w-full py-4 px-6 border border-transparent rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all"
+                        className="w-full py-4 px-6 rounded-2xl shadow-lg shadow-orange-600/20 text-lg font-bold text-white bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-orange-500/30 disabled:from-gray-300 disabled:to-gray-400 disabled:shadow-none disabled:cursor-not-allowed transition-all"
                         disabled={loading}
                     >
                         {loading ? (
                             <div className="flex items-center justify-center gap-2">
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                <span>Configurando...</span>
+                                <span>Validando acesso...</span>
                             </div>
-                        ) : 'Confirmar Ativação'}
+                        ) : 'Concluir e Acessar Painel'}
                     </button>
                 </form>
 
-                <div className="mt-8 pt-6 border-t border-gray-100 text-center text-xs text-gray-400">
-                    <p>Precisa de ajuda? Peça a chave para o administrador do sistema.</p>
+                <div className="mt-8 pt-6 border-t border-gray-50 text-center">
+                    <p className="text-xs text-gray-400">
+                        Não possui um código? <br/> 
+                        Solicite ao administrador do sistema <strong>Apascentar</strong>.
+                    </p>
                 </div>
             </div>
         </div>
