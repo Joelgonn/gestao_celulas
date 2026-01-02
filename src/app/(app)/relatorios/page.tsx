@@ -70,10 +70,31 @@ import {
     FaCheckCircle,
     FaArrowLeft,
     FaInfoCircle,
-    FaSpinner // Adicionado aqui para corrigir o erro de build
+    FaSpinner,
+    FaDownload
 } from 'react-icons/fa';
 
-// --- COMPONENTE CUSTOMIZADO DE SELEÇÃO (BOTTOM SHEET) ---
+// --- COMPONENTES VISUAIS AUXILIARES (Refatorados para estilo profissional) ---
+
+// 1. Input de Data customizado
+const DateInput = ({ label, value, onChange }: any) => (
+    <div className="space-y-1">
+        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+            {label}
+        </label>
+        <div className="relative group">
+            <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+            <input 
+                type="date" 
+                value={value} 
+                onChange={onChange} 
+                className="w-full pl-11 pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all border-gray-100 focus:border-emerald-500 appearance-none" 
+            />
+        </div>
+    </div>
+);
+
+// 2. Select Sheet (Estilo Bottom Sheet Mobile)
 interface CustomSelectSheetProps {
     label: string;
     value: string | null;
@@ -96,27 +117,25 @@ const CustomSelectSheet = ({
     const filteredOptions = options.filter(o => o.nome.toLowerCase().includes(searchTerm.toLowerCase()));
 
     useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (modalRef.current && !modalRef.current.contains(e.target as Node)) setIsOpen(false);
-        };
-        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        const handleClick = (e: MouseEvent) => { if (modalRef.current && !modalRef.current.contains(e.target as Node)) setIsOpen(false); };
+        if (isOpen) document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
     }, [isOpen]);
 
     return (
         <div className={`space-y-1 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
                 {label}
             </label>
             <button
                 type="button"
                 onClick={() => !disabled && setIsOpen(true)}
                 disabled={disabled}
-                className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none text-left group"
+                className="w-full px-4 py-4 border-2 rounded-2xl flex items-center justify-between bg-gray-50 transition-all hover:border-emerald-200 border-gray-100 group focus:border-emerald-500 focus:bg-white"
             >
                 <div className="flex items-center gap-3 truncate">
-                    <span className="text-gray-400 group-hover:text-emerald-600 transition-colors">{icon}</span>
-                    <span className={`text-sm font-bold truncate ${selectedName ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <span className="text-gray-400 group-hover:text-emerald-500 transition-colors">{icon}</span>
+                    <span className={`text-sm font-bold truncate ${selectedName ? 'text-gray-700' : 'text-gray-400'}`}>
                         {selectedName || placeholder}
                     </span>
                 </div>
@@ -124,11 +143,11 @@ const CustomSelectSheet = ({
             </button>
 
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4">
-                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 rounded-t-[2rem]">
-                            <h3 className="font-black text-gray-800 text-lg uppercase tracking-tighter">{label}</h3>
-                            <button onClick={() => setIsOpen(false)} className="p-3 bg-gray-200 text-gray-600 rounded-2xl hover:bg-gray-300 transition-all active:scale-90"><FaTimes /></button>
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                            <h3 className="font-black text-gray-800 uppercase tracking-tighter">{label}</h3>
+                            <button onClick={() => setIsOpen(false)} className="p-3 bg-gray-200 text-gray-600 rounded-2xl active:scale-90"><FaTimes /></button>
                         </div>
                         {searchable && (
                             <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
@@ -141,9 +160,9 @@ const CustomSelectSheet = ({
                         <div className="overflow-y-auto p-4 space-y-2 flex-1 pb-10 sm:pb-4">
                             {filteredOptions.length > 0 ? (filteredOptions.map((option) => (
                                 <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); setSearchTerm(''); }}
-                                    className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${value === option.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-gray-700 hover:bg-gray-100'}`}
+                                    className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${value === option.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-700 hover:bg-gray-100'}`}
                                 >
-                                    <span className="text-sm font-bold truncate pr-4">{option.nome}</span>
+                                    <span className="text-sm font-bold truncate">{option.nome}</span>
                                     {value === option.id && <FaCheckCircle className="text-white shrink-0" />}
                                 </button>
                             ))) : <div className="text-center py-12 text-gray-400 font-bold italic">Nenhum item encontrado.</div>}
@@ -181,6 +200,9 @@ export default function RelatoriosPage() {
     const [exportingCsv, setExportingCsv] = useState(false);
 
     const { addToast, ToastContainer } = useToast();
+
+    // Referência para scrollar até o resultado
+    const resultRef = useRef<HTMLDivElement>(null);
 
     const monthOptions = Array.from({ length: 12 }, (_, i) => ({
         id: (i + 1).toString(),
@@ -245,7 +267,7 @@ export default function RelatoriosPage() {
 
     const handleGenerateReport = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedReportType) return addToast("Selecione o tipo.", 'warning');
+        if (!selectedReportType) return addToast("Selecione o tipo de relatório.", 'warning');
         setLoadingReport(true);
         setReportDisplayData(null);
 
@@ -268,7 +290,7 @@ export default function RelatoriosPage() {
                 case 'chaves_ativacao': result = await fetchReportDataChavesAtivacao(); break;
             }
 
-            if (!result) throw new Error("Nenhum dado encontrado.");
+            if (!result) throw new Error("Nenhum dado encontrado para os filtros selecionados.");
 
             let title = "";
             switch (selectedReportType) {
@@ -282,7 +304,13 @@ export default function RelatoriosPage() {
             }
 
             setReportDisplayData({ type: selectedReportType, title, content: result, filename: `${selectedReportType}_${Date.now()}.pdf` });
-            addToast("Relatório gerado!", 'success');
+            addToast("Relatório gerado com sucesso!", 'success');
+            
+            // Scroll suave para o resultado
+            setTimeout(() => {
+                resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+
         } catch (e: any) {
             addToast(e.message, 'error');
         } finally {
@@ -330,140 +358,162 @@ export default function RelatoriosPage() {
         <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
             
-            {/* Header Emerald */}
-            <div className="bg-gradient-to-br from-emerald-600 to-green-700 shadow-lg px-4 pt-8 pb-20 sm:px-8 border-b border-green-500/20 shadow-lg">
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/10 text-white">
-                            <FaFileAlt size={24} />
-                        </div>
+            {/* HERO HEADER */}
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-32 px-4 sm:px-8 shadow-lg">
+                <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/dashboard" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
+                        </Link>
                         <div>
-                            <h1 className="text-3xl font-black text-white tracking-tight">Central de Relatórios</h1>
-                            <p className="text-emerald-100 text-sm font-bold opacity-80 uppercase tracking-widest">Análise de dados e exportação</p>
+                            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3"><FaChartBar /> Relatórios</h1>
+                            <p className="text-emerald-100 text-sm font-medium opacity-80 uppercase tracking-widest">Análise de Dados</p>
                         </div>
                     </div>
-                    <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-2xl transition-all backdrop-blur-md border border-white/10">
-                        <FaArrowLeft />
-                    </Link>
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-4 sm:px-8 -mt-10 space-y-8">
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-20 space-y-8">
                 
-                {/* Configuração do Relatório */}
-                <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 p-8">
-                    <h2 className="text-xl font-black text-gray-800 mb-8 flex items-center gap-3">
-                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaFilter size={16}/></div>
-                        Configurar Relatório
-                    </h2>
-                    
-                    <form onSubmit={handleGenerateReport} className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            
-                            {/* Filtro Célula */}
-                            <CustomSelectSheet
-                                label="Célula"
-                                icon={<FaUsers />}
-                                value={selectedFilterCelulaId}
-                                onChange={setSelectedFilterCelulaId}
-                                options={userRole === 'admin' ? [{ id: '', nome: 'Todas as Células' }, ...celulasFilterOptions] : celulasFilterOptions}
-                                disabled={['alocacao_lideres', 'chaves_ativacao'].includes(selectedReportType || '')}
-                                searchable
-                            />
+                {/* CARD DE CONFIGURAÇÃO (FILTROS) */}
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="p-8 sm:p-10">
+                        <h2 className="text-lg font-black text-gray-800 mb-8 flex items-center gap-2 border-b border-gray-50 pb-4">
+                            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaFilter size={16}/></div>
+                            Configurar Filtros
+                        </h2>
+                        
+                        <form onSubmit={handleGenerateReport} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                
+                                {/* Célula */}
+                                <CustomSelectSheet
+                                    label="Célula"
+                                    icon={<FaUsers />}
+                                    value={selectedFilterCelulaId}
+                                    onChange={setSelectedFilterCelulaId}
+                                    options={userRole === 'admin' ? [{ id: '', nome: 'Todas as Células' }, ...celulasFilterOptions] : celulasFilterOptions}
+                                    disabled={['alocacao_lideres', 'chaves_ativacao'].includes(selectedReportType || '')}
+                                    searchable
+                                />
 
-                            {/* Tipo de Relatório */}
-                            <CustomSelectSheet
-                                label="Tipo de Relatório"
-                                icon={<FaChartBar />}
-                                value={selectedReportType}
-                                onChange={(val) => setSelectedReportType(val as any)}
-                                options={getReportTypeOptions()}
-                            />
+                                {/* Tipo de Relatório */}
+                                <CustomSelectSheet
+                                    label="Tipo de Relatório"
+                                    icon={<FaFileAlt />}
+                                    value={selectedReportType}
+                                    onChange={(val) => setSelectedReportType(val as any)}
+                                    options={getReportTypeOptions()}
+                                />
 
-                            {/* Campos Dinâmicos */}
-                            {selectedReportType === 'presenca_reuniao' && (
-                                <CustomSelectSheet label="Reunião" icon={<FaCalendarAlt />} value={selectedReuniaoId} onChange={setSelectedReuniaoId} searchable options={reunioesOptions.map(r => ({ id: r.id, nome: `${formatDateForDisplay(r.data_reuniao)} - ${r.tema}` }))} />
-                            )}
-                            {selectedReportType === 'presenca_membro' && (
-                                <CustomSelectSheet label="Membro" icon={<FaUser />} value={selectedMembroId} onChange={setSelectedMembroId} searchable options={membrosOptions} />
-                            )}
-                            {['faltosos', 'visitantes_periodo'].includes(selectedReportType || '') && (
-                                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Data Inicial</label>
-                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-bold text-gray-700" />
+                                {/* Campos Dinâmicos (Surgem conforme o tipo) */}
+                                {selectedReportType === 'presenca_reuniao' && (
+                                    <div className="col-span-1 md:col-span-2 animate-in fade-in zoom-in-95">
+                                        <CustomSelectSheet label="Selecione a Reunião" icon={<FaCalendarAlt />} value={selectedReuniaoId} onChange={setSelectedReuniaoId} searchable options={reunioesOptions.map(r => ({ id: r.id, nome: `${formatDateForDisplay(r.data_reuniao)} - ${r.tema}` }))} />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Data Final</label>
-                                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-bold text-gray-700" />
+                                )}
+                                {selectedReportType === 'presenca_membro' && (
+                                    <div className="col-span-1 md:col-span-2 animate-in fade-in zoom-in-95">
+                                        <CustomSelectSheet label="Selecione o Membro" icon={<FaUser />} value={selectedMembroId} onChange={setSelectedMembroId} searchable options={membrosOptions} />
                                     </div>
-                                </div>
-                            )}
-                            {selectedReportType === 'aniversariantes_mes' && (
-                                <CustomSelectSheet label="Mês" icon={<FaBirthdayCake />} value={selectedBirthdayMonth} onChange={setSelectedBirthdayMonth} options={monthOptions} />
-                            )}
-                        </div>
-
-                        <button type="submit" disabled={loadingReport || !selectedReportType} className="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3 uppercase tracking-tighter cursor-pointer">
-                            {loadingReport ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
-                            Gerar Relatório Agora
-                        </button>
-                    </form>
-                </div>
-
-                {/* Resultados */}
-                <div className={`bg-white rounded-[2rem] shadow-xl border border-gray-100 p-8 min-h-[300px] flex flex-col ${reportDisplayData ? 'border-t-8 border-indigo-500' : ''}`}>
-                    <h2 className="text-xl font-black text-gray-800 mb-8 flex items-center gap-3">
-                        <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><FaChartBar size={16}/></div>
-                        Visualização dos Dados
-                    </h2>
-
-                    {loadingReport ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 animate-pulse">
-                            <LoadingSpinner />
-                            <p className="mt-4 font-bold">Processando informações...</p>
-                        </div>
-                    ) : reportDisplayData ? (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl">
-                                <p className="text-center text-indigo-800 font-black text-sm uppercase tracking-widest">{reportDisplayData.title}</p>
+                                )}
+                                {['faltosos', 'visitantes_periodo'].includes(selectedReportType || '') && (
+                                    <>
+                                        <div className="animate-in fade-in zoom-in-95">
+                                            <DateInput label="Data Inicial" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} />
+                                        </div>
+                                        <div className="animate-in fade-in zoom-in-95">
+                                            <DateInput label="Data Final" value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                        </div>
+                                    </>
+                                )}
+                                {selectedReportType === 'aniversariantes_mes' && (
+                                    <div className="col-span-1 md:col-span-2 animate-in fade-in zoom-in-95">
+                                        <CustomSelectSheet label="Mês do Aniversário" icon={<FaBirthdayCake />} value={selectedBirthdayMonth} onChange={setSelectedBirthdayMonth} options={monthOptions} />
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="overflow-x-auto rounded-2xl border border-gray-100">
-                                {reportDisplayData.type === 'presenca_reuniao' && <ReportPresencaReuniaoDisplay data={reportDisplayData.content as ReportDataPresencaReuniao} />}
-                                {reportDisplayData.type === 'presenca_membro' && <ReportPresencaMembroDisplay data={reportDisplayData.content as ReportDataPresencaMembro} />}
-                                {reportDisplayData.type === 'faltosos' && <ReportFaltososPeriodoDisplay data={reportDisplayData.content as ReportDataFaltososPeriodo} />}
-                                {reportDisplayData.type === 'visitantes_periodo' && <ReportVisitantesPeriodoDisplay data={reportDisplayData.content as ReportDataVisitantesPeriodo} />}
-                                {reportDisplayData.type === 'aniversariantes_mes' && <ReportAniversariantesDisplay data={reportDisplayData.content as ReportDataAniversariantes} />}
-                                {reportDisplayData.type === 'alocacao_lideres' && <ReportAlocacaoLideresDisplay data={reportDisplayData.content as ReportDataAlocacaoLideres} />}
-                                {reportDisplayData.type === 'chaves_ativacao' && <ReportChavesAtivacaoDisplay data={reportDisplayData.content as ReportDataChavesAtivacao} />}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <button onClick={handleExportPdf} disabled={exportingPdf} className="flex items-center justify-center gap-3 bg-red-50 text-red-600 border border-red-200 py-4 rounded-2xl font-black hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
-                                    {exportingPdf ? <FaSpinner className="animate-spin" /> : <FaFilePdf size={20}/>} EXPORTAR PDF
-                                </button>
-                                <button onClick={handleExportCsv} disabled={exportingCsv} className="flex items-center justify-center gap-3 bg-emerald-50 text-emerald-600 border border-emerald-100 py-4 rounded-2xl font-black hover:bg-emerald-100 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
-                                    {exportingCsv ? <FaSpinner className="animate-spin" /> : <FaFileCsv size={20}/>} EXPORTAR EXCEL (CSV)
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-300 py-12">
-                            <FaFileAlt size={64} className="opacity-10 mb-4" />
-                            <p className="font-bold text-sm uppercase tracking-tighter">Nenhum dado para exibir no momento</p>
-                            <p className="text-xs">Configure os filtros acima e clique em "Gerar Relatório".</p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="bg-blue-50 rounded-3xl p-6 border border-blue-100 flex gap-4">
-                    <FaInfoCircle className="text-blue-500 shrink-0 mt-1" />
-                    <div className="text-xs text-blue-700 leading-relaxed">
-                        <p className="font-bold uppercase mb-1">Dica de Exportação</p>
-                        Utilize o formato <strong>CSV</strong> caso precise abrir os dados no Excel ou Google Sheets para cálculos adicionais. O formato <strong>PDF</strong> é ideal para impressão ou compartilhamento rápido via WhatsApp.
+                            <button type="submit" disabled={loadingReport || !selectedReportType} className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 uppercase tracking-tighter cursor-pointer mt-4">
+                                {loadingReport ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
+                                Gerar Relatório
+                            </button>
+                        </form>
                     </div>
                 </div>
+
+                {/* CARD DE RESULTADOS (Renderizado Condicionalmente) */}
+                {(reportDisplayData || loadingReport) && (
+                    <div ref={resultRef} className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden animate-in slide-in-from-bottom duration-500">
+                         {/* Header do Card de Resultados */}
+                        <div className="bg-indigo-50 px-8 py-6 border-b border-indigo-100 flex items-center justify-between">
+                            <h2 className="text-lg font-black text-indigo-900 flex items-center gap-2">
+                                <FaChartBar className="text-indigo-500"/> Resultados
+                            </h2>
+                            {reportDisplayData && (
+                                <span className="bg-white text-indigo-600 text-[10px] font-black uppercase px-3 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                                    Pronto
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="p-8 sm:p-10">
+                            {loadingReport ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                                    <LoadingSpinner />
+                                    <p className="mt-6 font-bold text-sm uppercase tracking-widest animate-pulse">Processando dados...</p>
+                                </div>
+                            ) : reportDisplayData ? (
+                                <div className="space-y-8">
+                                    
+                                    {/* Título do Relatório Gerado */}
+                                    <div className="text-center">
+                                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Relatório Gerado</p>
+                                        <h3 className="text-xl font-black text-gray-800">{reportDisplayData.title}</h3>
+                                    </div>
+
+                                    {/* Área de Conteúdo (Tabelas) */}
+                                    <div className="overflow-x-auto rounded-3xl border border-gray-100 shadow-inner bg-gray-50/50">
+                                        <div className="min-w-full p-2">
+                                            {reportDisplayData.type === 'presenca_reuniao' && <ReportPresencaReuniaoDisplay data={reportDisplayData.content as ReportDataPresencaReuniao} />}
+                                            {reportDisplayData.type === 'presenca_membro' && <ReportPresencaMembroDisplay data={reportDisplayData.content as ReportDataPresencaMembro} />}
+                                            {reportDisplayData.type === 'faltosos' && <ReportFaltososPeriodoDisplay data={reportDisplayData.content as ReportDataFaltososPeriodo} />}
+                                            {reportDisplayData.type === 'visitantes_periodo' && <ReportVisitantesPeriodoDisplay data={reportDisplayData.content as ReportDataVisitantesPeriodo} />}
+                                            {reportDisplayData.type === 'aniversariantes_mes' && <ReportAniversariantesDisplay data={reportDisplayData.content as ReportDataAniversariantes} />}
+                                            {reportDisplayData.type === 'alocacao_lideres' && <ReportAlocacaoLideresDisplay data={reportDisplayData.content as ReportDataAlocacaoLideres} />}
+                                            {reportDisplayData.type === 'chaves_ativacao' && <ReportChavesAtivacaoDisplay data={reportDisplayData.content as ReportDataChavesAtivacao} />}
+                                        </div>
+                                    </div>
+
+                                    {/* Botões de Exportação */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                                        <button onClick={handleExportPdf} disabled={exportingPdf} className="flex items-center justify-center gap-3 bg-red-50 text-red-600 border border-red-100 py-4 rounded-2xl font-black hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm">
+                                            {exportingPdf ? <FaSpinner className="animate-spin" /> : <FaFilePdf size={18}/>} 
+                                            <span className="text-sm">BAIXAR PDF</span>
+                                        </button>
+                                        <button onClick={handleExportCsv} disabled={exportingCsv} className="flex items-center justify-center gap-3 bg-emerald-50 text-emerald-600 border border-emerald-100 py-4 rounded-2xl font-black hover:bg-emerald-100 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm">
+                                            {exportingCsv ? <FaSpinner className="animate-spin" /> : <FaFileCsv size={18}/>} 
+                                            <span className="text-sm">BAIXAR CSV</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                )}
+
+                {/* Dica */}
+                {!reportDisplayData && !loadingReport && (
+                    <div className="bg-blue-50 rounded-3xl p-6 border border-blue-100 flex gap-4 items-start">
+                        <div className="bg-blue-100 p-2 rounded-xl text-blue-600 shrink-0">
+                            <FaInfoCircle size={20} />
+                        </div>
+                        <div className="text-xs text-blue-800 leading-relaxed">
+                            <p className="font-black uppercase mb-1">Sobre Exportações</p>
+                            Utilize o formato <strong>CSV</strong> caso precise abrir os dados no Excel ou Google Sheets para cálculos avançados. O formato <strong>PDF</strong> é ideal para compartilhamento rápido via WhatsApp.
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
