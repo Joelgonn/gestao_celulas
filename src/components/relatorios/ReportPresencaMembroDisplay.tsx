@@ -14,7 +14,8 @@ import {
   FaChartLine,
   FaHistory,
   FaWhatsapp,
-  FaIdCard
+  FaIdCard,
+  FaBookOpen
 } from 'react-icons/fa';
 
 // --- COMPONENTES AUXILIARES ---
@@ -65,6 +66,39 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, value, subtitle, icon, col
       </div>
     </div>
   );
+};
+
+// Novo Componente: Card de Histórico Individual
+const HistoryCard = ({ data, tema, status }: { data: string, tema: string, status: boolean }) => {
+    return (
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col gap-3 group">
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                        <FaCalendarAlt className="text-indigo-300" />
+                        <span className="font-bold uppercase tracking-wide">{formatDateForDisplay(data)}</span>
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-800 line-clamp-2" title={tema}>
+                        {tema}
+                    </h4>
+                </div>
+                
+                <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm ${
+                    status 
+                    ? 'bg-emerald-100 text-emerald-600' 
+                    : 'bg-red-100 text-red-500'
+                }`}>
+                    {status ? <FaCheckCircle /> : <FaTimesCircle />}
+                </div>
+            </div>
+            
+            <div className={`text-[10px] font-black uppercase tracking-widest self-start px-2 py-1 rounded-md ${
+                status ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+            }`}>
+                {status ? 'Presente' : 'Ausente'}
+            </div>
+        </div>
+    );
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -195,7 +229,7 @@ export const ReportPresencaMembroDisplay = ({ data }: { data: ReportDataPresenca
 
             {/* 3. ALERTA DE AUSÊNCIA (Só aparece se necessário) */}
             {ausenciasConsecutivas > 0 && (
-                <div className="bg-red-50 rounded-2xl p-4 border border-red-100 flex items-center justify-between">
+                <div className="bg-red-50 rounded-2xl p-4 border border-red-100 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex items-center gap-3">
                         <FaTimesCircle className="text-red-500 text-xl" />
                         <div>
@@ -206,62 +240,31 @@ export const ReportPresencaMembroDisplay = ({ data }: { data: ReportDataPresenca
                 </div>
             )}
 
-            {/* 4. HISTÓRICO DETALHADO (Tabela Responsiva Clean) */}
-            <div className="bg-white rounded-[2.5rem] shadow-sm overflow-hidden border border-gray-100">
-                <div className="bg-gray-50/50 p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                        <FaHistory /> Histórico Completo
-                    </h3>
-                    <span className="bg-white px-3 py-1 rounded-lg text-xs font-black border border-gray-200 shadow-sm text-gray-600">
-                        {safeHistoricoPresenca.length}
-                    </span>
-                </div>
+            {/* 4. HISTÓRICO EM CARDS (Grid Responsivo) */}
+            <div>
+                <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2 px-2">
+                    <FaHistory /> Histórico de Presença
+                </h3>
                 
-                <div className="overflow-x-auto">
-                    {safeHistoricoPresenca.length > 0 ? (
-                        <table className="min-w-full divide-y divide-gray-50">
-                            <thead className="bg-white">
-                                <tr>
-                                    <th className="py-4 px-6 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Data</th>
-                                    <th className="py-4 px-6 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Tema</th>
-                                    <th className="py-4 px-6 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-50">
-                                {safeHistoricoPresenca.map((hist, index) => (
-                                    <tr key={index} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="py-4 px-6 whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                <FaCalendarAlt className="text-gray-300 text-xs group-hover:text-indigo-400 transition-colors" />
-                                                <span className="text-sm font-bold text-gray-700">{formatDateForDisplay(hist.data_reuniao)}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className="text-sm font-medium text-gray-600 truncate max-w-[150px] block">{hist.tema}</span>
-                                        </td>
-                                        <td className="py-4 px-6 whitespace-nowrap text-right">
-                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border ${
-                                                hist.presente 
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                                                    : 'bg-red-50 text-red-700 border-red-100'
-                                            }`}>
-                                                {hist.presente ? (
-                                                    <> <FaCheckCircle /> Presente </>
-                                                ) : (
-                                                    <> <FaTimesCircle /> Ausente </>
-                                                )}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <div className="text-center py-12">
-                            <p className="text-gray-400 font-bold text-sm">Nenhum histórico registrado.</p>
+                {safeHistoricoPresenca.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {safeHistoricoPresenca.map((hist, index) => (
+                            <HistoryCard 
+                                key={index} 
+                                data={hist.data_reuniao} 
+                                tema={hist.tema} 
+                                status={hist.presente} 
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100 shadow-sm">
+                            <FaHistory className="text-gray-300 text-2xl" />
                         </div>
-                    )}
-                </div>
+                        <p className="text-gray-400 font-bold text-sm">Nenhum histórico registrado.</p>
+                    </div>
+                )}
             </div>
         </div>
     );
