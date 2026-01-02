@@ -17,8 +17,67 @@ import {
     FaTimesCircle, 
     FaUserCheck, 
     FaUserTimes,
-    FaUserPlus 
+    FaUserPlus,
+    FaChild,
+    FaDownload,
+    FaMapMarkerAlt
 } from 'react-icons/fa';
+
+// --- COMPONENTES VISUAIS ---
+
+const StatCard = ({ label, value, icon: Icon, colorClass, bgClass }: any) => (
+    <div className={`p-4 rounded-2xl border flex items-center justify-between ${bgClass} border-opacity-50`}>
+        <div>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-1">{label}</p>
+            <p className="text-2xl font-black">{value}</p>
+        </div>
+        <div className={`p-3 rounded-xl bg-white/50 ${colorClass}`}>
+            <Icon size={20} />
+        </div>
+    </div>
+);
+
+const SectionHeader = ({ icon: Icon, title, count, colorClass, bgClass }: any) => (
+    <div className={`px-6 py-4 flex justify-between items-center border-b border-gray-100 ${bgClass}`}>
+        <h3 className={`font-black flex items-center gap-2 ${colorClass}`}>
+            <Icon /> {title}
+        </h3>
+        <span className="bg-white text-gray-700 text-xs font-black px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
+            {count}
+        </span>
+    </div>
+);
+
+// CORREÇÃO AQUI: Adicionado '| null' na tipagem do phone
+const UserRow = ({ name, phone, status }: { name: string, phone?: string | null, status: 'present' | 'absent' | 'visitor' }) => {
+    let icon, colorText, bgHover;
+    
+    if (status === 'present') {
+        icon = <FaCheckCircle className="text-emerald-400" />;
+        colorText = 'text-emerald-900';
+        bgHover = 'hover:bg-emerald-50';
+    } else if (status === 'visitor') {
+        icon = <FaCheckCircle className="text-blue-400" />;
+        colorText = 'text-blue-900';
+        bgHover = 'hover:bg-blue-50';
+    } else {
+        icon = <FaTimesCircle className="text-red-300" />;
+        colorText = 'text-gray-500 line-through decoration-red-300';
+        bgHover = 'hover:bg-red-50';
+    }
+
+    return (
+        <div className={`p-4 flex justify-between items-center transition-colors border-b border-gray-50 last:border-0 ${bgHover}`}>
+            <div className="flex items-center gap-3">
+                <div className="text-lg">{icon}</div>
+                <span className={`text-sm font-bold ${colorText}`}>{name}</span>
+            </div>
+            {phone && <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-md">{formatPhoneNumberDisplay(phone)}</span>}
+        </div>
+    );
+};
+
+// --- PÁGINA PRINCIPAL ---
 
 export default function ReuniaoResumoPage() {
     const params = useParams();
@@ -49,16 +108,11 @@ export default function ReuniaoResumoPage() {
         }
     }, [reuniaoId, router, addToast]);
 
-    useEffect(() => {
-        if (reuniaoId) {
-            fetchResumo();
-        }
-    }, [reuniaoId, fetchResumo]);
+    useEffect(() => { if (reuniaoId) fetchResumo(); }, [reuniaoId, fetchResumo]);
 
     const handleExportPdf = async () => {
         if (!resumo) return;
         setExportingPdf(true);
-
         try {
             const reportData = {
                 type: "presenca_reuniao",
@@ -107,215 +161,135 @@ export default function ReuniaoResumoPage() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <LoadingSpinner />
-            </div>
-        );
-    }
-
+    if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><LoadingSpinner /></div>;
     if (!resumo) return null;
 
     const totalPessoas = resumo.membros_presentes.length + resumo.visitantes_presentes.length + (resumo.num_criancas || 0);
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
 
-            {/* Header Responsivo */}
-            <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg">
-                <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
-                    <Link href="/reunioes" className="inline-flex items-center text-emerald-100 hover:text-white mb-4 transition-colors">
-                        <FaArrowLeft className="mr-2" /> Voltar
-                    </Link>
-                    
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+            {/* Hero Header */}
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-32 px-4 sm:px-8 shadow-lg">
+                <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/reunioes" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
+                        </Link>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold leading-tight mb-2">
-                                {resumo.tema}
-                            </h1>
-                            <div className="flex flex-wrap items-center gap-4 text-emerald-100 text-sm">
-                                <span className="flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full">
+                            <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-2">{resumo.tema}</h1>
+                            <div className="flex flex-wrap items-center gap-3 text-emerald-100 text-xs font-bold uppercase tracking-widest">
+                                <span className="flex items-center gap-1 bg-black/20 px-3 py-1 rounded-lg border border-white/10">
                                     <FaCalendarAlt /> {formatDateForDisplay(resumo.data_reuniao)}
                                 </span>
-                                <span className="bg-white/10 px-3 py-1 rounded-full">
-                                    {resumo.celula_nome || 'Célula'}
+                                <span className="flex items-center gap-1 bg-black/20 px-3 py-1 rounded-lg border border-white/10">
+                                    <FaMapMarkerAlt /> {resumo.celula_nome || 'Célula'}
                                 </span>
                             </div>
                         </div>
-
-                        {/* Card de Total no Header */}
-                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 min-w-[140px] text-center border border-white/20 self-start w-full md:w-auto">
-                            <div className="text-3xl font-bold">{totalPessoas}</div>
-                            <div className="text-xs text-emerald-100 uppercase tracking-wide">Total Presente</div>
-                        </div>
                     </div>
-                </div>
-            </div>
-
-            <main className="max-w-4xl mx-auto px-4 -mt-4 space-y-6">
-                
-                {/* Card de Informações e Ações */}
-                <div className="bg-white rounded-xl shadow-md border border-gray-100 p-5 sm:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div className="space-y-3 text-sm">
-                            <h3 className="font-bold text-gray-900 border-b pb-2 mb-3">Liderança</h3>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">Ministrador:</span>
-                                <span className="font-medium text-gray-800 text-right">{resumo.ministrador_principal_nome}</span>
-                            </div>
-                            {resumo.ministrador_secundario_nome && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Apoio:</span>
-                                    <span className="font-medium text-gray-800 text-right">{resumo.ministrador_secundario_nome}</span>
-                                </div>
-                            )}
-                            {resumo.responsavel_kids_nome && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Kids:</span>
-                                    <span className="font-medium text-gray-800 text-right">{resumo.responsavel_kids_nome}</span>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="space-y-3 text-sm">
-                             <h3 className="font-bold text-gray-900 border-b pb-2 mb-3">Material & Kids</h3>
-                             <div className="flex justify-between items-center">
-                                <span className="text-gray-500">Crianças:</span>
-                                <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-md font-bold text-xs">
-                                    {resumo.num_criancas} presentes
-                                </span>
-                            </div>
-                            {resumo.caminho_pdf ? (
-                                <a
-                                    href={resumo.caminho_pdf}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-center w-full py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors mt-2"
-                                >
-                                    <FaFilePdf className="mr-2" /> Ver Material Anexado
-                                </a>
-                            ) : (
-                                <p className="text-gray-400 text-xs italic mt-2">Nenhum material anexado.</p>
-                            )}
-                        </div>
-                    </div>
-
+                    
                     <button
                         onClick={handleExportPdf}
                         disabled={exportingPdf}
-                        className="w-full flex items-center justify-center bg-gray-900 text-white py-3 px-4 rounded-xl font-semibold hover:bg-gray-800 disabled:bg-gray-400 transition-all active:scale-[0.98]"
+                        className="bg-white text-emerald-700 hover:bg-emerald-50 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        {exportingPdf ? (
-                            <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Gerando PDF...
-                            </>
-                        ) : (
-                            <>
-                                <FaFilePdf className="mr-2" /> Baixar Relatório PDF
-                            </>
-                        )}
+                        {exportingPdf ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div> : <FaDownload />}
+                        Baixar PDF
                     </button>
                 </div>
+            </div>
 
-                {/* Listas de Presença */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    
-                    {/* Membros Presentes */}
-                    <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
-                        <div className="bg-emerald-50 px-4 py-3 flex justify-between items-center border-b border-emerald-100">
-                            <h3 className="font-bold text-emerald-800 flex items-center gap-2">
-                                <FaUserCheck /> Membros Presentes
-                            </h3>
-                            <span className="bg-white text-emerald-700 text-xs font-bold px-2 py-1 rounded-full border border-emerald-200">
-                                {resumo.membros_presentes.length}
-                            </span>
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            {resumo.membros_presentes.length === 0 ? (
-                                <p className="text-gray-400 text-sm p-4 text-center italic">Nenhum registro.</p>
-                            ) : (
-                                resumo.membros_presentes.map(m => (
-                                    <div key={m.id} className="p-3 flex justify-between items-center hover:bg-gray-50">
-                                        <div className="flex items-center gap-3">
-                                            <FaCheckCircle className="text-emerald-400 w-4 h-4" />
-                                            <span className="text-sm font-medium text-gray-700">{m.nome}</span>
-                                        </div>
-                                        {m.telefone && (
-                                            <span className="text-xs text-gray-400">{formatPhoneNumberDisplay(m.telefone)}</span>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
+            {/* Container Principal */}
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-20">
+                
+                {/* Stats Dashboard */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-in slide-in-from-bottom duration-500">
+                    <div className="col-span-2 lg:col-span-1 bg-emerald-600 text-white p-5 rounded-3xl shadow-lg shadow-emerald-200 border border-emerald-500 flex flex-col justify-center">
+                        <p className="text-[10px] uppercase tracking-widest font-bold opacity-80 mb-1">Total Geral</p>
+                        <p className="text-4xl font-black">{totalPessoas}</p>
                     </div>
+                    <StatCard label="Membros" value={resumo.membros_presentes.length} icon={FaUserCheck} bgClass="bg-white text-gray-800" colorClass="text-emerald-600" />
+                    <StatCard label="Visitantes" value={resumo.visitantes_presentes.length} icon={FaUserPlus} bgClass="bg-white text-gray-800" colorClass="text-blue-600" />
+                    <StatCard label="Kids" value={resumo.num_criancas || 0} icon={FaChild} bgClass="bg-white text-gray-800" colorClass="text-purple-600" />
+                </div>
 
-                    {/* Visitantes */}
-                    <div className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
-                        <div className="bg-blue-50 px-4 py-3 flex justify-between items-center border-b border-blue-100">
-                            <h3 className="font-bold text-blue-800 flex items-center gap-2">
-                                <FaUserPlus /> Visitantes
-                            </h3>
-                            <span className="bg-white text-blue-700 text-xs font-bold px-2 py-1 rounded-full border border-blue-200">
-                                {resumo.visitantes_presentes.length}
-                            </span>
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            {resumo.visitantes_presentes.length === 0 ? (
-                                <p className="text-gray-400 text-sm p-4 text-center italic">Nenhum visitante.</p>
-                            ) : (
-                                resumo.visitantes_presentes.map(v => (
-                                    <div key={v.id} className="p-3 flex justify-between items-center hover:bg-gray-50">
-                                        <div className="flex items-center gap-3">
-                                            <FaCheckCircle className="text-blue-400 w-4 h-4" />
-                                            <span className="text-sm font-medium text-gray-700">{v.nome}</span>
-                                        </div>
-                                        {v.telefone && (
-                                            <span className="text-xs text-gray-400">{formatPhoneNumberDisplay(v.telefone)}</span>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="p-0 sm:p-2 space-y-0">
 
-                    {/* Membros Ausentes - Ocupando largura total em mobile ou desktop se sobrar espaço */}
-                    <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden lg:col-span-2">
-                        <div className="bg-red-50 px-4 py-3 flex justify-between items-center border-b border-red-100">
-                            <h3 className="font-bold text-red-800 flex items-center gap-2">
-                                <FaUserTimes /> Membros Ausentes
-                            </h3>
-                            <span className="bg-white text-red-700 text-xs font-bold px-2 py-1 rounded-full border border-red-200">
-                                {resumo.membros_ausentes.length}
-                            </span>
-                        </div>
-                        
-                        {/* Grid interno para os ausentes para aproveitar espaço se forem muitos */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-0 divide-y sm:divide-y-0">
-                            {resumo.membros_ausentes.length === 0 ? (
-                                <p className="text-gray-400 text-sm p-4 text-center italic col-span-full">Todos presentes! 🎉</p>
-                            ) : (
-                                resumo.membros_ausentes.map((m, idx) => (
-                                    <div key={m.id} className={`p-3 flex justify-between items-center hover:bg-gray-50 border-gray-100 ${idx !== 0 ? 'border-t sm:border-t-0' : ''}`}>
-                                        <div className="flex items-center gap-3">
-                                            <FaTimesCircle className="text-red-300 w-4 h-4" />
-                                            <span className="text-sm font-medium text-gray-600">{m.nome}</span>
-                                        </div>
+                        {/* Informações da Liderança */}
+                        <div className="p-6 sm:p-8 border-b border-gray-100 bg-gray-50/50">
+                            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Detalhes da Liderança</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Ministrador</p>
+                                    <p className="text-sm font-bold text-gray-800">{resumo.ministrador_principal_nome}</p>
+                                </div>
+                                {resumo.ministrador_secundario_nome && (
+                                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Apoio</p>
+                                        <p className="text-sm font-bold text-gray-800">{resumo.ministrador_secundario_nome}</p>
                                     </div>
-                                ))
-                            )}
+                                )}
+                                {resumo.responsavel_kids_nome && (
+                                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Kids</p>
+                                        <p className="text-sm font-bold text-gray-800">{resumo.responsavel_kids_nome}</p>
+                                    </div>
+                                )}
+                                {resumo.caminho_pdf && (
+                                    <a href={resumo.caminho_pdf} target="_blank" className="bg-blue-50 p-4 rounded-2xl border border-blue-100 shadow-sm flex items-center justify-between group hover:bg-blue-100 transition-colors cursor-pointer">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-blue-400 uppercase">Material</p>
+                                            <p className="text-sm font-bold text-blue-700">Visualizar Anexo</p>
+                                        </div>
+                                        <FaFilePdf className="text-blue-300 group-hover:text-blue-500" size={20}/>
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Listas Detalhadas */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+                            
+                            {/* Coluna 1: Presentes e Visitantes */}
+                            <div>
+                                <SectionHeader icon={FaUserCheck} title="Membros Presentes" count={resumo.membros_presentes.length} colorClass="text-emerald-700" bgClass="bg-emerald-50/30" />
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    {resumo.membros_presentes.length === 0 ? <p className="text-gray-400 text-xs font-bold p-6 text-center italic">Nenhum membro presente.</p> : 
+                                        resumo.membros_presentes.map(m => <UserRow key={m.id} name={m.nome} phone={m.telefone} status="present" />)
+                                    }
+                                </div>
+
+                                <SectionHeader icon={FaUserPlus} title="Visitantes" count={resumo.visitantes_presentes.length} colorClass="text-blue-700" bgClass="bg-blue-50/30 border-t border-gray-100" />
+                                <div className="max-h-[300px] overflow-y-auto">
+                                    {resumo.visitantes_presentes.length === 0 ? <p className="text-gray-400 text-xs font-bold p-6 text-center italic">Nenhum visitante.</p> : 
+                                        resumo.visitantes_presentes.map(v => <UserRow key={v.id} name={v.nome} phone={v.telefone} status="visitor" />)
+                                    }
+                                </div>
+                            </div>
+
+                            {/* Coluna 2: Ausentes */}
+                            <div className="bg-gray-50/30">
+                                <SectionHeader icon={FaUserTimes} title="Membros Ausentes" count={resumo.membros_ausentes.length} colorClass="text-red-700" bgClass="bg-red-50/30" />
+                                <div className="max-h-[700px] overflow-y-auto">
+                                    {resumo.membros_ausentes.length === 0 ? <p className="text-emerald-500 text-xs font-bold p-6 text-center">Todos presentes! 🎉</p> : 
+                                        resumo.membros_ausentes.map(m => <UserRow key={m.id} name={m.nome} status="absent" />)
+                                    }
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
 
-                <div className="text-center pt-6">
-                    <Link href="/reunioes" className="text-sm font-medium text-gray-500 hover:text-emerald-600 transition-colors">
-                        Voltar para a lista completa
+                <div className="text-center pt-8 pb-4">
+                    <Link href="/reunioes" className="text-xs font-bold text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest">
+                        Voltar para Histórico
                     </Link>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
