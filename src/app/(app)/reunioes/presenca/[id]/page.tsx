@@ -17,7 +17,68 @@ import {
 import { ReuniaoParaEdicao, MembroComPresenca, VisitanteComPresenca } from '@/lib/types';
 import { formatDateForDisplay } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
-import LoadingSpinner from '@/components/LoadingSpinner'; // Ajuste o caminho se necessário conforme seu projeto
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+import { 
+    FaArrowLeft, 
+    FaUsers, 
+    FaUserCheck, 
+    FaChild, 
+    FaCheckCircle, 
+    FaRegCircle, 
+    FaSave, 
+    FaSpinner,
+    FaInfoCircle,
+    FaUserPlus
+} from 'react-icons/fa';
+
+// --- COMPONENTE DE CHECKBOX ROW ---
+const CheckboxRow = ({ label, subLabel, checked, onChange, disabled, isSpecial }: any) => (
+    <div 
+        onClick={() => !disabled && onChange(!checked)}
+        className={`
+            group flex items-center justify-between p-4 mb-3 rounded-2xl border-2 transition-all cursor-pointer select-none
+            ${checked 
+                ? 'bg-emerald-50 border-emerald-500 shadow-sm' 
+                : 'bg-white border-gray-100 hover:border-emerald-200'
+            }
+            ${disabled ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''}
+        `}
+    >
+        <div className="flex items-center gap-4">
+            <div className={`
+                w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors
+                ${checked ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400 group-hover:bg-emerald-50 group-hover:text-emerald-400'}
+            `}>
+                {checked ? <FaCheckCircle /> : <FaRegCircle />}
+            </div>
+            <div>
+                <p className={`text-sm font-bold ${checked ? 'text-emerald-900' : 'text-gray-700'}`}>
+                    {label}
+                </p>
+                {subLabel && (
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mt-0.5">
+                        {subLabel}
+                    </p>
+                )}
+            </div>
+        </div>
+        {checked && <div className="text-emerald-500 text-xs font-black uppercase tracking-widest">Presente</div>}
+    </div>
+);
+
+// --- COMPONENTE DE STAT CARD ---
+const StatCard = ({ label, value, icon: Icon, colorClass, bgClass }: any) => (
+    <div className={`p-4 rounded-2xl border flex items-center justify-between ${bgClass} border-opacity-50`}>
+        <div>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-1">{label}</p>
+            <p className="text-2xl font-black">{value}</p>
+        </div>
+        <div className={`p-3 rounded-xl bg-white/50 ${colorClass}`}>
+            <Icon size={20} />
+        </div>
+    </div>
+);
 
 export default function GerenciarPresencaPage() {
     const params = useParams();
@@ -30,13 +91,12 @@ export default function GerenciarPresencaPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     
-    // IDs de função para controle visual
     const [specialRoles, setSpecialRoles] = useState<string[]>([]);
 
     const router = useRouter();
     const { addToast, ToastContainer } = useToast();
 
-    // Contadores em tempo real
+    // Contadores
     const membrosPresentes = membrosPresenca.filter(m => m.presente).length;
     const visitantesPresentes = visitantesPresenca.filter(v => v.presente).length;
     const totalPresentes = membrosPresentes + visitantesPresentes + numCriancas;
@@ -58,12 +118,10 @@ export default function GerenciarPresencaPage() {
                     return;
                 }
                 
-                // Extração dos IDs de função
                 const mpId = fetchedReuniao.ministrador_principal || null;
                 const msId = fetchedReuniao.ministrador_secundario || null;
                 const rkId = fetchedReuniao.responsavel_kids || null;
                 
-                // Array de IDs especiais para desabilitar/destacar na UI
                 const roles = [mpId, msId, rkId].filter((id): id is string => id !== null);
                 setSpecialRoles(roles);
 
@@ -71,7 +129,6 @@ export default function GerenciarPresencaPage() {
                 setVisitantesPresenca(visitantesData);
                 setNumCriancas(criancasCount);
 
-                // Lógica de Pré-Marcação (Mantida a original)
                 const membrosComPreMarcacao = membrosRawData.map(m => {
                     const isDesignado = roles.includes(m.id);
                     if (isDesignado && !m.presenca_registrada) {
@@ -81,7 +138,6 @@ export default function GerenciarPresencaPage() {
                 });
 
                 setMembrosPresenca(membrosComPreMarcacao);
-
             } catch (e: any) {
                 console.error("Erro ao buscar dados:", e);
                 addToast(`Erro ao carregar dados: ${e.message}`, 'error');
@@ -90,22 +146,15 @@ export default function GerenciarPresencaPage() {
             }
         };
 
-        if (reuniaoId) {
-            fetchPresencaData();
-        }
+        if (reuniaoId) fetchPresencaData();
     }, [reuniaoId, router, addToast]);
 
-    // Otimização com useCallback
     const handleMembroChange = useCallback((membroId: string, presente: boolean) => {
-        setMembrosPresenca(prev => prev.map(m =>
-            m.id === membroId ? { ...m, presente: presente } : m
-        ));
+        setMembrosPresenca(prev => prev.map(m => m.id === membroId ? { ...m, presente: presente } : m));
     }, []);
 
     const handleVisitanteChange = useCallback((visitanteId: string, presente: boolean) => {
-        setVisitantesPresenca(prev => prev.map(v =>
-            v.visitante_id === visitanteId ? { ...v, presente: presente } : v
-        ));
+        setVisitantesPresenca(prev => prev.map(v => v.visitante_id === visitanteId ? { ...v, presente: presente } : v));
     }, []);
 
     const handleNumCriancasChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,230 +175,135 @@ export default function GerenciarPresencaPage() {
 
             addToast('Lista de presença salva com sucesso!', 'success');
             setTimeout(() => router.push('/reunioes'), 1000);
-
         } catch (e: any) {
-            console.error("Erro ao salvar:", e);
             addToast(`Falha ao salvar: ${e.message}`, 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Loading State
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                <LoadingSpinner />
-                <p className="mt-4 text-gray-500 font-medium animate-pulse">Carregando lista...</p>
-            </div>
-        );
-    }
-
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
     if (!reuniao) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20"> {/* pb-20 para dar espaço ao botão flutuante/final */}
+        <div className="min-h-screen bg-gray-50 pb-12 font-sans">
             <ToastContainer />
 
-            {/* Header Compacto Mobile */}
-            <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-6 sm:px-6 sm:py-8 shadow-lg">
-                <div className="max-w-4xl mx-auto">
-                    <div className="flex flex-col gap-2">
-                        <Link href="/reunioes" className="text-white/80 text-sm flex items-center gap-1 w-fit hover:text-white transition-colors">
-                            ← Voltar
+            {/* Hero Header */}
+            <div className="bg-gradient-to-br from-emerald-600 to-green-700 pt-8 pb-32 px-4 sm:px-8 shadow-lg">
+                <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex items-center gap-5">
+                        <Link href="/reunioes" className="bg-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all active:scale-90 backdrop-blur-md border border-white/10">
+                            <FaArrowLeft size={20} />
                         </Link>
-                        <h1 className="text-2xl font-bold text-white leading-tight">
-                            {reuniao.tema}
-                        </h1>
-                        <div className="flex items-center gap-3 text-emerald-100 text-sm">
-                            <span className="flex items-center gap-1">
-                                📅 {formatDateForDisplay(reuniao.data_reuniao)}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    {/* Card de Total Flutuante no Header */}
-                    <div className="mt-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 flex items-center justify-between">
                         <div>
-                            <p className="text-emerald-100 text-xs uppercase tracking-wider font-semibold">Total Presentes</p>
-                            <p className="text-3xl font-bold text-white">{totalPresentes}</p>
-                        </div>
-                        <div className="flex gap-2 text-center text-xs text-white/90">
-                            <div className="bg-white/10 px-3 py-1.5 rounded-lg">
-                                <span className="block font-bold text-lg">{membrosPresentes}</span>
-                                Membros
-                            </div>
-                            <div className="bg-white/10 px-3 py-1.5 rounded-lg">
-                                <span className="block font-bold text-lg">{visitantesPresentes}</span>
-                                Visit.
-                            </div>
-                            <div className="bg-white/10 px-3 py-1.5 rounded-lg">
-                                <span className="block font-bold text-lg">{numCriancas}</span>
-                                Kids
-                            </div>
+                            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3"><FaUsers /> Chamada</h1>
+                            <p className="text-emerald-100 text-sm font-medium opacity-80 uppercase tracking-widest">
+                                {formatDateForDisplay(reuniao.data_reuniao)} • {reuniao.tema}
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <main className="max-w-4xl mx-auto px-3 sm:px-6 -mt-4">
-                <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Container Principal */}
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-20">
+                <form onSubmit={handleSubmit}>
                     
-                    {/* Lista de Membros */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center sticky top-0 z-10">
-                            <h2 className="font-bold text-gray-800 flex items-center gap-2">
-                                👥 Membros
-                            </h2>
-                            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded-full">
-                                {membrosPresentes} / {membrosPresenca.length}
-                            </span>
+                    {/* Stats Dashboard */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-in slide-in-from-bottom duration-500">
+                        <div className="col-span-2 md:col-span-1 bg-emerald-600 text-white p-5 rounded-3xl shadow-lg shadow-emerald-200 border border-emerald-500">
+                            <p className="text-[10px] uppercase tracking-widest font-bold opacity-80 mb-1">Total Geral</p>
+                            <p className="text-4xl font-black">{totalPresentes}</p>
                         </div>
-                        
-                        {/* Removemos max-h para permitir scroll da página inteira no mobile */}
-                        <div className="divide-y divide-gray-100">
-                            {membrosPresenca.map((membro) => {
-                                const isSpecialRole = specialRoles.includes(membro.id);
-                                return (
-                                    <label 
-                                        key={membro.id} 
-                                        className={`
-                                            relative flex items-center p-4 cursor-pointer transition-colors touch-manipulation
-                                            ${membro.presente ? 'bg-emerald-50/50' : 'bg-white hover:bg-gray-50'}
-                                        `}
-                                    >
-                                        <div className="flex items-center h-6">
-                                            <input
-                                                type="checkbox"
-                                                checked={membro.presente}
-                                                disabled={isSpecialRole}
-                                                onChange={(e) => handleMembroChange(membro.id, e.target.checked)}
-                                                className={`
-                                                    w-6 h-6 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all
-                                                    ${isSpecialRole ? 'opacity-50 cursor-not-allowed' : ''}
-                                                `}
-                                            />
-                                        </div>
-                                        <div className="ml-3 flex-1">
-                                            <div className={`text-base font-medium ${membro.presente ? 'text-emerald-900' : 'text-gray-700'}`}>
-                                                {membro.nome}
-                                            </div>
-                                            {isSpecialRole && (
-                                                <div className="text-xs text-emerald-600 font-semibold mt-0.5">
-                                                    Liderança / Apoio (Já incluso)
-                                                </div>
-                                            )}
-                                        </div>
-                                        {membro.presente && (
-                                            <div className="absolute right-4 text-emerald-600 animate-in fade-in zoom-in duration-200">
-                                                ✓
-                                            </div>
-                                        )}
-                                    </label>
-                                );
-                            })}
-                        </div>
+                        <StatCard label="Membros" value={membrosPresentes} icon={FaUserCheck} bgClass="bg-white text-gray-800" colorClass="text-emerald-600" />
+                        <StatCard label="Visitantes" value={visitantesPresentes} icon={FaUserPlus} bgClass="bg-white text-gray-800" colorClass="text-blue-600" />
+                        <StatCard label="Kids" value={numCriancas} icon={FaChild} bgClass="bg-white text-gray-800" colorClass="text-purple-600" />
                     </div>
 
-                    {/* Lista de Visitantes */}
-                    {visitantesPresenca.length > 0 && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex justify-between items-center sticky top-0 z-10">
-                                <h2 className="font-bold text-blue-900 flex items-center gap-2">
-                                    👋 Visitantes
+                    <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                        <div className="p-8 sm:p-10 space-y-10">
+
+                            {/* Seção Membros */}
+                            <section>
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4 mb-6">
+                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaUsers size={16}/></div> 
+                                    Membros da Célula
                                 </h2>
-                                <span className="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">
-                                    {visitantesPresentes} / {visitantesPresenca.length}
-                                </span>
-                            </div>
-                            <div className="divide-y divide-gray-100">
-                                {visitantesPresenca.map((v) => (
-                                    <label 
-                                        key={v.visitante_id}
-                                        className={`
-                                            relative flex items-center p-4 cursor-pointer transition-colors touch-manipulation
-                                            ${v.presente ? 'bg-blue-50/30' : 'bg-white hover:bg-gray-50'}
-                                        `}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={v.presente}
-                                            onChange={(e) => handleVisitanteChange(v.visitante_id, e.target.checked)}
-                                            className="w-6 h-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                        />
-                                        <span className={`ml-3 text-base font-medium flex-1 ${v.presente ? 'text-blue-900' : 'text-gray-700'}`}>
-                                            {v.nome}
-                                        </span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                <div>
+                                    {membrosPresenca.map((membro) => {
+                                        const isSpecialRole = specialRoles.includes(membro.id);
+                                        return (
+                                            <CheckboxRow 
+                                                key={membro.id}
+                                                label={membro.nome}
+                                                subLabel={isSpecialRole ? "Liderança / Apoio" : null}
+                                                checked={membro.presente}
+                                                onChange={(val: boolean) => handleMembroChange(membro.id, val)}
+                                                disabled={isSpecialRole}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </section>
 
-                    {/* Card de Crianças */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="bg-purple-100 p-2 rounded-lg text-purple-600">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                            <h2 className="font-bold text-gray-800 text-lg">Crianças</h2>
-                        </div>
-                        
-                        <div className="flex items-center gap-4">
-                            <div className="flex-1">
-                                <label htmlFor="num_criancas" className="block text-sm text-gray-500 mb-1">
-                                    Quantidade total
-                                </label>
-                                <input
-                                    type="number"
-                                    id="num_criancas"
-                                    value={numCriancas}
-                                    onChange={handleNumCriancasChange}
-                                    min="0"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    className="w-full text-base border-gray-300 rounded-lg p-3 text-lg font-bold text-gray-800 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                />
-                            </div>
-                            <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg flex-1">
-                                Inclua bebês e crianças na sala kids.
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Botões de Ação Fixos/Grandes */}
-                    <div className="pt-4 flex flex-col gap-3">
-                        <button 
-                            type="submit" 
-                            disabled={submitting}
-                            className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white text-lg font-bold py-4 px-6 rounded-xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {submitting ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    Salvando...
-                                </>
-                            ) : (
-                                <>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Confirmar Presença
-                                </>
+                            {/* Seção Visitantes */}
+                            {visitantesPresenca.length > 0 && (
+                                <section>
+                                    <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4 mb-6">
+                                        <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaUserPlus size={16}/></div> 
+                                        Visitantes
+                                    </h2>
+                                    <div>
+                                        {visitantesPresenca.map((v) => (
+                                            <CheckboxRow 
+                                                key={v.visitante_id}
+                                                label={v.nome}
+                                                checked={v.presente}
+                                                onChange={(val: boolean) => handleVisitanteChange(v.visitante_id, val)}
+                                            />
+                                        ))}
+                                    </div>
+                                </section>
                             )}
-                        </button>
-                        
-                        <Link 
-                            href="/reunioes" 
-                            className="w-full text-center py-4 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
-                        >
-                            Cancelar
-                        </Link>
+
+                            {/* Seção Kids */}
+                            <section className="bg-purple-50 rounded-3xl p-6 border border-purple-100">
+                                <h2 className="text-lg font-black text-purple-900 flex items-center gap-2 mb-4">
+                                    <FaChild className="text-purple-600"/> Quantidade de Crianças
+                                </h2>
+                                <div className="space-y-1">
+                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 mb-2">
+                                        Total (Incluindo bebês)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={numCriancas}
+                                        onChange={handleNumCriancasChange}
+                                        className="w-full px-5 py-4 text-xl font-black text-gray-700 bg-white border-2 border-purple-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all"
+                                    />
+                                </div>
+                                <div className="mt-4 flex items-center gap-2 text-purple-700 bg-white/50 p-3 rounded-xl text-xs font-bold">
+                                    <FaInfoCircle size={14} /> Inclua crianças no culto kids e bebês de colo.
+                                </div>
+                            </section>
+
+                            {/* Actions */}
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-8 border-t border-gray-50">
+                                <Link href="/reunioes" className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all text-center">Cancelar</Link>
+                                <button 
+                                    type="submit" 
+                                    disabled={submitting} 
+                                    className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 cursor-pointer uppercase tracking-tighter"
+                                >
+                                    {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />} Salvar Presença
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </form>
-            </main>
+            </div>
         </div>
     );
 }
