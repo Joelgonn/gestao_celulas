@@ -3,14 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase/client'; 
-import { 
-    atualizarInscricaoFaceAFaceAdmin 
-} from '@/lib/data';
+import { atualizarInscricaoFaceAFaceAdmin } from '@/lib/data';
 import { InscricaoFaceAFaceStatus } from '@/lib/types';
-import { formatPhoneNumberDisplay, normalizePhoneNumber } from '@/utils/formatters'; // Adicionado normalizePhoneNumber
+import { formatPhoneNumberDisplay, normalizePhoneNumber } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import jsPDF from 'jspdf'; // Importação para gerar o PDF
 
 import {
     FaMoneyBillWave,
@@ -21,7 +20,8 @@ import {
     FaArrowLeft,
     FaExclamationCircle,
     FaSpinner,
-    FaWhatsapp // Adicionado
+    FaWhatsapp,
+    FaFileInvoiceDollar // Ícone para o Recibo
 } from 'react-icons/fa';
 
 type PendenciaFinanceira = {
@@ -97,6 +97,76 @@ export default function CentralAprovacoesPage() {
     useEffect(() => {
         fetchPendencias();
     }, [fetchPendencias]);
+
+    // --- FUNÇÃO PARA GERAR O RECIBO PDF ---
+    const handleGenerateReceipt = (item: PendenciaFinanceira) => {
+        const doc = new jsPDF();
+        
+        // Dados para o recibo
+        const isEntrada = item.status_pagamento === 'AGUARDANDO_CONFIRMACAO_ENTRADA';
+        const valorPagamento = isEntrada ? item.valor_entrada : (item.valor_total - item.valor_entrada);
+        const tipoPagamento = isEntrada ? "SINAL / ENTRADA" : "QUITAÇÃO / RESTANTE";
+        const dataAtual = new Date().toLocaleDateString('pt-BR');
+        const valorFormatado = valorPagamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        // --- DESIGN DO PDF ---
+        
+        // Cabeçalho
+        doc.setFillColor(16, 185, 129); // Emerald 500
+        doc.rect(0, 0, 210, 30, 'F'); // Barra verde no topo
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("RECIBO DE PAGAMENTO", 105, 20, { align: "center" });
+
+        // Corpo
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        
+        let yPos = 50;
+        const leftMargin = 20;
+        const lineHeight = 10;
+
+        // Valor em destaque
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text(`VALOR: ${valorFormatado}`, 190, yPos, { align: "right" });
+        yPos += 20;
+
+        // Texto do recibo
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        const textoRecibo = `Recebemos de ${item.nome_completo_participante.toUpperCase()}, a importância supra de ${valorFormatado}, referente ao pagamento de ${tipoPagamento} para participação no evento ${item.evento_nome.toUpperCase()}.`;
+        
+        const splitText = doc.splitTextToSize(textoRecibo, 170);
+        doc.text(splitText, leftMargin, yPos);
+        
+        yPos += (splitText.length * 7) + 20;
+
+        // Dados adicionais
+        doc.text(`Data do Pagamento: ${dataAtual}`, leftMargin, yPos);
+        yPos += lineHeight;
+        doc.text(`Status: CONFIRMADO`, leftMargin, yPos);
+        
+        // Assinatura
+        yPos += 40;
+        doc.line(leftMargin, yPos, 190, yPos); // Linha
+        doc.setFontSize(10);
+        doc.text("Tesouraria / Administração", 105, yPos + 5, { align: "center" });
+        doc.text("Igreja Batista Apascentar", 105, yPos + 10, { align: "center" });
+
+        // Rodapé
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("Este recibo foi gerado eletronicamente pelo Sistema de Gestão de Células.", 105, 280, { align: "center" });
+
+        // Salvar
+        const nomeArquivo = `Recibo_${item.nome_completo_participante.replace(/\s+/g, '_')}.pdf`;
+        doc.save(nomeArquivo);
+        addToast("Recibo gerado! Envie pelo WhatsApp.", "success");
+    };
 
     const handleApprove = async () => {
         const item = confirmModal.item;
@@ -195,13 +265,14 @@ export default function CentralAprovacoesPage() {
                                             </span>
                                             <h3 className="text-xl font-bold text-gray-900 mt-2">{item.nome_completo_participante}</h3>
                                             
-                                            {/* ÁREA DE CONTATO COM WHATSAPP */}
+                                            {/* CONTATO + WHATSAPP */}
                                             {item.contato_pessoal && (
                                                 <a 
                                                     href={`https://wa.me/55${normalizePhoneNumber(item.contato_pessoal)}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="inline-flex items-center gap-2 mt-1 text-sm font-medium text-gray-500 hover:text-green-600 transition-colors group"
+                                                    title="Abrir WhatsApp Web"
                                                 >
                                                     <FaWhatsapp className="text-green-500 group-hover:scale-110 transition-transform" />
                                                     {formatPhoneNumberDisplay(item.contato_pessoal)}
@@ -210,6 +281,7 @@ export default function CentralAprovacoesPage() {
                                         </div>
                                     </div>
                                     
+                                    {/* INFO FINANCEIRA */}
                                     <div className="flex items-center gap-4 bg-gray-50 border border-gray-100 p-4 rounded-2xl">
                                         <div className="bg-amber-100 p-2.5 rounded-xl text-amber-600">
                                             <FaExclamationCircle size={20} />
@@ -225,7 +297,18 @@ export default function CentralAprovacoesPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col justify-center gap-3 md:min-w-[220px]">
+                                {/* AÇÕES */}
+                                <div className="flex flex-col justify-center gap-2 md:min-w-[220px]">
+                                    
+                                    {/* BOTÃO GERAR RECIBO (NOVO) */}
+                                    <button 
+                                        onClick={() => handleGenerateReceipt(item)}
+                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-50 text-purple-700 border border-purple-100 rounded-xl hover:bg-purple-100 font-bold text-sm transition-all active:scale-95 mb-1"
+                                        title="Baixar PDF para enviar no WhatsApp"
+                                    >
+                                        <FaFileInvoiceDollar /> Gerar Recibo
+                                    </button>
+
                                     {comprovanteUrl ? (
                                         <a 
                                             href={comprovanteUrl} 
@@ -233,11 +316,11 @@ export default function CentralAprovacoesPage() {
                                             rel="noopener noreferrer"
                                             className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl hover:bg-blue-100 font-bold text-sm transition-all active:scale-95"
                                         >
-                                            <FaEye /> Visualizar Anexo
+                                            <FaEye /> Ver Comprovante
                                         </a>
                                     ) : (
                                         <div className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium italic">
-                                            Sem anexo disponível
+                                            Sem anexo
                                         </div>
                                     )}
 
@@ -251,7 +334,7 @@ export default function CentralAprovacoesPage() {
 
                                     <Link 
                                         href={`/admin/eventos-face-a-face/${item.evento_id}/inscricoes/editar/${item.id}`}
-                                        className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-indigo-600 transition-colors py-1"
+                                        className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-indigo-600 transition-colors py-1 mt-1"
                                     >
                                         <FaEdit /> Editar Detalhes
                                     </Link>
