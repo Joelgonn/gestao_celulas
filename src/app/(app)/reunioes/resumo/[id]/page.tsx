@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getReuniaoDetalhesParaResumo } from '@/lib/data';
 import { ReuniaoDetalhesParaResumo } from '@/lib/types';
-import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
+import { formatDateForDisplay, normalizePhoneNumber } from '@/utils/formatters'; // Adicionado normalizePhoneNumber
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
@@ -20,7 +20,8 @@ import {
     FaUserPlus,
     FaChild,
     FaDownload,
-    FaMapMarkerAlt
+    FaMapMarkerAlt,
+    FaWhatsapp // Adicionado ícone do WhatsApp
 } from 'react-icons/fa';
 
 // --- COMPONENTES VISUAIS ---
@@ -48,7 +49,7 @@ const SectionHeader = ({ icon: Icon, title, count, colorClass, bgClass }: any) =
     </div>
 );
 
-// CORREÇÃO AQUI: Adicionado '| null' na tipagem do phone
+// --- COMPONENTE USER ROW ATUALIZADO (COM WHATSAPP) ---
 const UserRow = ({ name, phone, status }: { name: string, phone?: string | null, status: 'present' | 'absent' | 'visitor' }) => {
     let icon, colorText, bgHover;
     
@@ -72,7 +73,17 @@ const UserRow = ({ name, phone, status }: { name: string, phone?: string | null,
                 <div className="text-lg">{icon}</div>
                 <span className={`text-sm font-bold ${colorText}`}>{name}</span>
             </div>
-            {phone && <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-md">{formatPhoneNumberDisplay(phone)}</span>}
+            {phone && (
+                <a 
+                    href={`https://wa.me/55${normalizePhoneNumber(phone)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors active:scale-90 border border-green-100 shadow-sm"
+                    title="Chamar no WhatsApp"
+                >
+                    <FaWhatsapp size={18} />
+                </a>
+            )}
         </div>
     );
 };
