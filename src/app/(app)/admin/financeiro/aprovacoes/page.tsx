@@ -7,7 +7,7 @@ import {
     atualizarInscricaoFaceAFaceAdmin 
 } from '@/lib/data';
 import { InscricaoFaceAFaceStatus } from '@/lib/types';
-import { formatPhoneNumberDisplay } from '@/utils/formatters';
+import { formatPhoneNumberDisplay, normalizePhoneNumber } from '@/utils/formatters'; // Adicionado normalizePhoneNumber
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
@@ -20,7 +20,8 @@ import {
     FaSync,
     FaArrowLeft,
     FaExclamationCircle,
-    FaSpinner // Adicionado aqui para corrigir o erro de build
+    FaSpinner,
+    FaWhatsapp // Adicionado
 } from 'react-icons/fa';
 
 type PendenciaFinanceira = {
@@ -41,7 +42,6 @@ export default function CentralAprovacoesPage() {
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
 
-    // Estado para o Modal de Confirmação
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
         item: PendenciaFinanceira | null;
@@ -194,7 +194,19 @@ export default function CentralAprovacoesPage() {
                                                 {item.evento_nome}
                                             </span>
                                             <h3 className="text-xl font-bold text-gray-900 mt-2">{item.nome_completo_participante}</h3>
-                                            <p className="text-sm font-medium text-gray-400">{formatPhoneNumberDisplay(item.contato_pessoal)}</p>
+                                            
+                                            {/* ÁREA DE CONTATO COM WHATSAPP */}
+                                            {item.contato_pessoal && (
+                                                <a 
+                                                    href={`https://wa.me/55${normalizePhoneNumber(item.contato_pessoal)}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 mt-1 text-sm font-medium text-gray-500 hover:text-green-600 transition-colors group"
+                                                >
+                                                    <FaWhatsapp className="text-green-500 group-hover:scale-110 transition-transform" />
+                                                    {formatPhoneNumberDisplay(item.contato_pessoal)}
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
                                     
