@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { ReportDataPresencaMembro } from '@/lib/types';
-import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
+import { formatDateForDisplay, formatPhoneNumberDisplay, normalizePhoneNumber } from '@/utils/formatters'; // Adicionado normalizePhoneNumber
 import { 
   FaUser, 
   FaPhone, 
@@ -12,7 +12,8 @@ import {
   FaCheckCircle, 
   FaTimesCircle,
   FaChartLine,
-  FaHistory
+  FaHistory,
+  FaWhatsapp // Adicionado ícone do WhatsApp
 } from 'react-icons/fa';
 
 interface StatsCardProps {
@@ -92,15 +93,13 @@ export const ReportPresencaMembroDisplay = ({ data }: { data: ReportDataPresenca
     const taxaPresenca = totalReunioes > 0 ? (totalPresente / totalReunioes) * 100 : 0;
     const ultimaPresenca = safeHistoricoPresenca.find(hist => hist.presente);
     
-    // Função auxiliar para ausências consecutivas
     function calcularAusenciasConsecutivas(historico: typeof safeHistoricoPresenca) {
       let count = 0;
-      // Ordena por data decrescente (mais recente primeiro) para contar a partir de hoje
       const sorted = [...historico].sort((a, b) => new Date(b.data_reuniao).getTime() - new Date(a.data_reuniao).getTime());
       
       for (const h of sorted) {
         if (!h.presente) count++;
-        else break; // Parar assim que encontrar uma presença
+        else break;
       }
       return count;
     }
@@ -134,12 +133,28 @@ export const ReportPresencaMembroDisplay = ({ data }: { data: ReportDataPresenca
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
                     <div className="space-y-3">
-                        <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <FaPhone className="text-gray-400" />
-                            <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase">Telefone</p>
-                                <p className="font-bold text-gray-800">{formatPhoneNumberDisplay(membro_data.telefone)}</p>
+                        
+                        {/* CARD DE TELEFONE COM WHATSAPP (ATUALIZADO) */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex items-center space-x-3">
+                                <FaPhone className="text-gray-400" />
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Telefone</p>
+                                    <p className="text-sm font-bold text-gray-800">{formatPhoneNumberDisplay(membro_data.telefone) || 'Não informado'}</p>
+                                </div>
                             </div>
+                            
+                            {membro_data.telefone && (
+                                <a 
+                                    href={`https://wa.me/55${normalizePhoneNumber(membro_data.telefone)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-xl border border-green-200 active:scale-90 transition-all shadow-sm hover:bg-green-100"
+                                    title="Chamar no WhatsApp"
+                                >
+                                    <FaWhatsapp size={20} />
+                                </a>
+                            )}
                         </div>
                         
                         {membro_data.data_nascimento && (
