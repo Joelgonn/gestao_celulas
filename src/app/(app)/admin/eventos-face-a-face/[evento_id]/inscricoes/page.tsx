@@ -174,6 +174,52 @@ export default function AdminListagemInscricoesPage() {
         } catch (e: any) { addToast('Erro no CSV', 'error'); } finally { setSubmitting(false); }
     };
 
+    // --- NOVA FUNÇÃO: EXPORTAR PDF ---
+    const handleExportPDF = () => {
+        if (!evento) return;
+        
+        const doc = new jsPDF();
+        
+        // Título e Cabeçalho do PDF
+        const title = `Relatório: ${evento.nome_evento}`;
+        const subtitle = `Filtros: Status [${statusFilter === 'all' ? 'Todos' : statusFilter}] | Célula [${celulasOptions.find(c => c.id === celulaFilter)?.nome || 'Todas'}]`;
+        const date = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
+
+        doc.setFontSize(14);
+        doc.text(title, 14, 15);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(subtitle, 14, 22);
+        doc.text(date, 14, 27);
+
+        // Definição das colunas
+        const tableColumn = ["Nome", "Celular", "Status", "Tipo", "Célula"];
+        
+        // Mapeamento dos dados filtrados
+        const tableRows = filteredInscricoes.map(ticket => [
+            ticket.nome_completo_participante,
+            formatPhoneNumberDisplay(ticket.contato_pessoal),
+            ticket.status_pagamento.replace(/_/g, ' '),
+            ticket.tipo_participacao,
+            ticket.celula_participante_nome || ticket.celula_inscricao_nome || 'N/A'
+        ]);
+
+        // Geração da tabela
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 32,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [88, 28, 135], textColor: 255, fontStyle: 'bold' }, // Cor roxa igual ao tema
+            alternateRowStyles: { fillColor: [249, 250, 251] }
+        });
+
+        // Salvar Arquivo
+        const safeName = evento.nome_evento.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        doc.save(`relatorio_${safeName}_${format(new Date(), 'ddMMyyyy')}.pdf`);
+        addToast('PDF gerado com sucesso!', 'success');
+    };
+
     if (loading || !evento) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><LoadingSpinner /></div>;
 
     return (
@@ -202,9 +248,15 @@ export default function AdminListagemInscricoesPage() {
                         </div>
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">
+                        {/* Botão PDF Adicionado */}
+                        <button onClick={handleExportPDF} disabled={submitting} className="flex-1 md:flex-none bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-all">
+                            <FaFilePdf /> PDF
+                        </button>
+                        
                         <button onClick={handleExportCSV} disabled={submitting} className="flex-1 md:flex-none bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-all">
                             <FaFileCsv /> CSV
                         </button>
+                        
                         <button onClick={fetchAllData} className="p-3.5 bg-white/10 text-white rounded-2xl border border-white/10 hover:bg-white/20 transition-all"><FaSync className={loading ? 'animate-spin' : ''}/></button>
                     </div>
                 </div>
