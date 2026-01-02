@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import {
     fetchReportDataPresencaReuniao,
@@ -41,7 +43,7 @@ import {
     MembroOption,
 } from '@/lib/types';
 
-import { formatDateForDisplay } from '@/utils/formatters';
+import { formatDateForDisplay, formatPhoneNumberDisplay } from '@/utils/formatters';
 
 import { ReportPresencaReuniaoDisplay } from '@/components/relatorios/ReportPresencaReuniaoDisplay';
 import { ReportPresencaMembroDisplay } from '@/components/relatorios/ReportPresencaMembroDisplay';
@@ -70,13 +72,11 @@ import {
     FaCheckCircle,
     FaArrowLeft,
     FaInfoCircle,
-    FaSpinner,
-    FaDownload
+    FaSpinner
 } from 'react-icons/fa';
 
-// --- COMPONENTES VISUAIS AUXILIARES (Refatorados para estilo profissional) ---
+// --- COMPONENTES VISUAIS AUXILIARES ---
 
-// 1. Input de Data customizado
 const DateInput = ({ label, value, onChange }: any) => (
     <div className="space-y-1">
         <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
@@ -94,7 +94,6 @@ const DateInput = ({ label, value, onChange }: any) => (
     </div>
 );
 
-// 2. Select Sheet (Estilo Bottom Sheet Mobile)
 interface CustomSelectSheetProps {
     label: string;
     value: string | null;
@@ -200,8 +199,6 @@ export default function RelatoriosPage() {
     const [exportingCsv, setExportingCsv] = useState(false);
 
     const { addToast, ToastContainer } = useToast();
-
-    // Referência para scrollar até o resultado
     const resultRef = useRef<HTMLDivElement>(null);
 
     const monthOptions = Array.from({ length: 12 }, (_, i) => ({
@@ -233,11 +230,7 @@ export default function RelatoriosPage() {
                     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
                     if (profile) setUserRole(profile.role as 'admin' | 'líder');
                 }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoadingOptions(false);
-            }
+            } catch (e) { console.error(e); } finally { setLoadingOptions(false); }
         }
         fetchUserRoleOnMount();
     }, []);
@@ -256,11 +249,7 @@ export default function RelatoriosPage() {
             const [m, r] = await Promise.all([listMembros(finalCelId), listReunioes(finalCelId)]);
             setMembrosOptions(m);
             setReunioesOptions(r);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoadingOptions(false);
-        }
+        } catch (e) { console.error(e); } finally { setLoadingOptions(false); }
     }, [userRole, selectedFilterCelulaId, selectedReportType]);
 
     useEffect(() => { loadOptions(); }, [loadOptions]);
@@ -305,29 +294,138 @@ export default function RelatoriosPage() {
 
             setReportDisplayData({ type: selectedReportType, title, content: result, filename: `${selectedReportType}_${Date.now()}.pdf` });
             addToast("Relatório gerado com sucesso!", 'success');
-            
-            // Scroll suave para o resultado
-            setTimeout(() => {
-                resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 300);
+            setTimeout(() => { resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300);
 
-        } catch (e: any) {
-            addToast(e.message, 'error');
-        } finally {
-            setLoadingReport(false);
-        }
+        } catch (e: any) { addToast(e.message, 'error'); } finally { setLoadingReport(false); }
     };
 
-    const handleExportPdf = async () => {
+    // --- LÓGICA DE PDF NO CLIENTE ---
+    const handleExportPdf = () => {
         if (!reportDisplayData) return;
         setExportingPdf(true);
+
         try {
-            const res = await fetch('/api/generate-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reportDisplayData) });
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = reportDisplayData.filename || 'relatorio.pdf'; a.click();
-            addToast("PDF Baixado!", 'success');
-        } catch (e) { addToast('Erro no PDF', 'error'); } finally { setExportingPdf(false); }
+            const doc = new jsPDF();
+            const { title, content, type } = reportDisplayData;
+
+            // Cabeçalho Padrão
+            doc.setFontSize(16);
+            doc.setTextColor(0, 100, 0); // Verde Escuro
+            doc.text(title, 14, 20);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 26);
+
+            let yPos = 35; // Posição inicial
+
+            // Lógica específica por tipo de relatório
+            if (type === 'presenca_reuniao') {
+                const data = content as ReportDataPresencaReuniao;
+                
+                doc.setFontSize(12); doc.setTextColor(0);
+                doc.text(`Tema: ${data.reuniao_detalhes.tema}`, 14, yPos);
+                yPos += 10;
+
+                const rows = [
+                    ...data.membros_presentes.map(m => [m.nome, 'Membro', 'Presente']),
+                    ...data.visitantes_presentes.map(v => [v.nome, 'Visitante', 'Presente']),
+                    ...data.membros_ausentes.map(m => [m.nome, 'Membro', 'Ausente'])
+                ];
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Nome', 'Tipo', 'Status']],
+                    body: rows,
+                    theme: 'grid',
+                    headStyles: { fillColor: [16, 185, 129] } // Emerald 500
+                });
+            } 
+            else if (type === 'presenca_membro') {
+                const data = content as ReportDataPresencaMembro;
+                
+                doc.text(`Membro: ${data.membro_data.nome}`, 14, yPos);
+                doc.text(`Telefone: ${formatPhoneNumberDisplay(data.membro_data.telefone)}`, 14, yPos + 6);
+                yPos += 15;
+
+                const rows = data.historico_presenca.map(h => [
+                    formatDateForDisplay(h.data_reuniao),
+                    h.tema,
+                    h.presente ? 'Presente' : 'Ausente'
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Data', 'Reunião', 'Status']],
+                    body: rows,
+                    theme: 'striped',
+                    headStyles: { fillColor: [79, 70, 229] } // Indigo
+                });
+            }
+            else if (type === 'faltosos') {
+                const data = content as ReportDataFaltososPeriodo;
+                const rows = data.faltosos.map(f => [
+                    f.nome, 
+                    formatPhoneNumberDisplay(f.telefone), 
+                    f.total_presencas,
+                    f.total_reunioes_no_periodo,
+                    (f.total_reunioes_no_periodo - f.total_presencas)
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Nome', 'Tel', 'Presenças', 'Total Reuniões', 'Faltas']],
+                    body: rows,
+                    headStyles: { fillColor: [220, 38, 38] } // Red
+                });
+            }
+            else if (type === 'visitantes_periodo') {
+                const data = content as ReportDataVisitantesPeriodo;
+                const rows = data.visitantes.map(v => [
+                    v.nome,
+                    formatPhoneNumberDisplay(v.telefone),
+                    formatDateForDisplay(v.data_primeira_visita)
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Nome', 'Telefone', '1ª Visita']],
+                    body: rows,
+                    headStyles: { fillColor: [37, 99, 235] } // Blue
+                });
+            }
+            else if (type === 'aniversariantes_mes') {
+                const data = content as ReportDataAniversariantes;
+                
+                // Membros
+                doc.text("Membros", 14, yPos);
+                autoTable(doc, {
+                    startY: yPos + 2,
+                    head: [['Nome', 'Data Nasc.', 'Telefone']],
+                    body: data.membros.map(m => [m.nome, formatDateForDisplay(m.data_nascimento), formatPhoneNumberDisplay(m.telefone)]),
+                    headStyles: { fillColor: [16, 185, 129] }
+                });
+
+                // Visitantes
+                const finalY = (doc as any).lastAutoTable.finalY + 10;
+                doc.text("Visitantes", 14, finalY);
+                autoTable(doc, {
+                    startY: finalY + 2,
+                    head: [['Nome', 'Data Nasc.', 'Telefone']],
+                    body: data.visitantes.map(v => [v.nome, formatDateForDisplay(v.data_nascimento), formatPhoneNumberDisplay(v.telefone)]),
+                    headStyles: { fillColor: [37, 99, 235] }
+                });
+            }
+            // ... Adicionar lógica para outros tipos se necessário (alocacao, chaves)
+
+            doc.save(reportDisplayData.filename || 'relatorio.pdf');
+            addToast("PDF baixado com sucesso!", 'success');
+
+        } catch (e: any) {
+            console.error(e);
+            addToast("Erro ao gerar PDF: " + e.message, 'error');
+        } finally {
+            setExportingPdf(false);
+        }
     };
 
     const handleExportCsv = async () => {
