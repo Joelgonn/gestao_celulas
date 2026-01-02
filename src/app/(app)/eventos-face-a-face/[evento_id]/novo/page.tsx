@@ -333,10 +333,13 @@ export default function LiderNovaInscricaoPage() {
                                     <InputField label="Nome Completo" name="nome_completo_participante" value={formData.nome_completo_participante} onChange={handleChange} onBlur={handleNameBlur} required icon={FaPen} disabled={selectedMembroId !== 'external'} />
                                     <BirthDateSelect value={formData.data_nascimento} onChange={handleChange} required disabled={selectedMembroId !== 'external' && !!formData.data_nascimento} />
                                     <InputField label="Idade" name="idade" value={formData.idade} onChange={handleChange} type="number" required icon={FaBirthdayCake} disabled={selectedMembroId !== 'external'} />
-                                    <div className="grid grid-cols-2 gap-4">
+                                    
+                                    {/* CORREÇÃO APLICADA AQUI: Adicionado grid-cols-1 para mobile e md:grid-cols-2 para desktop */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="CPF" name="cpf" value={formData.cpf} onChange={handleChange} icon={FaIdCard} placeholder="000.000.000-00" />
                                         <InputField label="RG" name="rg" value={formData.rg} onChange={handleChange} icon={FaIdCard} placeholder="Apenas números" />
                                     </div>
+
                                     <InputField label="Celular" name="contato_pessoal" value={formData.contato_pessoal} onChange={handleChange} required icon={FaPhone} disabled={selectedMembroId !== 'external'} />
                                     <InputField label="Emergência" name="contato_emergencia" value={formData.contato_emergencia} onChange={handleChange} required icon={FaPhone} />
                                 </div>
