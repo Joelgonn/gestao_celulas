@@ -31,7 +31,8 @@ import {
     FaToggleOff,
     FaSpinner,
     FaPen,
-    FaClock
+    FaClock,
+    FaHandHoldingHeart
 } from 'react-icons/fa';
 
 // --- COMPONENTES VISUAIS REFINADOS ---
@@ -56,7 +57,7 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
 
     return (
         <div className="space-y-1">
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
                 {label} {required && <span className="text-red-500">*</span>}
             </label>
             <button type="button" onClick={() => setIsOpen(true)}
@@ -68,7 +69,7 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
                 <FaChevronDown className="text-gray-300 text-xs ml-2" />
             </button>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200 p-0 sm:p-4">
                     <div ref={modalRef} className="w-full sm:max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
                         <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 rounded-t-[2.5rem]">
                             <h3 className="font-black text-gray-800 text-lg uppercase tracking-tighter">{label}</h3>
@@ -99,28 +100,30 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
 };
 
 interface InputFieldProps {
-    label: string; name: keyof EventoFaceAFaceFormData; value: string | number | null | boolean; 
+    label: string; name: string; value: string | number | null | boolean; 
     onChange: (e: any) => void; onBlur?: (e: any) => void;
-    error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string; maxLength?: number; rows?: number; toggle?: boolean;
+    error?: string | null; type?: string; required?: boolean; icon?: any; placeholder?: string; maxLength?: number; rows?: number; toggle?: boolean; disabled?: boolean;
 }
-const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, toggle }: InputFieldProps) => {
+const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, maxLength, rows, toggle, disabled }: InputFieldProps) => {
     if (toggle) {
         const booleanValue = !!value;
         return (
-            <div className={`p-6 rounded-[1.5rem] border-2 flex items-center justify-between transition-all ${booleanValue ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+            <div 
+                onClick={() => !disabled && onChange({ target: { name, type: 'checkbox', checked: !booleanValue } })}
+                className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all cursor-pointer ${booleanValue ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}`}
+            >
                 <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-2xl ${booleanValue ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}>
-                        {Icon ? <Icon size={24} /> : (booleanValue ? <FaToggleOn size={24} /> : <FaToggleOff size={24} />)}
+                    <div className={`p-3 rounded-xl transition-colors ${booleanValue ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}>
+                        {Icon ? <Icon size={20} /> : (booleanValue ? <FaToggleOn size={20} /> : <FaToggleOff size={20} />)}
                     </div>
                     <div>
-                        <p className="text-sm font-black text-gray-900 uppercase tracking-tighter">{label}</p>
-                        <p className="text-xs text-gray-500 font-medium">Define se o evento aceita inscrições externas</p>
+                        <p className="text-xs font-black text-gray-900 uppercase tracking-tighter">{label}</p>
+                        <p className="text-[10px] text-gray-500 font-bold mt-0.5">{booleanValue ? 'Ativado' : 'Desativado'}</p>
                     </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name={name} checked={booleanValue} onChange={onChange} className="sr-only peer" />
-                    <div className="w-14 h-7 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-5 after:w-6 after:transition-all peer-checked:bg-green-600"></div>
-                </label>
+                <div className={`w-10 h-5 bg-gray-300 rounded-full relative transition-colors ${booleanValue ? 'bg-green-500' : ''}`}>
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${booleanValue ? 'left-6' : 'left-1'}`}></div>
+                </div>
             </div>
         );
     }
@@ -128,17 +131,17 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
     const isTextarea = type === 'textarea';
     return (
         <div className="space-y-1">
-            <label htmlFor={name} className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
+            <label htmlFor={name} className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
                 {label} {required && <span className="text-red-600">*</span>}
             </label>
             <div className="relative group">
                 {Icon && <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-500" : "text-gray-400 group-focus-within:text-orange-500"}`} />}
                 {isTextarea ? (
-                    <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} 
-                        className={`w-full pl-11 pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all duration-200 resize-none ${error ? 'border-red-300' : 'border-gray-100 focus:border-orange-500'}`} />
+                    <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} onBlur={onBlur} rows={rows} placeholder={placeholder} disabled={disabled}
+                        className={`w-full pl-11 pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all duration-200 resize-none ${error ? 'border-red-300' : 'border-gray-100 focus:border-orange-500'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} />
                 ) : (
-                    <input type={type} id={name} name={name} value={(value || '').toString()} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength}
-                        className={`w-full pl-11 pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all duration-200 ${error ? 'border-red-300' : 'border-gray-100 focus:border-orange-500'}`} />
+                    <input type={type} id={name} name={name} value={(value || '').toString()} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder} maxLength={maxLength} disabled={disabled}
+                        className={`w-full pl-11 pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all duration-200 ${error ? 'border-red-300' : 'border-gray-100 focus:border-orange-500'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} />
                 )}
             </div>
             {error && <p className="text-red-500 text-[10px] font-bold uppercase tracking-tighter ml-1 mt-1">{error}</p>}
@@ -151,13 +154,22 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
 // ============================================================================
 
 export default function NovoEventoFaceAFacePage() {
-    const [formData, setFormData] = useState<EventoFaceAFaceFormData>({
-        nome_evento: '', tipo: 'Mulheres',
+    const [formData, setFormData] = useState<any>({
+        nome_evento: '', 
+        tipo: 'Mulheres',
         data_inicio: formatDateForInput(new Date().toISOString()),
         data_fim: formatDateForInput(new Date().toISOString()),
-        data_pre_encontro: null, local_evento: '', valor_total: 0, valor_entrada: 0,
+        data_pre_encontro: null, 
+        local_evento: '', 
+        valor_total: 0, 
+        valor_entrada: 0,
         data_limite_entrada: formatDateForInput(new Date().toISOString()),
-        informacoes_adicionais: null, chave_pix_admin: null, ativa_para_inscricao: false,
+        informacoes_adicionais: null, 
+        chave_pix_admin: null, 
+        ativa_para_inscricao: false,
+        
+        // NOVO CAMPO LOCAL
+        eh_gratuito: false 
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -166,26 +178,43 @@ export default function NovoEventoFaceAFacePage() {
     const router = useRouter();
     const { addToast, ToastContainer } = useToast();
 
-    const tipoEventoOptions = [{ id: 'Mulheres', nome: 'Mulheres' }, { id: 'Homens', nome: 'Homens' }];
+    // NOVAS OPÇÕES DE TIPO
+    const tipoEventoOptions = [
+        { id: 'Mulheres', nome: 'Mulheres' }, 
+        { id: 'Homens', nome: 'Homens' },
+        { id: 'Crianças', nome: 'Crianças' },
+        { id: 'Misto', nome: 'Misto / Aberto' }
+    ];
 
     const handleChange = useCallback((e: any) => {
         const { name, value, type, checked } = e.target;
-        const val = type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : (value === '' ? null : value));
-        setFormData(prev => ({ ...prev, [name]: val }));
-        setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        let val = type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : (value === '' ? null : value));
+        
+        // Lógica de Gratuidade
+        if (name === 'eh_gratuito') {
+            if (checked) {
+                // Se marcou gratuito, zera valores
+                setFormData((prev: any) => ({ ...prev, [name]: checked, valor_total: 0, valor_entrada: 0, chave_pix_admin: null }));
+            } else {
+                setFormData((prev: any) => ({ ...prev, [name]: checked }));
+            }
+        } else {
+            setFormData((prev: any) => ({ ...prev, [name]: val }));
+        }
+        
+        setTouched((prev: any) => ({ ...prev, [name]: true }));
+    }, []);
 
     const handleSelectChange = useCallback((name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value as EventoFaceAFaceTipo }));
-        setTouched(prev => ({ ...prev, [name]: true }));
-    }, [touched]);
+        setFormData((prev: any) => ({ ...prev, [name]: value as EventoFaceAFaceTipo }));
+        setTouched((prev: any) => ({ ...prev, [name]: true }));
+    }, []);
 
     const getFieldError = (fieldName: keyof EventoFaceAFaceFormData): string | null => {
         if (!touched[fieldName]) return null;
         const value = formData[fieldName];
         if (fieldName === 'nome_evento' && (!value || !(value as string).trim())) return 'Nome obrigatório.';
         if (fieldName === 'local_evento' && (!value || !(value as string).trim())) return 'Local obrigatório.';
-        if ((fieldName === 'valor_total' || fieldName === 'valor_entrada') && (value === null || (value as number) < 0)) return 'Valor inválido.';
         return null;
     };
 
@@ -193,7 +222,11 @@ export default function NovoEventoFaceAFacePage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const eventoId = await criarEventoFaceAFace(formData);
+            // Remove o campo auxiliar 'eh_gratuito' antes de enviar, se sua API não aceitar
+            // Mas se a lógica de 'valor_total: 0' já resolve no backend, tá ótimo.
+            const { eh_gratuito, ...payload } = formData;
+            
+            const eventoId = await criarEventoFaceAFace(payload);
             addToast('Edição criada com sucesso!', 'success');
             router.refresh();
             setTimeout(() => router.push(`/admin/eventos-face-a-face/editar/${eventoId}`), 1500);
@@ -225,14 +258,15 @@ export default function NovoEventoFaceAFacePage() {
                     <div className="p-8 sm:p-10">
                         <form onSubmit={handleSubmit} className="space-y-10">
                             
+                            {/* Bloco 1: Básico */}
                             <section className="space-y-6">
                                 <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
                                     <div className="p-2 bg-orange-100 text-orange-600 rounded-xl"><FaCalendarAlt size={16}/></div>
                                     Informações Básicas
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputField label="Nome do Evento" name="nome_evento" value={formData.nome_evento} onChange={handleChange} required icon={FaPen} placeholder="Ex: Face a Face 2025" error={getFieldError('nome_evento')} />
-                                    <CustomSelectSheet label="Tipo do Encontro" icon={<FaUsers />} value={formData.tipo} onChange={(val) => handleSelectChange('tipo', val)} options={tipoEventoOptions} required />
+                                    <InputField label="Nome do Evento" name="nome_evento" value={formData.nome_evento} onChange={handleChange} required icon={FaPen} placeholder="Ex: Acampamento Kids 2025" error={getFieldError('nome_evento')} />
+                                    <CustomSelectSheet label="Público Alvo" icon={<FaUsers />} value={formData.tipo} onChange={(val) => handleSelectChange('tipo', val)} options={tipoEventoOptions} required />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <InputField label="Data de Início" name="data_inicio" value={formData.data_inicio} onChange={handleChange} type="date" required icon={FaCalendarAlt} />
@@ -242,34 +276,59 @@ export default function NovoEventoFaceAFacePage() {
                                 <InputField label="Local do Evento" name="local_evento" value={formData.local_evento} onChange={handleChange} required icon={FaMapMarkerAlt} placeholder="Endereço ou local" />
                             </section>
 
+                            {/* Bloco 2: Financeiro */}
                             <section className="space-y-6">
-                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
-                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaMoneyBillWave size={16}/></div>
-                                    Valores e Prazos
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <InputField label="Investimento Total" name="valor_total" value={formData.valor_total} onChange={handleChange} type="number" required icon={FaMoneyBillWave} />
-                                    <InputField label="Valor da Entrada" name="valor_entrada" value={formData.valor_entrada} onChange={handleChange} type="number" required icon={FaMoneyBillWave} />
+                                <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+                                    <h2 className="text-lg font-black text-gray-800 flex items-center gap-2">
+                                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaMoneyBillWave size={16}/></div>
+                                        Valores e Prazos
+                                    </h2>
+                                    
+                                    {/* Toggle de Gratuidade */}
+                                    <div className="w-48">
+                                        <InputField 
+                                            label="Evento Gratuito?" 
+                                            name="eh_gratuito" 
+                                            value={formData.eh_gratuito} 
+                                            onChange={handleChange} 
+                                            type="checkbox" 
+                                            toggle 
+                                            icon={FaHandHoldingHeart}
+                                        />
+                                    </div>
+                                </div>
+
+                                {!formData.eh_gratuito && (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                                        <InputField label="Investimento Total" name="valor_total" value={formData.valor_total} onChange={handleChange} type="number" required icon={FaMoneyBillWave} />
+                                        <InputField label="Valor da Entrada" name="valor_entrada" value={formData.valor_entrada} onChange={handleChange} type="number" required icon={FaMoneyBillWave} />
+                                        <InputField label="Chave PIX Admin" name="chave_pix_admin" value={formData.chave_pix_admin} onChange={handleChange} icon={FaMoneyBillWave} placeholder="Email, CPF ou Aleatória" />
+                                    </div>
+                                )}
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField label="Limite p/ Inscrição" name="data_limite_entrada" value={formData.data_limite_entrada} onChange={handleChange} type="date" required icon={FaCalendarAlt} />
                                 </div>
-                                <InputField label="Chave PIX Admin" name="chave_pix_admin" value={formData.chave_pix_admin} onChange={handleChange} icon={FaMoneyBillWave} placeholder="Chave para recebimento" />
                             </section>
 
+                            {/* Bloco 3: Extras */}
                             <section className="space-y-6">
                                 <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
                                     <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaInfoCircle size={16}/></div>
                                     Detalhes Adicionais
                                 </h2>
-                                <InputField label="Orientações aos Candidatos" name="informacoes_adicionais" value={formData.informacoes_adicionais} onChange={handleChange} type="textarea" rows={4} placeholder="O que o candidato precisa saber?" />
+                                <InputField label="Orientações aos Candidatos" name="informacoes_adicionais" value={formData.informacoes_adicionais} onChange={handleChange} type="textarea" rows={4} placeholder="O que levar? Horário de saída? Regras?" />
 
-                                <InputField 
-                                    label="Inscrições Já Abertas?" 
-                                    name="ativa_para_inscricao" 
-                                    value={formData.ativa_para_inscricao} 
-                                    onChange={handleChange} 
-                                    type="checkbox" 
-                                    toggle 
-                                />
+                                <div className="max-w-md">
+                                    <InputField 
+                                        label="Inscrições Abertas?" 
+                                        name="ativa_para_inscricao" 
+                                        value={formData.ativa_para_inscricao} 
+                                        onChange={handleChange} 
+                                        type="checkbox" 
+                                        toggle 
+                                    />
+                                </div>
                             </section>
 
                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-gray-50">
