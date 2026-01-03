@@ -256,11 +256,12 @@ export default function NewMembroPage() {
                                     <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaSearchLocation size={16}/></div>
                                     Localização
                                 </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                    <div className="md:col-span-1">
+                                {/* CORREÇÃO AQUI: Mudado para sm:grid-cols-3 para dar mais espaço ao CEP */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                    <div className="sm:col-span-1">
                                         <InputField label="CEP p/ Busca" name="cep" value={cepInput} onChange={handleCepChange} onBlur={handleCepBlur} icon={FaSearchLocation} placeholder="00000-000" isLoading={cepLoading} />
                                     </div>
-                                    <div className="md:col-span-3">
+                                    <div className="sm:col-span-2">
                                         <InputField label="Endereço Completo" name="endereco" value={formData.endereco} onChange={handleChange} icon={FaMapMarkerAlt} placeholder="Rua, número, bairro e cidade" />
                                     </div>
                                 </div>
