@@ -9,7 +9,7 @@ import { formatPhoneNumberDisplay, normalizePhoneNumber } from '@/utils/formatte
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
-import jsPDF from 'jspdf'; // Importação para gerar o PDF
+import jsPDF from 'jspdf'; 
 
 import {
     FaMoneyBillWave,
@@ -21,7 +21,7 @@ import {
     FaExclamationCircle,
     FaSpinner,
     FaWhatsapp,
-    FaFileInvoiceDollar // Ícone para o Recibo
+    FaFileInvoiceDollar
 } from 'react-icons/fa';
 
 type PendenciaFinanceira = {
@@ -98,74 +98,134 @@ export default function CentralAprovacoesPage() {
         fetchPendencias();
     }, [fetchPendencias]);
 
-    // --- FUNÇÃO PARA GERAR O RECIBO PDF ---
-    const handleGenerateReceipt = (item: PendenciaFinanceira) => {
-        const doc = new jsPDF();
-        
-        // Dados para o recibo
-        const isEntrada = item.status_pagamento === 'AGUARDANDO_CONFIRMACAO_ENTRADA';
-        const valorPagamento = isEntrada ? item.valor_entrada : (item.valor_total - item.valor_entrada);
-        const tipoPagamento = isEntrada ? "SINAL / ENTRADA" : "QUITAÇÃO / RESTANTE";
-        const dataAtual = new Date().toLocaleDateString('pt-BR');
-        const valorFormatado = valorPagamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    // --- FUNÇÃO AUXILIAR PARA CARREGAR A IMAGEM ---
+    const getImageData = async (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                } else {
+                    reject('Canvas context failed');
+                }
+            };
+            img.onerror = (error) => reject(error);
+        });
+    };
 
-        // --- DESIGN DO PDF ---
-        
-        // Cabeçalho
-        doc.setFillColor(16, 185, 129); // Emerald 500
-        doc.rect(0, 0, 210, 30, 'F'); // Barra verde no topo
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("RECIBO DE PAGAMENTO", 105, 20, { align: "center" });
+    // --- FUNÇÃO PARA GERAR O RECIBO PDF PERSONALIZADO ---
+    const handleGenerateReceipt = async (item: PendenciaFinanceira) => {
+        try {
+            const doc = new jsPDF();
+            
+            // Dados
+            const isEntrada = item.status_pagamento === 'AGUARDANDO_CONFIRMACAO_ENTRADA';
+            const valorPagamento = isEntrada ? item.valor_entrada : (item.valor_total - item.valor_entrada);
+            const tipoPagamento = isEntrada ? "SINAL / ENTRADA" : "QUITAÇÃO / RESTANTE";
+            const dataAtual = new Date().toLocaleDateString('pt-BR');
+            const valorFormatado = valorPagamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        // Corpo
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        
-        let yPos = 50;
-        const leftMargin = 20;
-        const lineHeight = 10;
+            // --- CABEÇALHO DA IGREJA ---
+            
+            // Tenta carregar o logo
+            try {
+                const logoData = await getImageData('/logo.png'); // Caminho na pasta public
+                doc.addImage(logoData, 'PNG', 15, 10, 25, 25); // x, y, w, h
+            } catch (err) {
+                console.warn("Logo não encontrado, gerando sem logo.");
+            }
 
-        // Valor em destaque
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text(`VALOR: ${valorFormatado}`, 190, yPos, { align: "right" });
-        yPos += 20;
+            // Nome da Igreja (Laranja)
+            doc.setTextColor(249, 115, 22); // Cor Laranja (RGB)
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("IGREJA BATISTA APASCENTAR", 50, 20);
 
-        // Texto do recibo
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        const textoRecibo = `Recebemos de ${item.nome_completo_participante.toUpperCase()}, a importância supra de ${valorFormatado}, referente ao pagamento de ${tipoPagamento} para participação no evento ${item.evento_nome.toUpperCase()}.`;
-        
-        const splitText = doc.splitTextToSize(textoRecibo, 170);
-        doc.text(splitText, leftMargin, yPos);
-        
-        yPos += (splitText.length * 7) + 20;
+            // Endereço (Laranja e Maior) -> MUDANÇA AQUI
+            doc.setTextColor(249, 115, 22); // Laranja
+            doc.setFontSize(12); // Fonte Maior (era 10)
+            doc.setFont("helvetica", "normal");
+            doc.text("Rua Estados Unidos, 2111", 50, 27);
+            doc.text("Maringá - PR, Brasil", 50, 33); // Ajustei levemente a posição Y
 
-        // Dados adicionais
-        doc.text(`Data do Pagamento: ${dataAtual}`, leftMargin, yPos);
-        yPos += lineHeight;
-        doc.text(`Status: CONFIRMADO`, leftMargin, yPos);
-        
-        // Assinatura
-        yPos += 40;
-        doc.line(leftMargin, yPos, 190, yPos); // Linha
-        doc.setFontSize(10);
-        doc.text("Tesouraria / Administração", 105, yPos + 5, { align: "center" });
-        doc.text("Igreja Batista Apascentar", 105, yPos + 10, { align: "center" });
+            // Linha Divisória Laranja
+            doc.setDrawColor(249, 115, 22);
+            doc.setLineWidth(1);
+            doc.line(15, 42, 195, 42); // Ajustei levemente a posição Y
 
-        // Rodapé
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text("Este recibo foi gerado eletronicamente pelo Sistema de Gestão de Células.", 105, 280, { align: "center" });
+            // --- TÍTULO DO RECIBO ---
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(20);
+            doc.setFont("helvetica", "bold");
+            doc.text("RECIBO DE PAGAMENTO", 105, 65, { align: "center" });
 
-        // Salvar
-        const nomeArquivo = `Recibo_${item.nome_completo_participante.replace(/\s+/g, '_')}.pdf`;
-        doc.save(nomeArquivo);
-        addToast("Recibo gerado! Envie pelo WhatsApp.", "success");
+            // --- CORPO DO RECIBO ---
+            let yPos = 85;
+            const leftMargin = 20;
+
+            // Caixa de Valor
+            doc.setFillColor(255, 247, 237); // Fundo laranja bem claro
+            doc.roundedRect(140, 75, 55, 15, 2, 2, 'F');
+            doc.setTextColor(249, 115, 22); // Texto Laranja
+            doc.setFontSize(16);
+            doc.text(`${valorFormatado}`, 167.5, 85, { align: "center" });
+
+            // Texto descritivo
+            yPos += 15;
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            
+            const textoRecibo = `Recebemos de ${item.nome_completo_participante.toUpperCase()}, a importância de ${valorFormatado}, referente ao pagamento de ${tipoPagamento} para participação no evento ${item.evento_nome.toUpperCase()}.`;
+            
+            const splitText = doc.splitTextToSize(textoRecibo, 170);
+            doc.text(splitText, leftMargin, yPos);
+            yPos += (splitText.length * 7) + 15;
+
+            // Detalhes
+            doc.setFont("helvetica", "bold");
+            doc.text("Data do Recebimento:", leftMargin, yPos);
+            doc.setFont("helvetica", "normal");
+            doc.text(dataAtual, leftMargin + 50, yPos);
+            yPos += 10;
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Status:", leftMargin, yPos);
+            doc.setTextColor(0, 128, 0); // Verde para "Confirmado"
+            doc.text("PAGAMENTO CONFIRMADO", leftMargin + 50, yPos);
+            
+            // --- ASSINATURA ---
+            yPos += 50;
+            doc.setDrawColor(150);
+            doc.setLineWidth(0.5);
+            doc.line(60, yPos, 150, yPos); // Linha de assinatura
+            
+            yPos += 7;
+            doc.setTextColor(100);
+            doc.setFontSize(10);
+            doc.text("Departamento Financeiro", 105, yPos, { align: "center" });
+            doc.text("Igreja Batista Apascentar", 105, yPos + 5, { align: "center" });
+
+            // --- RODAPÉ ---
+            doc.setFontSize(8);
+            doc.setTextColor(180);
+            doc.text("Recibo gerado eletronicamente pelo Sistema de Gestão de Células.", 105, 280, { align: "center" });
+
+            // Salvar e Avisar
+            const nomeArquivo = `Recibo_${item.nome_completo_participante.replace(/\s+/g, '_')}.pdf`;
+            doc.save(nomeArquivo);
+            addToast("Recibo gerado com sucesso!", "success");
+
+        } catch (e) {
+            console.error(e);
+            addToast("Erro ao gerar recibo.", "error");
+        }
     };
 
     const handleApprove = async () => {
