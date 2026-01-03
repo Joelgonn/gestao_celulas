@@ -12,7 +12,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import {
     FaUserPlus, FaPhone, FaCalendarAlt, FaMapMarkerAlt, FaComments, FaArrowLeft,
     FaSave, FaTimes, FaClock, FaChevronDown, FaCheckCircle, FaSearch, 
-    FaSearchLocation, FaSpinner, FaUser, FaPen, FaMapMarkedAlt
+    FaSearchLocation, FaSpinner, FaUser, FaPen
 } from 'react-icons/fa';
 
 // --- FUNÇÕES AUXILIARES ---
@@ -84,6 +84,7 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
+// CORREÇÃO APLICADA AQUI NO INPUTFIELD
 const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, isLoading }: any) => {
     return (
         <div className="space-y-1">
@@ -91,15 +92,39 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
                 {label} {required && <span className="text-red-500">*</span>}
             </label>
             <div className="relative group">
-                {Icon && <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-500" : "text-gray-400 group-focus-within:text-emerald-500"}`} />}
+                {/* Ícone posicionado absolutamente à esquerda */}
+                {Icon && (
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors z-10 pointer-events-none">
+                        <Icon size={16} />
+                    </div>
+                )}
+                
                 {type === 'textarea' ? (
-                    <textarea name={name} value={value || ''} onChange={onChange} onBlur={onBlur} rows={4} placeholder={placeholder} 
-                        className={`w-full px-5 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'}`} />
+                    <textarea 
+                        name={name} 
+                        value={value || ''} 
+                        onChange={onChange} 
+                        onBlur={onBlur} 
+                        rows={4} 
+                        placeholder={placeholder} 
+                        className={`w-full px-5 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${Icon ? 'pl-11' : ''}`} 
+                    />
                 ) : (
-                    <div className="relative">
-                        <input type={type} name={name} value={value || ''} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder}
-                            className={`w-full pl-11 pr-11 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'}`} />
-                        {isLoading && <FaSpinner className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-600" />}
+                    <input 
+                        type={type} 
+                        name={name} 
+                        value={value || ''} 
+                        onChange={onChange} 
+                        onBlur={onBlur} 
+                        required={required} 
+                        placeholder={placeholder}
+                        className={`w-full pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${Icon ? 'pl-11' : 'pl-4'}`} 
+                    />
+                )}
+                
+                {isLoading && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600">
+                        <FaSpinner className="animate-spin" />
                     </div>
                 )}
             </div>
@@ -119,7 +144,6 @@ export default function NovoVisitantePage() {
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [touched, setTouched] = useState<Record<string, boolean>>({});
     const [celulasOptions, setCelulasOptions] = useState<CelulaOption[]>([]);
 
     const [cepInput, setCepInput] = useState('');
@@ -149,7 +173,6 @@ export default function NovoVisitantePage() {
 
     const handleNameBlur = (e: any) => {
         setFormData((prev: any) => ({ ...prev, nome: formatNameTitleCase(e.target.value) }));
-        setTouched((prev: any) => ({ ...prev, nome: true }));
     };
 
     const handleCepBlur = async () => {
@@ -231,11 +254,11 @@ export default function NovoVisitantePage() {
                                     <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><FaSearchLocation size={16}/></div>
                                     Endereço e Localização
                                 </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="md:col-span-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                    <div className="sm:col-span-1">
                                         <InputField label="CEP p/ Busca" name="cep" value={cepInput} onChange={(e:any)=>setCepInput(e.target.value)} onBlur={handleCepBlur} icon={FaSearchLocation} placeholder="00000-000" isLoading={cepLoading} />
                                     </div>
-                                    <div className="md:col-span-2">
+                                    <div className="sm:col-span-2">
                                         <InputField label="Endereço" name="endereco" value={formData.endereco} onChange={handleChange} icon={FaMapMarkerAlt} placeholder="Rua, número, bairro..." />
                                     </div>
                                 </div>

@@ -87,23 +87,47 @@ const CustomSelectSheet = ({ label, value, onChange, options, icon, placeholder 
     );
 };
 
+// CORREÇÃO APLICADA AQUI
 const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text', required = false, icon: Icon, placeholder, isLoading }: any) => {
-    const isTextarea = type === 'textarea';
     return (
         <div className="space-y-1">
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">
                 {label} {required && <span className="text-red-500">*</span>}
             </label>
             <div className="relative group">
-                {Icon && <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-500" : "text-gray-400 group-focus-within:text-emerald-500"}`} />}
-                {isTextarea ? (
-                    <textarea name={name} value={value || ''} onChange={onChange} onBlur={onBlur} rows={4} placeholder={placeholder} 
-                        className={`w-full px-5 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'}`} />
+                {/* Ícone Absolute */}
+                {Icon && (
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors z-10 pointer-events-none">
+                        <Icon size={16} />
+                    </div>
+                )}
+                
+                {type === 'textarea' ? (
+                    <textarea 
+                        name={name} 
+                        value={value || ''} 
+                        onChange={onChange} 
+                        onBlur={onBlur} 
+                        rows={4} 
+                        placeholder={placeholder} 
+                        className={`w-full px-5 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${Icon ? 'pl-11' : ''}`} 
+                    />
                 ) : (
-                    <div className="relative">
-                        <input type={type} name={name} value={value || ''} onChange={onChange} onBlur={onBlur} required={required} placeholder={placeholder}
-                            className={`w-full pl-11 pr-11 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'}`} />
-                        {isLoading && <FaSpinner className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-600" />}
+                    <input 
+                        type={type} 
+                        name={name} 
+                        value={value || ''} 
+                        onChange={onChange} 
+                        onBlur={onBlur} 
+                        required={required} 
+                        placeholder={placeholder}
+                        className={`w-full pr-4 py-4 text-sm font-bold text-gray-700 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all ${error ? 'border-red-300' : 'border-gray-100 focus:border-emerald-500'} ${Icon ? 'pl-11' : 'pl-4'}`} 
+                    />
+                )}
+                
+                {isLoading && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600">
+                        <FaSpinner className="animate-spin" />
                     </div>
                 )}
             </div>
