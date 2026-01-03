@@ -3,39 +3,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-    criarEventoFaceAFace,
-} from '@/lib/data';
-import {
-    EventoFaceAFaceFormData,
-    EventoFaceAFaceTipo,
-} from '@/lib/types';
+import { criarEventoFaceAFace } from '@/lib/data';
+import { EventoFaceAFaceFormData, EventoFaceAFaceTipo } from '@/lib/types';
 import { formatDateForInput } from '@/utils/formatters';
 import useToast from '@/hooks/useToast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 import {
-    FaPlus,
-    FaArrowLeft,
-    FaCalendarAlt,
-    FaMoneyBillWave,
-    FaMapMarkerAlt,
-    FaInfoCircle,
-    FaUsers,
-    FaSave,
-    FaChevronDown,
-    FaCheckCircle,
-    FaTimes,
-    FaSearch,
-    FaToggleOn,
-    FaToggleOff,
-    FaSpinner,
-    FaPen,
-    FaClock,
-    FaHandHoldingHeart
+    FaPlus, FaArrowLeft, FaCalendarAlt, FaMoneyBillWave, FaMapMarkerAlt,
+    FaInfoCircle, FaUsers, FaSave, FaChevronDown, FaCheckCircle,
+    FaTimes, FaSearch, FaToggleOn, FaToggleOff, FaSpinner, FaPen,
+    FaClock, FaHandHoldingHeart
 } from 'react-icons/fa';
 
-// --- COMPONENTES VISUAIS REFINADOS ---
+// --- COMPONENTES VISUAIS (MANTIDOS) ---
 
 interface CustomSelectSheetProps {
     label: string; value: string; onChange: (value: string) => void; options: { id: string; nome: string }[];
@@ -110,7 +91,7 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
         return (
             <div 
                 onClick={() => !disabled && onChange({ target: { name, type: 'checkbox', checked: !booleanValue } })}
-                className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all cursor-pointer ${booleanValue ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}`}
+                className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all cursor-pointer select-none ${booleanValue ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-gray-50 border-gray-100'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.99]'}`}
             >
                 <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-xl transition-colors ${booleanValue ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}>
@@ -118,11 +99,11 @@ const InputField = ({ label, name, value, onChange, onBlur, error, type = 'text'
                     </div>
                     <div>
                         <p className="text-xs font-black text-gray-900 uppercase tracking-tighter">{label}</p>
-                        <p className="text-[10px] text-gray-500 font-bold mt-0.5">{booleanValue ? 'Ativado' : 'Desativado'}</p>
+                        <p className="text-[10px] text-gray-500 font-bold mt-0.5">{booleanValue ? 'Sim, é gratuito' : 'Não, é pago'}</p>
                     </div>
                 </div>
-                <div className={`w-10 h-5 bg-gray-300 rounded-full relative transition-colors ${booleanValue ? 'bg-green-500' : ''}`}>
-                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${booleanValue ? 'left-6' : 'left-1'}`}></div>
+                <div className={`w-12 h-7 rounded-full relative transition-colors ${booleanValue ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${booleanValue ? 'left-6' : 'left-1'}`}></div>
                 </div>
             </div>
         );
@@ -167,8 +148,6 @@ export default function NovoEventoFaceAFacePage() {
         informacoes_adicionais: null, 
         chave_pix_admin: null, 
         ativa_para_inscricao: false,
-        
-        // NOVO CAMPO LOCAL
         eh_gratuito: false 
     });
 
@@ -178,7 +157,6 @@ export default function NovoEventoFaceAFacePage() {
     const router = useRouter();
     const { addToast, ToastContainer } = useToast();
 
-    // NOVAS OPÇÕES DE TIPO
     const tipoEventoOptions = [
         { id: 'Mulheres', nome: 'Mulheres' }, 
         { id: 'Homens', nome: 'Homens' },
@@ -190,10 +168,8 @@ export default function NovoEventoFaceAFacePage() {
         const { name, value, type, checked } = e.target;
         let val = type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : (value === '' ? null : value));
         
-        // Lógica de Gratuidade
         if (name === 'eh_gratuito') {
             if (checked) {
-                // Se marcou gratuito, zera valores
                 setFormData((prev: any) => ({ ...prev, [name]: checked, valor_total: 0, valor_entrada: 0, chave_pix_admin: null }));
             } else {
                 setFormData((prev: any) => ({ ...prev, [name]: checked }));
@@ -222,10 +198,7 @@ export default function NovoEventoFaceAFacePage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            // Remove o campo auxiliar 'eh_gratuito' antes de enviar, se sua API não aceitar
-            // Mas se a lógica de 'valor_total: 0' já resolve no backend, tá ótimo.
             const { eh_gratuito, ...payload } = formData;
-            
             const eventoId = await criarEventoFaceAFace(payload);
             addToast('Edição criada com sucesso!', 'success');
             router.refresh();
@@ -276,26 +249,24 @@ export default function NovoEventoFaceAFacePage() {
                                 <InputField label="Local do Evento" name="local_evento" value={formData.local_evento} onChange={handleChange} required icon={FaMapMarkerAlt} placeholder="Endereço ou local" />
                             </section>
 
-                            {/* Bloco 2: Financeiro */}
+                            {/* Bloco 2: Financeiro (CORRIGIDO PARA MOBILE) */}
                             <section className="space-y-6">
-                                <div className="flex items-center justify-between border-b border-gray-50 pb-4">
-                                    <h2 className="text-lg font-black text-gray-800 flex items-center gap-2">
-                                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaMoneyBillWave size={16}/></div>
-                                        Valores e Prazos
-                                    </h2>
-                                    
-                                    {/* Toggle de Gratuidade */}
-                                    <div className="w-48">
-                                        <InputField 
-                                            label="Evento Gratuito?" 
-                                            name="eh_gratuito" 
-                                            value={formData.eh_gratuito} 
-                                            onChange={handleChange} 
-                                            type="checkbox" 
-                                            toggle 
-                                            icon={FaHandHoldingHeart}
-                                        />
-                                    </div>
+                                <h2 className="text-lg font-black text-gray-800 flex items-center gap-2 border-b border-gray-50 pb-4">
+                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><FaMoneyBillWave size={16}/></div>
+                                    Valores e Prazos
+                                </h2>
+                                
+                                {/* Toggle de Gratuidade: Agora em linha própria */}
+                                <div className="w-full">
+                                    <InputField 
+                                        label="Este evento será gratuito?" 
+                                        name="eh_gratuito" 
+                                        value={formData.eh_gratuito} 
+                                        onChange={handleChange} 
+                                        type="checkbox" 
+                                        toggle 
+                                        icon={FaHandHoldingHeart}
+                                    />
                                 </div>
 
                                 {!formData.eh_gratuito && (
@@ -319,9 +290,9 @@ export default function NovoEventoFaceAFacePage() {
                                 </h2>
                                 <InputField label="Orientações aos Candidatos" name="informacoes_adicionais" value={formData.informacoes_adicionais} onChange={handleChange} type="textarea" rows={4} placeholder="O que levar? Horário de saída? Regras?" />
 
-                                <div className="max-w-md">
+                                <div className="w-full">
                                     <InputField 
-                                        label="Inscrições Abertas?" 
+                                        label="Inscrições Abertas Agora?" 
                                         name="ativa_para_inscricao" 
                                         value={formData.ativa_para_inscricao} 
                                         onChange={handleChange} 
